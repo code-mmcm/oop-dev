@@ -1,8 +1,34 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+import Lenis from '@studio-freight/lenis';
+import { useNavigate } from 'react-router-dom';
 
 const Navbar: React.FC = () => {
   const [isScrolled, setIsScrolled] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const lenisRef = useRef<Lenis | null>(null);
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    // Initialize Lenis for smooth scrolling
+    lenisRef.current = new Lenis({
+      duration: 1.2,
+      easing: (t: number) => Math.min(1, 1.001 - Math.pow(2, -10 * t)),
+    });
+
+    function raf(time: number) {
+      lenisRef.current?.raf(time);
+      requestAnimationFrame(raf);
+    }
+
+    requestAnimationFrame(raf);
+
+    // Cleanup Lenis on unmount
+    return () => {
+      if (lenisRef.current) {
+        lenisRef.current.destroy();
+      }
+    };
+  }, []);
 
   useEffect(() => {
     const handleScroll = () => {
@@ -30,7 +56,10 @@ const Navbar: React.FC = () => {
     }`}>
       <div className="max-w-7xl w-full mx-auto flex items-center justify-between px-4 sm:px-8">
         {/* Brand/Logo with house icon */}
-        <div className="flex items-center gap-2">
+        <div 
+          onClick={() => navigate('/')}
+          className="flex items-center gap-2 cursor-pointer hover:scale-105 transition-transform duration-300"
+        >
           <svg className="w-6 h-6 text-indigo-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
           </svg>
@@ -64,7 +93,10 @@ const Navbar: React.FC = () => {
         
         {/* Desktop Action Buttons - Hidden on mobile */}
         <div className="hidden lg:flex gap-4">
-          <button className="px-6 py-3 border-2 border-indigo-700 text-indigo-700 font-semibold rounded-lg hover:bg-indigo-50 transition-all duration-300">
+          <button 
+            onClick={() => navigate('/login')}
+            className="px-6 py-3 border-2 border-indigo-700 text-indigo-700 font-semibold rounded-lg hover:bg-indigo-50 transition-all duration-300"
+          >
             Login
           </button>
           <button className="px-6 py-3 bg-indigo-700 text-white font-semibold rounded-lg hover:bg-indigo-800 transition-all duration-300">
@@ -140,8 +172,11 @@ const Navbar: React.FC = () => {
               {/* Mobile Action Buttons */}
               <div className="pt-4 border-t border-gray-200 space-y-3">
                 <button 
+                  onClick={() => {
+                    navigate('/login');
+                    closeMobileMenu();
+                  }}
                   className="w-full px-6 py-3 border-2 border-indigo-700 text-indigo-700 font-semibold rounded-lg hover:bg-indigo-50 transition-all duration-300"
-                  onClick={closeMobileMenu}
                 >
                   Login
                 </button>
