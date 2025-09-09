@@ -423,7 +423,7 @@ const Home: React.FC = () => {
               // Show actual listings
               apartments.map((apartment) => (
                 <div key={apartment.id} className="bg-white rounded-xl shadow-md overflow-hidden hover:shadow-xl transition-all duration-300 transform hover:-translate-y-2">
-                  {/* Image */}
+                  {/* Images */}
                   <div className="h-48 bg-cover bg-center" style={{backgroundImage: `url('${apartment.main_image_url || './avida.jpg'}')`}}></div>
                   
                   {/* Content */}
