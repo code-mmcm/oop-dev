@@ -175,4 +175,19 @@ export class ListingService {
 
     return data || [];
   }
+
+  // Get all listings for management (admin view)
+  static async getAllListingsForManagement(): Promise<Listing[]> {
+    const { data, error } = await supabase
+      .from('listings')
+      .select('*')
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.error('Error fetching listings for management:', error);
+      throw error;
+    }
+
+    return data || [];
+  }
 }

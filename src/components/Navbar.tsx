@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 
 const Navbar: React.FC = () => {
-  const { user, signOut } = useAuth();
+  const { user, signOut, userRole, userProfile, isAdmin, roleLoading } = useAuth();
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -99,22 +99,65 @@ const Navbar: React.FC = () => {
                   {/* Dropdown Menu */}
                   {isDropdownOpen && (
                     <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 py-2 z-50">
-                      {/* User Info */}
-                      <div className="px-4 py-3 border-b border-gray-100">
+                      {/* User Info - Clickable to Profile */}
+                      <Link
+                        to="/profile"
+                        onClick={() => setIsDropdownOpen(false)}
+                        className="block px-4 py-3 border-b border-gray-100 hover:bg-gray-50 transition-colors"
+                      >
                         <div className="flex items-center space-x-3">
                           <div className="w-8 h-8 rounded-full bg-gray-300 flex items-center justify-center">
-                            <svg className="w-4 h-4 text-gray-600" fill="currentColor" viewBox="0 0 20 20">
-                              <path fillRule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clipRule="evenodd" />
-                            </svg>
+                            {userProfile?.profile_photo ? (
+                              <img
+                                src={userProfile.profile_photo}
+                                alt={userProfile.fullname}
+                                className="w-8 h-8 rounded-full object-cover"
+                              />
+                            ) : (
+                              <svg className="w-4 h-4 text-gray-600" fill="currentColor" viewBox="0 0 20 20">
+                                <path fillRule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clipRule="evenodd" />
+                              </svg>
+                            )}
                           </div>
-                          <span className="text-sm font-medium" style={{color: '#0B5858', fontFamily: 'Poppins'}}>
-                            {user.email?.split('@')[0] || 'username'}
-                          </span>
+                          <div className="flex-1">
+                            <div className="text-sm font-medium" style={{color: '#0B5858', fontFamily: 'Poppins'}}>
+                              {userProfile?.fullname || userRole?.fullname || 'User'}
+                            </div>
+                            {roleLoading ? (
+                              <div className="text-xs text-gray-400 animate-pulse">Loading role...</div>
+                            ) : (
+                              <div className="text-xs text-gray-500" style={{fontFamily: 'Poppins'}}>
+                                {userRole?.role ? (
+                                  <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium ${
+                                    userRole.role === 'admin' 
+                                      ? 'bg-red-100 text-red-800' 
+                                      : 'bg-green-100 text-green-800'
+                                  }`}>
+                                    {userRole.role.toUpperCase()}
+                                  </span>
+                                ) : (
+                                  'User'
+                                )}
+                              </div>
+                            )}
+                          </div>
                         </div>
-                      </div>
+                      </Link>
 
                       {/* Menu Items */}
                       <div className="py-1">
+                        {isAdmin && (
+                          <Link
+                            to="/manage"
+                            onClick={() => setIsDropdownOpen(false)}
+                            className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors"
+                            style={{fontFamily: 'Poppins'}}
+                          >
+                            <div className="flex items-center">
+                              Manage Units
+                            </div>
+                          </Link>
+                        )}
                         <a
                           href="#"
                           className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors"
