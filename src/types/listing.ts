@@ -17,10 +17,6 @@ export interface Listing {
   amenities?: string[];
   is_available: boolean;
   is_featured: boolean;
-  host_id?: string;
-  host_name?: string;
-  host_phone?: string;
-  host_email?: string;
   latitude?: number;
   longitude?: number;
   created_at: string;
@@ -44,8 +40,6 @@ export interface ListingView {
   amenities?: string[];
   is_available: boolean;
   is_featured: boolean;
-  host_name?: string;
-  host_email?: string;
   created_at: string;
   updated_at: string;
   details: string;

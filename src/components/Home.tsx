@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import Navbar from './Navbar';
-import Lenis from '@studio-freight/lenis';
+import Footer from './Footer';
 import { ListingService } from '../services/listingService';
 import type { ListingView } from '../types/listing';
 
@@ -16,19 +16,6 @@ const Home: React.FC = () => {
   const [isPriceDropdownOpen, setIsPriceDropdownOpen] = useState(false);
 
   useEffect(() => {
-    // Initialize Lenis smooth scrolling
-    const lenis = new Lenis({
-      duration: 1.2,
-      easing: (t) => Math.min(1, 1.001 - Math.pow(2, -10 * t)),
-    });
-
-    // Animation frame loop for Lenis
-    function raf(time: number) {
-      lenis.raf(time);
-      requestAnimationFrame(raf);
-    }
-    requestAnimationFrame(raf);
-
     // Fetch listings from Supabase
     const fetchListings = async () => {
       try {
@@ -52,10 +39,6 @@ const Home: React.FC = () => {
     };
 
     fetchListings();
-
-    return () => {
-      lenis.destroy();
-    };
   }, []);
 
   // Close dropdowns when clicking outside
@@ -133,13 +116,27 @@ const Home: React.FC = () => {
 
   // Skeleton component
   const SkeletonCard = () => (
-    <div className="bg-white rounded-xl shadow-md overflow-hidden animate-pulse">
-      <div className="h-48 bg-gray-300"></div>
-      <div className="p-4">
+    <div className="bg-white rounded-2xl shadow-lg overflow-hidden animate-pulse border border-gray-100">
+      <div className="h-56 bg-gray-300"></div>
+      <div className="p-6">
+        <div className="flex justify-between items-baseline mb-4">
+          <div className="h-7 bg-gray-300 rounded w-32"></div>
+          <div className="h-5 bg-gray-300 rounded w-16"></div>
+        </div>
         <div className="h-6 bg-gray-300 rounded mb-2"></div>
-        <div className="h-5 bg-gray-300 rounded mb-2"></div>
+        <div className="h-4 bg-gray-300 rounded w-3/4 mb-4"></div>
+        <div className="flex justify-between mb-4">
+          <div className="h-4 bg-gray-300 rounded w-16"></div>
+          <div className="h-4 bg-gray-300 rounded w-16"></div>
+          <div className="h-4 bg-gray-300 rounded w-20"></div>
+        </div>
+        <div className="flex gap-1 mb-4">
+          <div className="h-6 bg-gray-300 rounded-full w-16"></div>
+          <div className="h-6 bg-gray-300 rounded-full w-20"></div>
+          <div className="h-6 bg-gray-300 rounded-full w-14"></div>
+        </div>
         <div className="h-4 bg-gray-300 rounded mb-2"></div>
-        <div className="h-4 bg-gray-300 rounded w-3/4"></div>
+        <div className="h-4 bg-gray-300 rounded w-2/3"></div>
       </div>
     </div>
   );
@@ -157,17 +154,17 @@ const Home: React.FC = () => {
             backgroundImage: "url('./heroimage.png')",
             backgroundPosition: 'center 30%',
             backgroundSize: 'cover',
-            height: '70vh'
+            height: '60vh'
           }}
         />
         {/* Dark overlay */}
         <div 
           className="absolute inset-0 bg-black opacity-20"
-          style={{ height: '70vh' }}
+          style={{ height: '60vh' }}
         />
         
         {/* Text Overlays */}
-        <div className="relative z-10 flex flex-col items-center justify-center h-[70vh] text-center px-4">
+        <div className="relative z-10 flex flex-col items-center justify-center h-[60vh] text-center px-4">
           {/* Main Heading */}
           <h1 
             className="text-white text-4xl md:text-5xl lg:text-6xl mb-6 leading-tight mt-24 animate-fade-in-up"
@@ -179,17 +176,17 @@ const Home: React.FC = () => {
           {/* Sub-heading */}
           <p 
             className="text-white text-lg md:text-xl mb-12 max-w-2xl leading-relaxed animate-fade-in-up"
-            style={{fontFamily: 'Poppins', fontWeight: 700, animationDelay: '0.4s'}}
+            style={{fontFamily: 'Poppins', fontWeight: 600, animationDelay: '0.4s'}}
           >
             Find your perfect home away from home
             while you're on your dream vacation
           </p>
         </div>
         
-        {/* Search Bar */}
-        <div className="relative z-20 flex justify-center -mt-16 px-4 animate-slide-up" style={{animationDelay: '0.8s'}}>
+        {/* Search Bar - positioned between hero and white section */}
+        <div className="relative z-20 flex justify-center -mt-12 px-4 animate-slide-up" style={{animationDelay: '0.8s'}}>
           <div className="bg-white rounded-2xl shadow-md p-3 w-full max-w-3xl">
-            <div className="flex flex-col md:flex-row gap-4 items-end">
+              <div className="flex flex-col md:flex-row gap-4 items-end">
               {/* Search Location */}
               <div className="flex-1 relative dropdown-container">
                 <label className="block text-gray-700 font-poppins font-bold text-sm mb-1 px-4">
@@ -348,7 +345,7 @@ const Home: React.FC = () => {
       </div>
 
       {/* All Listings Section */}
-      <div className="bg-white py-1 px-4 -mt-40 animate-fade-in" style={{animationDelay: '1.2s'}}>
+      <div className="bg-white py-1 px-4 -mt-56 animate-fade-in" style={{animationDelay: '1.2s'}}>
         <div className="max-w-7xl mx-auto">
           {/* Header */}
           <div className="flex justify-between items-center mb-8">
@@ -383,7 +380,7 @@ const Home: React.FC = () => {
           </div>
 
           {/* Listings Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8">
             {isLoading ? (
               // Show skeleton loading
               Array.from({ length: 6 }).map((_, index) => (
@@ -422,39 +419,136 @@ const Home: React.FC = () => {
             ) : (
               // Show actual listings
               apartments.map((apartment) => (
-                <div key={apartment.id} className="bg-white rounded-xl shadow-md overflow-hidden hover:shadow-xl transition-all duration-300 transform hover:-translate-y-2">
-                  {/* Image */}
-                  <div className="h-48 bg-cover bg-center" style={{backgroundImage: `url('${apartment.main_image_url || './avida.jpg'}')`}}></div>
-                  
-                  {/* Content */}
-                  <div className="p-4">
-                    {/* Price */}
-                    <div className="mb-2">
-                      <span className="text-black text-xl" style={{fontFamily: 'Poppins', fontWeight: 600}}>
-                        {apartment.formatted_price || `${apartment.currency} ${apartment.price}`}
-                      </span>
-                      <span className="text-gray-500 text-base ml-1" style={{fontFamily: 'Poppins', fontWeight: 400}}>
-                        {apartment.price_unit}
+                <div key={apartment.id} className="group bg-white rounded-2xl shadow-lg overflow-hidden hover:shadow-2xl transition-all duration-500 transform hover:-translate-y-3 border border-gray-100 cursor-pointer">
+                  {/* Image Container with Overlay */}
+                  <div className="relative h-56 overflow-hidden">
+                    <div 
+                      className="w-full h-full bg-cover bg-center" 
+                      style={{backgroundImage: `url('${apartment.main_image_url || './avida.jpg'}')`}}
+                    ></div>
+                    
+                    {/* Gradient Overlay */}
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent"></div>
+                    
+                    {/* Property Type Badge */}
+                    <div className="absolute top-4 right-4">
+                      <span 
+                        className="inline-flex px-3 py-1 rounded-full text-xs font-medium text-white bg-black/50 backdrop-blur-sm"
+                        style={{fontFamily: 'Poppins'}}
+                      >
+                        {apartment.property_type?.charAt(0).toUpperCase() + apartment.property_type?.slice(1) || 'Property'}
                       </span>
                     </div>
                     
+                    {/* Heart Icon */}
+                    <div className="absolute bottom-4 right-4">
+                      <button className="p-2 bg-white/90 backdrop-blur-sm rounded-full shadow-lg hover:bg-white transition-colors">
+                        <svg className="w-5 h-5 text-gray-600 hover:text-red-500 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+                        </svg>
+                      </button>
+                    </div>
+                  </div>
+                  
+                  {/* Content */}
+                  <div className="p-6">
+                    {/* Price Section */}
+                    <div className="mb-4">
+                      <div className="flex items-baseline justify-between">
+                        <div>
+                          <span className="text-2xl font-bold text-black" style={{fontFamily: 'Poppins', fontWeight: 700}}>
+                            {apartment.currency} {apartment.price?.toLocaleString()}
+                          </span>
+                          <span className="text-gray-500 text-sm ml-2" style={{fontFamily: 'Poppins', fontWeight: 500}}>
+                            / {apartment.price_unit}
+                          </span>
+                        </div>
+                        {apartment.is_featured && (
+                          <span className="inline-flex px-2 py-1 rounded-full text-xs font-medium text-[#0B5858] bg-[#0B5858]/10" style={{fontFamily: 'Poppins'}}>
+                            Featured
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    
                     {/* Title */}
-                    <h3 className="text-black text-lg mb-1" style={{fontFamily: 'Poppins', fontWeight: 600}}>
+                    <h3 className="text-lg font-semibold text-black mb-2 line-clamp-2" style={{fontFamily: 'Poppins', fontWeight: 600}}>
                       {apartment.title}
                     </h3>
                     
                     {/* Location */}
-                    <p className="text-sm mb-2" style={{fontFamily: 'Poppins', fontWeight: 600, color: '#696969'}}>
-                      {apartment.location}
-                    </p>
+                    <div className="flex items-center mb-4">
+                      <svg className="w-4 h-4 text-gray-400 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                      </svg>
+                      <p className="text-sm text-gray-600 truncate" style={{fontFamily: 'Poppins', fontWeight: 500}}>
+                        {apartment.location}
+                      </p>
+                    </div>
                     
-                    {/* Horizontal line */}
-                    <div className="h-px bg-gray-200 mb-2"></div>
+                    {/* Property Features */}
+                    <div className="flex items-center justify-between mb-4 text-sm text-gray-600">
+                      <div className="flex items-center">
+                        <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2H5a2 2 0 00-2-2z" />
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 5a2 2 0 012-2h4a2 2 0 012 2v2H8V5z" />
+                        </svg>
+                        <span style={{fontFamily: 'Poppins', fontWeight: 500}}>
+                          {apartment.bedrooms || 0} bed
+                        </span>
+                      </div>
+                      <div className="flex items-center">
+                        <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 14v3m4-3v3m4-3v3M3 21h18M3 10h18M3 7l9-4 9 4M4 10h16v11H4V10z" />
+                        </svg>
+                        <span style={{fontFamily: 'Poppins', fontWeight: 500}}>
+                          {apartment.bathrooms || 0} bath
+                        </span>
+                      </div>
+                      {apartment.square_feet && (
+                        <div className="flex items-center">
+                          <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" />
+                          </svg>
+                          <span style={{fontFamily: 'Poppins', fontWeight: 500}}>
+                            {apartment.square_feet} sqft
+                          </span>
+                        </div>
+                      )}
+                    </div>
                     
-                    {/* Details */}
-                    <p className="text-gray-500 text-sm text-center" style={{fontFamily: 'Poppins', fontWeight: 400}}>
-                      {apartment.details}
-                    </p>
+                    {/* Amenities Preview */}
+                    {apartment.amenities && apartment.amenities.length > 0 && (
+                      <div className="mb-4">
+                        <div className="flex flex-wrap gap-1">
+                          {apartment.amenities.slice(0, 3).map((amenity, index) => (
+                            <span 
+                              key={index}
+                              className="inline-flex px-2 py-1 rounded-full text-xs font-medium text-gray-600 bg-gray-100"
+                              style={{fontFamily: 'Poppins'}}
+                            >
+                              {amenity}
+                            </span>
+                          ))}
+                          {apartment.amenities.length > 3 && (
+                            <span 
+                              className="inline-flex px-2 py-1 rounded-full text-xs font-medium text-gray-500 bg-gray-50"
+                              style={{fontFamily: 'Poppins'}}
+                            >
+                              +{apartment.amenities.length - 3} more
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                    
+                    {/* Description */}
+                    {apartment.description && (
+                      <p className="text-gray-600 text-sm line-clamp-2" style={{fontFamily: 'Poppins', fontWeight: 400}}>
+                        {apartment.description}
+                      </p>
+                    )}
                   </div>
                 </div>
               ))
@@ -475,77 +569,7 @@ const Home: React.FC = () => {
       </div>
 
       {/* Footer Section */}
-      <footer className="bg-[#0B5858] text-white py-12 px-4 animate-fade-in-up">
-        <div className="max-w-7xl mx-auto">
-          {/* Top section of footer */}
-          <div className="flex flex-col md:flex-row justify-between items-center md:items-start mb-8">
-            {/* Logo */}
-            <div className="flex items-center mb-8 md:mb-0 animate-fade-in-left" style={{animationDelay: '0.2s'}}>
-              <img 
-                src="./footerlogo.png" 
-                alt="Kelsey's Homestay Logo" 
-                className="w-60 h-auto hover:scale-105 transition-transform duration-300"
-              />
-            </div>
-
-            {/* Contact Section */}
-            <div className="text-center md:text-right animate-fade-in-right" style={{animationDelay: '0.3s'}}>
-              <p className="text-2xl font-poppins font-semibold mb-4" style={{fontFamily: 'Poppins', fontWeight: 600}}>
-                For more inquiries please<br />
-                contact us via email
-              </p>
-              <div className="flex justify-center md:justify-end shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1">
-                <input
-                  type="email"
-                  placeholder="Your email"
-                  className="p-4 rounded-l-2xl focus:outline-none text-black w-80 text-base bg-white transition-all duration-300 focus:ring-2 focus:ring-yellow-400 focus:ring-opacity-50"
-                  style={{fontFamily: 'Poppins', fontWeight: 400}}
-                />
-                <button className="bg-yellow-400 text-black p-4 rounded-r-2xl font-poppins font-medium text-base transition-all duration-300 hover:bg-yellow-500 hover:scale-105 active:scale-95" style={{fontFamily: 'Poppins', fontWeight: 500}}>
-                  Send
-                </button>
-              </div>
-            </div>
-          </div>
-
-          {/* Divider Line */}
-          <div className="border-t border-white my-8"></div>
-
-          {/* Bottom section of footer */}
-          <div className="flex flex-col md:flex-row justify-between items-center text-sm">
-            {/* Copyright */}
-            <p className="font-poppins mb-4 md:mb-0" style={{fontFamily: 'Poppins', fontWeight: 400}}>
-              ©2025 Kelsey's Homestay. All Rights Reserved.
-            </p>
-
-            {/* Social Media */}
-            <div className="flex items-center">
-              <p className="font-poppins mr-4" style={{fontFamily: 'Poppins', fontWeight: 400}}>
-                Follow us on
-              </p>
-              <div className="flex">
-                {/* Facebook Icon */}
-                <a href="https://www.facebook.com/kelseycaiden" target="_blank" rel="noopener noreferrer" className="text-white">
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    width="24"
-                    height="24"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    className="feather feather-facebook"
-                  >
-                    <path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z"></path>
-                  </svg>
-                </a>
-              </div>
-            </div>
-          </div>
-        </div>
-      </footer>
+      <Footer />
     </div>
   );
 };

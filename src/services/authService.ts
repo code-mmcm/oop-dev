@@ -1,0 +1,139 @@
+import { supabase } from '../lib/supabase';
+import type { UserRole, UserProfile } from '../types/auth';
+
+export class AuthService {
+  // Get current user's role
+  static async getUserRole(): Promise<UserRole | null> {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      if (!user) {
+        console.log('No authenticated user found');
+        return null;
+      }
+
+      console.log('Current user ID:', user.id);
+
+      const { data, error } = await supabase
+        .from('user_roles')
+        .select(`
+          role,
+          user_id
+        `)
+        .eq('user_id', user.id)
+        .single();
+
+      if (error) {
+        console.error('Error fetching user role:', error);
+        console.log('No role found in user_roles table, returning default user role');
+        
+        // Get user info separately
+        const { data: userData } = await supabase
+          .from('users')
+          .select('fullname, email')
+          .eq('id', user.id)
+          .single();
+
+        // Return default user role without inserting to database
+        return {
+          role: 'user',
+          user_id: user.id,
+          fullname: userData?.fullname || '',
+          email: userData?.email || ''
+        };
+      }
+
+      console.log('User role data:', data);
+
+      // Get user info separately
+      const { data: userData } = await supabase
+        .from('users')
+        .select('fullname, email')
+        .eq('id', user.id)
+        .single();
+
+      return {
+        role: data.role,
+        user_id: data.user_id,
+        fullname: userData?.fullname || '',
+        email: userData?.email || ''
+      };
+    } catch (error) {
+      console.error('Error in getUserRole:', error);
+      return null;
+    }
+  }
+
+  // Check if current user is admin
+  static async isAdmin(): Promise<boolean> {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      if (!user) {
+        console.log('No authenticated user found for admin check');
+        return false;
+      }
+
+      const { data, error } = await supabase
+        .from('user_roles')
+        .select('role')
+        .eq('user_id', user.id)
+        .single();
+
+      if (error) {
+        console.error('Error checking admin status:', error);
+        return false;
+      }
+
+      const isAdmin = data?.role === 'admin';
+      console.log('Admin check result:', { role: data?.role, isAdmin });
+      return isAdmin;
+    } catch (error) {
+      console.error('Error in isAdmin:', error);
+      return false;
+    }
+  }
+
+  // Get current user's profile with role
+  static async getUserProfile(): Promise<UserProfile | null> {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      if (!user) {
+        console.log('No authenticated user found for profile');
+        return null;
+      }
+
+      // Get user profile data
+      const { data: userData, error: userError } = await supabase
+        .from('users')
+        .select('*')
+        .eq('id', user.id)
+        .single();
+
+      if (userError) {
+        console.error('Error fetching user profile:', userError);
+        return null;
+      }
+
+      // Get user role separately to avoid join issues
+      const { data: roleData, error: roleError } = await supabase
+        .from('user_roles')
+        .select('role')
+        .eq('user_id', user.id)
+        .single();
+
+      if (roleError) {
+        console.log('No role found, using default user role');
+      }
+
+      return {
+        ...userData,
+        role: roleData?.role || 'user'
+      };
+    } catch (error) {
+      console.error('Error in getUserProfile:', error);
+      return null;
+    }
+  }
+}
