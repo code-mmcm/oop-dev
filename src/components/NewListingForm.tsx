@@ -93,11 +93,10 @@ const NewListingForm: React.FC<NewListingFormProps> = ({ onSuccess, onCancel }) 
   ];
 
   const steps = [
-    { id: 1, title: 'Basic Information', description: 'Title, type, and description' },
-    { id: 2, title: 'Location & Pricing', description: 'City, country, and pricing details' },
-    { id: 3, title: 'Property Details', description: 'Bedrooms, bathrooms, and amenities' },
-    { id: 4, title: 'Images', description: 'Main image and additional photos' },
-    { id: 5, title: 'Location Map', description: 'Set exact property location on map' }
+    { id: 1, title: 'Basic Information', description: 'Title, type, description, location and pricing' },
+    { id: 2, title: 'Property Details', description: 'Bedrooms, bathrooms, and amenities' },
+    { id: 3, title: 'Images', description: 'Main image and additional photos' },
+    { id: 4, title: 'Location Map', description: 'Set exact property location on map' }
   ];
 
   const totalSteps = steps.length;
@@ -291,15 +290,13 @@ const NewListingForm: React.FC<NewListingFormProps> = ({ onSuccess, onCancel }) 
   // Step validation functions
   const isStepValid = (step: number) => {
     switch (step) {
-      case 1: // Basic Information
-        return formData.title.trim() !== '';
-      case 2: // Location & Pricing
-        return formData.city.trim() !== '' && formData.price.trim() !== '';
-      case 3: // Property Details
+      case 1: // Basic Information & Pricing
+        return formData.title.trim() !== '' && formData.city.trim() !== '' && formData.price.trim() !== '';
+      case 2: // Property Details
         return true; // This step is optional
-      case 4: // Images
+      case 3: // Images
         return uploadedImages.length > 0 && selectedMainImageId !== null;
-      case 5: // Location Map
+      case 4: // Location Map
         return selectedPosition !== null && formData.latitude && formData.longitude;
       default:
         return false;
@@ -314,19 +311,6 @@ const NewListingForm: React.FC<NewListingFormProps> = ({ onSuccess, onCancel }) 
     }
   };
 
-  const prevStep = () => {
-    if (currentStep > 1) {
-      setCurrentStep(prev => prev - 1);
-      setError(null);
-    }
-  };
-
-  const goToStep = (step: number) => {
-    if (step >= 1 && step <= totalSteps) {
-      setCurrentStep(step);
-      setError(null);
-    }
-  };
 
   // Form validation
   const isFormValid = () => {
@@ -401,22 +385,37 @@ const NewListingForm: React.FC<NewListingFormProps> = ({ onSuccess, onCancel }) 
   const renderStepContent = () => {
     switch (currentStep) {
       case 1:
-        return renderBasicInfoStep();
+        return (
+          <div className="animate-fade-in-up">
+            {renderBasicInfoPricingStep()}
+          </div>
+        );
       case 2:
-        return renderLocationPricingStep();
+        return (
+          <div className="animate-fade-in-up">
+            {renderPropertyDetailsStep()}
+          </div>
+        );
       case 3:
-        return renderPropertyDetailsStep();
+        return (
+          <div className="animate-fade-in-up">
+            {renderImagesStep()}
+          </div>
+        );
       case 4:
-        return renderImagesStep();
-      case 5:
-        return renderLocationMapStep();
+        return (
+          <div className="animate-fade-in-up">
+            {renderLocationMapStep()}
+          </div>
+        );
       default:
         return null;
     }
   };
 
-  const renderBasicInfoStep = () => (
+  const renderBasicInfoPricingStep = () => (
     <div className="space-y-6">
+      {/* Basic Information Section */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2" style={{fontFamily: 'Poppins'}}>
@@ -428,7 +427,7 @@ const NewListingForm: React.FC<NewListingFormProps> = ({ onSuccess, onCancel }) 
             value={formData.title}
             onChange={handleInputChange}
             required
-            className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0B5858]"
             style={{fontFamily: 'Poppins'}}
             placeholder="Enter property title"
           />
@@ -442,7 +441,7 @@ const NewListingForm: React.FC<NewListingFormProps> = ({ onSuccess, onCancel }) 
             name="property_type"
             value={formData.property_type}
             onChange={handleInputChange}
-            className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0B5858]"
             style={{fontFamily: 'Poppins'}}
           >
             {propertyTypes.map(type => (
@@ -463,16 +462,13 @@ const NewListingForm: React.FC<NewListingFormProps> = ({ onSuccess, onCancel }) 
           value={formData.description}
           onChange={handleInputChange}
           rows={4}
-          className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0B5858]"
           style={{fontFamily: 'Poppins'}}
           placeholder="Describe your property..."
         />
       </div>
-    </div>
-  );
 
-  const renderLocationPricingStep = () => (
-    <div className="space-y-6">
+      {/* Location & Pricing Section */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2" style={{fontFamily: 'Poppins'}}>
@@ -484,7 +480,7 @@ const NewListingForm: React.FC<NewListingFormProps> = ({ onSuccess, onCancel }) 
             value={formData.city}
             onChange={handleInputChange}
             required
-            className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0B5858]"
             style={{fontFamily: 'Poppins'}}
             placeholder="Enter city name"
           />
@@ -499,7 +495,7 @@ const NewListingForm: React.FC<NewListingFormProps> = ({ onSuccess, onCancel }) 
             name="country"
             value={formData.country}
             onChange={handleInputChange}
-            className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0B5858]"
             style={{fontFamily: 'Poppins'}}
             placeholder="Enter country"
           />
@@ -519,7 +515,7 @@ const NewListingForm: React.FC<NewListingFormProps> = ({ onSuccess, onCancel }) 
             required
             min="0"
             step="0.01"
-            className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0B5858]"
             style={{fontFamily: 'Poppins'}}
             placeholder="0.00"
           />
@@ -533,7 +529,7 @@ const NewListingForm: React.FC<NewListingFormProps> = ({ onSuccess, onCancel }) 
             name="price_unit"
             value={formData.price_unit}
             onChange={handleInputChange}
-            className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0B5858]"
             style={{fontFamily: 'Poppins'}}
           >
             {priceUnits.map(unit => (
@@ -552,7 +548,7 @@ const NewListingForm: React.FC<NewListingFormProps> = ({ onSuccess, onCancel }) 
             name="currency"
             value={formData.currency}
             onChange={handleInputChange}
-            className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0B5858]"
             style={{fontFamily: 'Poppins'}}
           >
             <option value="PHP">PHP</option>
@@ -563,6 +559,7 @@ const NewListingForm: React.FC<NewListingFormProps> = ({ onSuccess, onCancel }) 
       </div>
     </div>
   );
+
 
   const renderPropertyDetailsStep = () => (
     <div className="space-y-6">
@@ -577,7 +574,7 @@ const NewListingForm: React.FC<NewListingFormProps> = ({ onSuccess, onCancel }) 
             value={formData.bedrooms}
             onChange={handleInputChange}
             min="0"
-            className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0B5858]"
             style={{fontFamily: 'Poppins'}}
             placeholder="0"
           />
@@ -593,7 +590,7 @@ const NewListingForm: React.FC<NewListingFormProps> = ({ onSuccess, onCancel }) 
             value={formData.bathrooms}
             onChange={handleInputChange}
             min="0"
-            className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0B5858]"
             style={{fontFamily: 'Poppins'}}
             placeholder="0"
           />
@@ -609,7 +606,7 @@ const NewListingForm: React.FC<NewListingFormProps> = ({ onSuccess, onCancel }) 
             value={formData.square_feet}
             onChange={handleInputChange}
             min="0"
-            className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0B5858]"
             style={{fontFamily: 'Poppins'}}
             placeholder="0"
           />
@@ -822,110 +819,110 @@ const NewListingForm: React.FC<NewListingFormProps> = ({ onSuccess, onCancel }) 
   );
 
   return (
-    <div className="bg-white rounded-lg shadow-sm overflow-hidden p-8">
-      {/* Step Indicator */}
-      <div className="mb-8">
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-2xl font-bold text-black" style={{fontFamily: 'Poppins', fontWeight: 700}}>
-            {steps[currentStep - 1].title}
-          </h2>
-          <span className="text-sm text-gray-500" style={{fontFamily: 'Poppins'}}>
-            Step {currentStep} of {totalSteps}
-          </span>
+    <div className="min-h-screen bg-gray-50 py-4">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        {/* Header */}
+        <div className="mb-8">
+          {/* Progress Indicator */}
+          <div className="flex items-center justify-center space-x-4 mb-8 animate-fade-in">
+            {steps.map((step, index) => (
+              <div key={step.id} className="flex items-center">
+                <div className="flex flex-col items-center">
+                  <div className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-medium transition-all duration-500 ease-in-out transform hover:scale-110 ${
+                    step.id === currentStep
+                      ? 'bg-[#0B5858] text-white animate-pulse'
+                      : step.id < currentStep
+                      ? 'bg-[#0B5858] text-white'
+                      : 'bg-gray-300 text-gray-600 hover:bg-gray-400'
+                  }`}
+                  style={{fontFamily: 'Poppins'}}
+                  >
+                    {step.id === currentStep ? (
+                      <div className="w-4 h-4 bg-white rounded-full"></div>
+                    ) : (
+                      step.id
+                    )}
+                  </div>
+                  <span className={`text-xs mt-2 font-medium ${
+                    step.id <= currentStep ? 'text-gray-800' : 'text-gray-500'
+                  }`}
+                  style={{fontFamily: 'Poppins'}}
+                  >
+                    {step.title}
+                  </span>
+                </div>
+                {index < steps.length - 1 && (
+                  <div className={`w-16 h-0.5 mx-2 transition-all duration-500 ease-in-out ${
+                    step.id < currentStep ? 'bg-[#0B5858]' : 'bg-gray-300'
+                  }`} />
+                )}
+              </div>
+            ))}
+          </div>
         </div>
-        
-        <div className="flex items-center space-x-2">
-          {steps.map((step, index) => (
-            <div key={step.id} className="flex items-center">
-              <button
-                onClick={() => goToStep(step.id)}
-                className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium transition-colors ${
-                  step.id === currentStep
-                    ? 'bg-[#0B5858] text-white'
-                    : step.id < currentStep
-                    ? 'bg-green-500 text-white'
-                    : 'bg-gray-200 text-gray-600'
-                }`}
-                style={{fontFamily: 'Poppins'}}
-              >
-                {step.id}
-              </button>
-              {index < steps.length - 1 && (
-                <div className={`w-8 h-0.5 ${
-                  step.id < currentStep ? 'bg-green-500' : 'bg-gray-200'
-                }`} />
-              )}
-            </div>
-          ))}
+
+        {/* Main White Card */}
+        <div className="bg-white rounded-xl shadow-lg overflow-hidden animate-fade-in-up">
+          <div className="p-4">
+
+            {/* Error Message */}
+            {error && (
+              <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
+                <p className="text-red-600" style={{fontFamily: 'Poppins'}}>{error}</p>
+              </div>
+            )}
+
+            {/* Form Content */}
+            <form onSubmit={handleSubmit} className="space-y-8">
+              {/* Full Width Form */}
+              <div className="space-y-6">
+                {renderStepContent()}
+              </div>
+
+              {/* Navigation Buttons */}
+              <div className="flex justify-end space-x-4 pt-6 border-t border-gray-200">
+                <button
+                  type="button"
+                  onClick={onCancel}
+                  className="px-6 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-all duration-300 ease-in-out transform hover:scale-105 hover:shadow-md"
+                  style={{fontFamily: 'Poppins'}}
+                >
+                  Cancel
+                </button>
+                
+                {currentStep < totalSteps ? (
+                  <button
+                    type="button"
+                    onClick={nextStep}
+                    disabled={!isStepValid(currentStep)}
+                    className="px-6 py-2 text-white rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300 ease-in-out transform hover:scale-105 hover:shadow-lg disabled:hover:scale-100 disabled:hover:shadow-none"
+                    style={{backgroundColor: '#0B5858', fontFamily: 'Poppins', fontWeight: 600}}
+                  >
+                    Next
+                  </button>
+                ) : (
+                  <button
+                    type="submit"
+                    disabled={isSubmitting || !isFormValid()}
+                    className="px-6 py-2 text-white rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300 ease-in-out transform hover:scale-105 hover:shadow-lg disabled:hover:scale-100 disabled:hover:shadow-none"
+                    style={{backgroundColor: '#0B5858', fontFamily: 'Poppins', fontWeight: 600}}
+                  >
+                    {isSubmitting ? (
+                      <span className="flex items-center">
+                        <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                        Creating...
+                      </span>
+                    ) : 'Create Listing'}
+                  </button>
+                )}
+              </div>
+            </form>
+          </div>
         </div>
-        
-        <p className="text-sm text-gray-600 mt-2" style={{fontFamily: 'Poppins'}}>
-          {steps[currentStep - 1].description}
-        </p>
       </div>
-
-      {/* Error Message */}
-      {error && (
-        <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
-          <p className="text-red-600" style={{fontFamily: 'Poppins'}}>{error}</p>
-        </div>
-      )}
-
-      {/* Form Content */}
-      <form onSubmit={handleSubmit} className="space-y-8">
-        {/* Step Content */}
-        <div className="bg-gray-50 rounded-xl p-6">
-          {renderStepContent()}
-        </div>
-
-        {/* Navigation Buttons */}
-        <div className="flex justify-between pt-6 border-t border-gray-200">
-          <div className="flex space-x-4">
-            <button
-              type="button"
-              onClick={onCancel}
-              className="px-6 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors"
-              style={{fontFamily: 'Poppins'}}
-            >
-              Cancel
-            </button>
-            
-            {currentStep > 1 && (
-              <button
-                type="button"
-                onClick={prevStep}
-                className="px-6 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors"
-                style={{fontFamily: 'Poppins'}}
-              >
-                Previous
-              </button>
-            )}
-          </div>
-          
-          <div className="flex space-x-4">
-            {currentStep < totalSteps ? (
-              <button
-                type="button"
-                onClick={nextStep}
-                disabled={!isStepValid(currentStep)}
-                className="px-6 py-2 text-white rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                style={{backgroundColor: '#0B5858', fontFamily: 'Poppins', fontWeight: 600}}
-              >
-                Next
-              </button>
-            ) : (
-              <button
-                type="submit"
-                disabled={isSubmitting || !isFormValid()}
-                className="px-6 py-2 text-white rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                style={{backgroundColor: '#0B5858', fontFamily: 'Poppins', fontWeight: 600}}
-              >
-                {isSubmitting ? 'Creating...' : 'Create Listing'}
-              </button>
-            )}
-          </div>
-        </div>
-      </form>
     </div>
   );
 };

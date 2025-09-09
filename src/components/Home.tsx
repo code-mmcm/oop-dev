@@ -164,18 +164,18 @@ const Home: React.FC = () => {
         />
         
         {/* Text Overlays */}
-        <div className="relative z-10 flex flex-col items-center justify-center h-[60vh] text-center px-4">
+        <div className="relative z-10 flex flex-col items-center justify-center h-[60vh] text-center px-4 sm:px-6 lg:px-8">
           {/* Main Heading */}
           <h1 
-            className="text-white text-4xl md:text-5xl lg:text-6xl mb-6 leading-tight mt-24 animate-fade-in-up"
+            className="text-white text-3xl sm:text-4xl md:text-5xl lg:text-6xl mb-4 sm:mb-6 leading-tight mt-16 sm:mt-20 md:mt-24 animate-fade-in-up"
             style={{fontFamily: 'Poppins', fontWeight: 700, animationDelay: '0.2s'}}
           >
-            Feel at home anytime,<br /> anywhere!
+            Feel at home anytime,<br className="hidden sm:block" /> anywhere!
           </h1>
           
           {/* Sub-heading */}
           <p 
-            className="text-white text-lg md:text-xl mb-12 max-w-2xl leading-relaxed animate-fade-in-up"
+            className="text-white text-base sm:text-lg md:text-xl mb-8 sm:mb-10 md:mb-12 max-w-2xl leading-relaxed animate-fade-in-up px-2"
             style={{fontFamily: 'Poppins', fontWeight: 600, animationDelay: '0.4s'}}
           >
             Find your perfect home away from home
@@ -184,12 +184,12 @@ const Home: React.FC = () => {
         </div>
         
         {/* Search Bar - positioned between hero and white section */}
-        <div className="relative z-20 flex justify-center -mt-12 px-4 animate-slide-up" style={{animationDelay: '0.8s'}}>
-          <div className="bg-white rounded-2xl shadow-md p-3 w-full max-w-3xl">
-              <div className="flex flex-col md:flex-row gap-4 items-end">
+        <div className="relative z-20 flex justify-center -mt-20 sm:-mt-10 md:-mt-12 px-4 sm:px-6 lg:px-8 animate-slide-up" style={{animationDelay: '0.8s'}}>
+          <div className="bg-white rounded-xl sm:rounded-2xl shadow-md p-3 w-full max-w-3xl relative overflow-visible">
+              <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 items-stretch sm:items-end">
               {/* Search Location */}
               <div className="flex-1 relative dropdown-container">
-                <label className="block text-gray-700 font-poppins font-bold text-sm mb-1 px-4">
+                <label className="block text-gray-700 font-poppins font-bold text-sm mb-1 px-0 sm:px-4">
                   Search Location
                 </label>
                 <div className="relative">
@@ -199,11 +199,11 @@ const Home: React.FC = () => {
                     value={searchLocation}
                     onChange={(e) => setSearchLocation(e.target.value)}
                     onFocus={() => setIsLocationDropdownOpen(true)}
-                    className="w-full px-4 py-2 border-none focus:outline-none font-poppins font-bold bg-transparent text-gray-700"
+                    className="w-full px-3 sm:px-4 py-2 border-none focus:outline-none font-poppins font-bold bg-transparent text-gray-700"
                   />
                   <button
                     onClick={() => setIsLocationDropdownOpen(!isLocationDropdownOpen)}
-                    className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                    className="absolute right-2 sm:right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
                   >
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
@@ -213,7 +213,7 @@ const Home: React.FC = () => {
                 
                 {/* Location Dropdown */}
                 {isLocationDropdownOpen && (
-                  <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-300 rounded-lg shadow-lg z-50 max-h-60 overflow-y-auto">
+                  <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-300 rounded-lg shadow-lg z-50 max-h-60 overflow-y-auto w-full">
                     {availableLocations.length > 0 ? (
                       availableLocations.map((location, index) => (
                         <button
@@ -235,21 +235,21 @@ const Home: React.FC = () => {
               </div>
               
               {/* Separator */}
-              <div className="flex items-end pb-3">
+              <div className="flex items-end pb-3 hidden sm:block">
                 <span className="text-gray-400 font-poppins text-4xl">|</span>
               </div>
               
               {/* Price Range */}
               <div className="flex-1 relative dropdown-container">
-                <label className="block text-gray-700 font-poppins font-bold text-sm mb-1">
+                <label className="block text-gray-700 font-poppins font-bold text-sm mb-1 px-0 sm:px-4">
                   Price Range
                 </label>
                 <div className="relative">
                   <button
                     onClick={() => setIsPriceDropdownOpen(!isPriceDropdownOpen)}
-                    className="w-full px-0 py-2 border-none focus:outline-none font-poppins font-bold appearance-none bg-transparent text-gray-700 text-left flex items-center justify-between"
+                    className="w-full px-3 sm:px-4 py-2 border-none focus:outline-none font-poppins font-bold appearance-none bg-transparent text-gray-700 text-left flex items-center justify-between"
                   >
-                    <span>₱{priceRange.min.toLocaleString()} - ₱{priceRange.max.toLocaleString()}</span>
+                    <span className="text-sm sm:text-base">₱{priceRange.min.toLocaleString()} - ₱{priceRange.max.toLocaleString()}</span>
                     <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                     </svg>
@@ -258,7 +258,7 @@ const Home: React.FC = () => {
                 
                 {/* Price Range Dropdown */}
                 {isPriceDropdownOpen && (
-                  <div className="absolute top-full right-0 mt-1 bg-white border border-gray-300 rounded-lg shadow-lg z-50 p-4 w-80">
+                  <div className="absolute top-full left-0 right-0 sm:right-0 sm:left-auto mt-1 bg-white border border-gray-300 rounded-lg shadow-lg z-50 p-4 w-full sm:w-80 max-w-full sm:max-w-none">
                     <div className="space-y-4">
                       <h3 className="font-semibold" style={{fontFamily: 'Poppins', fontWeight: 600}}>
                         Price Range
@@ -319,18 +319,18 @@ const Home: React.FC = () => {
               </div>
               
               {/* Separator */}
-              <div className="flex items-end pb-3">
+              <div className="flex items-end pb-3 hidden sm:block">
                 <span className="text-gray-400 font-poppins text-4xl">|</span>
               </div>
               
               {/* Search Button */}
-              <div className="flex-shrink-0">
+              <div className="flex-shrink-0 w-full sm:w-auto self-stretch sm:self-auto">
                 <button 
                   onClick={handleSearch}
-                  className="text-white px-8 py-3 rounded-lg font-poppins transition-all duration-300 flex items-center gap-2 hover:opacity-90 hover:scale-105 active:scale-95" 
+                  className="text-white px-6 sm:px-8 py-3 rounded-lg font-poppins transition-all duration-300 flex items-center justify-center gap-2 hover:opacity-90 hover:scale-105 active:scale-95 w-full sm:w-auto h-full sm:h-auto" 
                   style={{backgroundColor: '#0B5858', fontFamily: 'Poppins', fontWeight: 400}}
                 >
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                   </svg>
                   Search
@@ -345,34 +345,34 @@ const Home: React.FC = () => {
       </div>
 
       {/* All Listings Section */}
-      <div className="bg-white py-1 px-4 -mt-56 animate-fade-in" style={{animationDelay: '1.2s'}}>
-        <div className="max-w-7xl mx-auto">
+      <div className="bg-white py-1 -mt-48 sm:-mt-52 md:-mt-56 animate-fade-in" style={{animationDelay: '1.2s'}}>
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-16 sm:pt-6 md:pt-4">
           {/* Header */}
-          <div className="flex justify-between items-center mb-8">
+          <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center mb-6 sm:mb-8 gap-4 sm:gap-0">
             <h2 
-              className="text-3xl font-bold text-black animate-fade-in-left"
+              className="text-2xl sm:text-3xl font-bold text-black animate-fade-in-left"
               style={{fontFamily: 'Poppins', fontWeight: 700, animationDelay: '1.4s'}}
             >
               All listings
             </h2>
             
             {/* Recently added dropdown */}
-            <div className="relative animate-fade-in-right" style={{animationDelay: '1.6s'}}>
+            <div className="relative animate-fade-in-right self-start sm:self-auto" style={{animationDelay: '1.6s'}}>
               <select
                 value={sortBy}
                 onChange={(e) => {
                   setSortBy(e.target.value);
                   handleSearch();
                 }}
-                className="appearance-none bg-white border-none text-white px-6 py-3 rounded-lg font-poppins text-sm cursor-pointer focus:outline-none transition-all duration-300 hover:scale-105"
+                className="appearance-none bg-white border-none text-white px-4 sm:px-6 py-2 sm:py-3 rounded-lg font-poppins text-sm cursor-pointer focus:outline-none transition-all duration-300 hover:scale-105"
                 style={{backgroundColor: '#0B5858', fontFamily: 'Poppins', fontWeight: 600}}
               >
                 <option value="Recently added">Recently added</option>
                 <option value="Price: Low to High">Price: Low to High</option>
                 <option value="Price: High to Low">Price: High to Low</option>
               </select>
-              <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
-                <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <div className="absolute inset-y-0 right-0 flex items-center pr-2 sm:pr-3 pointer-events-none">
+                <svg className="w-3 h-3 sm:w-4 sm:h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                 </svg>
               </div>
@@ -380,7 +380,7 @@ const Home: React.FC = () => {
           </div>
 
           {/* Listings Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 lg:gap-8">
             {isLoading ? (
               // Show skeleton loading
               Array.from({ length: 6 }).map((_, index) => (
@@ -419,9 +419,9 @@ const Home: React.FC = () => {
             ) : (
               // Show actual listings
               apartments.map((apartment) => (
-                <div key={apartment.id} className="group bg-white rounded-2xl shadow-lg overflow-hidden hover:shadow-2xl transition-all duration-500 transform hover:-translate-y-3 border border-gray-100 cursor-pointer">
+                <div key={apartment.id} className="group bg-white rounded-xl sm:rounded-2xl shadow-lg overflow-hidden hover:shadow-2xl transition-all duration-500 transform hover:-translate-y-1 sm:hover:-translate-y-3 border border-gray-100 cursor-pointer">
                   {/* Image Container with Overlay */}
-                  <div className="relative h-56 overflow-hidden">
+                  <div className="relative h-48 sm:h-56 overflow-hidden">
                     <div 
                       className="w-full h-full bg-cover bg-center" 
                       style={{backgroundImage: `url('${apartment.main_image_url || './avida.jpg'}')`}}
@@ -451,15 +451,15 @@ const Home: React.FC = () => {
                   </div>
                   
                   {/* Content */}
-                  <div className="p-6">
+                  <div className="p-4 sm:p-6">
                     {/* Price Section */}
                     <div className="mb-4">
                       <div className="flex items-baseline justify-between">
                         <div>
-                          <span className="text-2xl font-bold text-black" style={{fontFamily: 'Poppins', fontWeight: 700}}>
+                          <span className="text-xl sm:text-2xl font-bold text-black" style={{fontFamily: 'Poppins', fontWeight: 700}}>
                             {apartment.currency} {apartment.price?.toLocaleString()}
                           </span>
-                          <span className="text-gray-500 text-sm ml-2" style={{fontFamily: 'Poppins', fontWeight: 500}}>
+                          <span className="text-gray-500 text-xs sm:text-sm ml-1 sm:ml-2" style={{fontFamily: 'Poppins', fontWeight: 500}}>
                             / {apartment.price_unit}
                           </span>
                         </div>
@@ -472,7 +472,7 @@ const Home: React.FC = () => {
                     </div>
                     
                     {/* Title */}
-                    <h3 className="text-lg font-semibold text-black mb-2 line-clamp-2" style={{fontFamily: 'Poppins', fontWeight: 600}}>
+                    <h3 className="text-base sm:text-lg font-semibold text-black mb-2 line-clamp-2" style={{fontFamily: 'Poppins', fontWeight: 600}}>
                       {apartment.title}
                     </h3>
                     
@@ -488,7 +488,7 @@ const Home: React.FC = () => {
                     </div>
                     
                     {/* Property Features */}
-                    <div className="flex items-center justify-between mb-4 text-sm text-gray-600">
+                    <div className="flex items-center justify-between mb-3 sm:mb-4 text-xs sm:text-sm text-gray-600">
                       <div className="flex items-center">
                         <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2H5a2 2 0 00-2-2z" />
@@ -520,7 +520,7 @@ const Home: React.FC = () => {
                     
                     {/* Amenities Preview */}
                     {apartment.amenities && apartment.amenities.length > 0 && (
-                      <div className="mb-4">
+                      <div className="mb-3 sm:mb-4">
                         <div className="flex flex-wrap gap-1">
                           {apartment.amenities.slice(0, 3).map((amenity, index) => (
                             <span 
@@ -556,10 +556,10 @@ const Home: React.FC = () => {
           </div>
 
           {/* See More Section */}
-          <div className="flex items-center justify-center mt-12 mb-16">
+          <div className="flex items-center justify-center mt-8 sm:mt-12 mb-12 sm:mb-16">
             <div className="flex items-center w-full">
               <div className="flex-1 h-px bg-gray-300"></div>
-              <span className="px-4 text-gray-600 text-sm font-poppins" style={{fontFamily: 'Poppins'}}>
+              <span className="px-3 sm:px-4 text-gray-600 text-xs sm:text-sm font-poppins" style={{fontFamily: 'Poppins'}}>
                 See more
               </span>
               <div className="flex-1 h-px bg-gray-300"></div>
