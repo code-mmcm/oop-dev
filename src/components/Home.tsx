@@ -154,7 +154,7 @@ const Home: React.FC = () => {
         <div 
           className="absolute inset-0 bg-cover bg-no-repeat"
           style={{
-            backgroundImage: "url('./avida.jpg')",
+            backgroundImage: "url('./heroimage.png')",
             backgroundPosition: 'center 30%',
             backgroundSize: 'cover',
             height: '70vh'
