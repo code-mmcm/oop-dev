@@ -1,222 +1,174 @@
-import React, { useState, useEffect, useRef } from 'react';
-import Lenis from '@studio-freight/lenis';
-import { useNavigate } from 'react-router-dom';
+import React, { useState, useRef, useEffect } from 'react';
+import { Link } from 'react-router-dom';
+import { useAuth } from '../contexts/AuthContext';
 
 const Navbar: React.FC = () => {
-  const [isScrolled, setIsScrolled] = useState(false);
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const lenisRef = useRef<Lenis | null>(null);
-  const navigate = useNavigate();
+  const { user, signOut } = useAuth();
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    // Initialize Lenis for smooth scrolling
-    lenisRef.current = new Lenis({
-      duration: 1.2,
-      easing: (t: number) => Math.min(1, 1.001 - Math.pow(2, -10 * t)),
-    });
-
-    function raf(time: number) {
-      lenisRef.current?.raf(time);
-      requestAnimationFrame(raf);
+  const handleLogout = async () => {
+    try {
+      setIsLoggingOut(true);
+      console.log('Starting logout process...');
+      await signOut();
+      console.log('Logout successful');
+      setIsDropdownOpen(false);
+    } catch (error) {
+      console.error('Error during logout:', error);
+      // Still close the dropdown even if there's an error
+      setIsDropdownOpen(false);
+    } finally {
+      setIsLoggingOut(false);
     }
+  };
 
-    requestAnimationFrame(raf);
+  const toggleDropdown = () => {
+    setIsDropdownOpen(!isDropdownOpen);
+  };
 
-    // Cleanup Lenis on unmount
-    return () => {
-      if (lenisRef.current) {
-        lenisRef.current.destroy();
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setIsDropdownOpen(false);
       }
     };
-  }, []);
 
-  useEffect(() => {
-    const handleScroll = () => {
-      const scrollTop = window.scrollY;
-      setIsScrolled(scrollTop > 10);
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
     };
-
-    window.addEventListener('scroll', handleScroll);
-    return () => window.removeEventListener('scroll', handleScroll);
   }, []);
-
-  const smoothScrollTo = (targetId: string) => {
-    const target = document.getElementById(targetId);
-    if (target && lenisRef.current) {
-      lenisRef.current.scrollTo(target, {
-        offset: -80, // Account for navbar height
-        duration: 1.5,
-        easing: (t: number) => Math.min(1, 1.001 - Math.pow(2, -10 * t)),
-      });
-    }
-  };
-
-  const toggleMobileMenu = () => {
-    setIsMobileMenuOpen(!isMobileMenuOpen);
-  };
-
-  const closeMobileMenu = () => {
-    setIsMobileMenuOpen(false);
-  };
 
   return (
-    <nav className={`fixed top-0 left-0 right-0 z-50 w-full py-4 transition-all duration-300 ${
-      isScrolled 
-        ? 'bg-white/70 backdrop-blur-md shadow-lg border-b border-white/20' 
-        : 'bg-white shadow-md'
-    }`}>
-      <div className="max-w-7xl w-full mx-auto flex items-center justify-between px-4 sm:px-8">
-        {/* Brand/Logo with house icon */}
-        <div 
-          onClick={() => navigate('/')}
-          className="flex items-center gap-2 cursor-pointer hover:scale-105 transition-transform duration-300"
-        >
-          <svg className="w-6 h-6 text-indigo-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
-          </svg>
-          <span className="text-xl sm:text-2xl font-bold text-indigo-700">Kelsey's</span>
-        </div>
-        
-        {/* Desktop Navigation Links - Hidden on mobile */}
-        <div className="hidden lg:flex items-center gap-8">
-          <button 
-            onClick={() => smoothScrollTo('rent-section')}
-            className="px-4 py-2 bg-indigo-100 text-indigo-700 font-semibold rounded-lg hover:bg-indigo-200 transition-all duration-300"
-          >
-            Rent
-          </button>
-          <button 
-            onClick={() => smoothScrollTo('buy-section')}
-            className="text-gray-800 font-medium hover:text-indigo-700 transition-colors duration-300"
-          >
-            Buy
-          </button>
-          <button 
-            onClick={() => smoothScrollTo('sell-section')}
-            className="text-gray-800 font-medium hover:text-indigo-700 transition-colors duration-300"
-          >
-            Sell
-          </button>
-          <div className="flex items-center gap-2 text-gray-800 font-medium hover:text-indigo-700 transition-colors duration-300 cursor-pointer">
-            <span>Manage Property</span>
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-            </svg>
+    <nav className="fixed top-0 left-0 right-0 bg-white z-50 shadow-sm">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="flex items-center h-16 relative">
+          {/* Left side - Logo */}
+          <div className="flex-shrink-0">
+            <Link to="/" className="block">
+              <img 
+                src="/logo-black.png" 
+                alt="Logo" 
+                className="h-14 w-auto hover:opacity-80 transition-opacity"
+              />
+            </Link>
           </div>
-          <div className="flex items-center gap-2 text-gray-800 font-medium hover:text-indigo-700 transition-colors duration-300 cursor-pointer">
-            <span>Resources</span>
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-            </svg>
+
+          {/* Center - Navigation Links */}
+          <div className="hidden md:block absolute left-1/2 transform -translate-x-1/2">
+            <div className="flex items-baseline space-x-8">
+              <Link
+                to="/"
+                className="text-black font-sans font-medium uppercase text-sm hover:text-gray-600 transition-colors"
+              >
+                HOME
+              </Link>
+              <a
+                href="#"
+                className="text-black font-sans font-medium uppercase text-sm hover:text-gray-600 transition-colors"
+              >
+                BOOKING
+              </a>
+              <a
+                href="#"
+                className="text-black font-sans font-medium uppercase text-sm hover:text-gray-600 transition-colors"
+              >
+                CALENDAR
+              </a>
+            </div>
           </div>
-        </div>
-        
-        {/* Desktop Action Buttons - Hidden on mobile */}
-        <div className="hidden lg:flex gap-4">
-          <button 
-            onClick={() => navigate('/login')}
-            className="px-6 py-3 border-2 border-indigo-700 text-indigo-700 font-semibold rounded-lg hover:bg-indigo-50 transition-all duration-300"
-          >
-            Login
-          </button>
-          <button className="px-6 py-3 bg-indigo-700 text-white font-semibold rounded-lg hover:bg-indigo-800 transition-all duration-300">
-            Sign up
-          </button>
-        </div>
 
-        {/* Mobile Menu Button */}
-        <button
-          onClick={toggleMobileMenu}
-          className="lg:hidden p-2 text-gray-800 hover:text-indigo-700 transition-colors duration-300"
-          aria-label="Toggle mobile menu"
-        >
-          {isMobileMenuOpen ? (
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          ) : (
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-            </svg>
-          )}
-        </button>
-      </div>
-
-      {/* Mobile Menu Overlay */}
-      {isMobileMenuOpen && (
-        <div className="lg:hidden">
-          {/* Mobile Menu */}
-          <div className="absolute top-full left-0 right-0 bg-white shadow-lg border-t border-gray-200 z-50">
-            <div className="px-4 py-6 space-y-4">
-              {/* Mobile Navigation Links */}
-              <div className="space-y-3">
-                <button 
-                  onClick={() => {
-                    smoothScrollTo('rent-section');
-                    closeMobileMenu();
-                  }}
-                  className="w-full text-left px-4 py-3 bg-indigo-100 text-indigo-700 font-semibold rounded-lg hover:bg-indigo-200 transition-all duration-300"
-                >
-                  Rent
-                </button>
-                <button 
-                  onClick={() => {
-                    smoothScrollTo('buy-section');
-                    closeMobileMenu();
-                  }}
-                  className="w-full text-left px-4 py-3 text-gray-800 font-medium hover:text-indigo-700 transition-colors duration-300"
-                >
-                  Buy
-                </button>
-                <button 
-                  onClick={() => {
-                    smoothScrollTo('sell-section');
-                    closeMobileMenu();
-                  }}
-                  className="w-full text-left px-4 py-3 text-gray-800 font-medium hover:text-indigo-700 transition-colors duration-300"
-                >
-                  Sell
-                </button>
-                <div className="px-4 py-3 text-gray-800 font-medium">
-                  <div className="flex items-center justify-between">
-                    <span>Manage Property</span>
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+          {/* Right side - User Menu */}
+          <div className="flex-shrink-0 ml-auto">
+            <div className="flex items-center space-x-4">
+              {user ? (
+                <div className="relative" ref={dropdownRef}>
+                  {/* Profile Picture Button */}
+                  <button
+                    onClick={toggleDropdown}
+                    className="w-10 h-10 rounded-full bg-gray-300 flex items-center justify-center hover:bg-gray-400 transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    <svg className="w-6 h-6 text-gray-600" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clipRule="evenodd" />
                     </svg>
-                  </div>
-                </div>
-                <div className="px-4 py-3 text-gray-800 font-medium">
-                  <div className="flex items-center justify-between">
-                    <span>Resources</span>
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                    </svg>
-                  </div>
-                </div>
-              </div>
+                  </button>
 
-              {/* Mobile Action Buttons */}
-              <div className="pt-4 border-t border-gray-200 space-y-3">
-                <button 
-                  onClick={() => {
-                    navigate('/login');
-                    closeMobileMenu();
-                  }}
-                  className="w-full px-6 py-3 border-2 border-indigo-700 text-indigo-700 font-semibold rounded-lg hover:bg-indigo-50 transition-all duration-300"
-                >
-                  Login
-                </button>
-                <button 
-                  className="w-full px-6 py-3 bg-indigo-700 text-white font-semibold rounded-lg hover:bg-indigo-800 transition-all duration-300"
-                  onClick={closeMobileMenu}
-                >
-                  Sign up
-                </button>
-              </div>
+                  {/* Dropdown Menu */}
+                  {isDropdownOpen && (
+                    <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 py-2 z-50">
+                      {/* User Info */}
+                      <div className="px-4 py-3 border-b border-gray-100">
+                        <div className="flex items-center space-x-3">
+                          <div className="w-8 h-8 rounded-full bg-gray-300 flex items-center justify-center">
+                            <svg className="w-4 h-4 text-gray-600" fill="currentColor" viewBox="0 0 20 20">
+                              <path fillRule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clipRule="evenodd" />
+                            </svg>
+                          </div>
+                          <span className="text-sm font-medium" style={{color: '#0B5858', fontFamily: 'Poppins'}}>
+                            {user.email?.split('@')[0] || 'username'}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Menu Items */}
+                      <div className="py-1">
+                        <a
+                          href="#"
+                          className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors"
+                          style={{fontFamily: 'Poppins'}}
+                        >
+                          Settings
+                        </a>
+                        <a
+                          href="#"
+                          className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors"
+                          style={{fontFamily: 'Poppins'}}
+                        >
+                          Help & Support
+                        </a>
+                        <button
+                          onClick={handleLogout}
+                          disabled={isLoggingOut}
+                          className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
+                          style={{fontFamily: 'Poppins'}}
+                        >
+                          {isLoggingOut ? (
+                            <>
+                              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-gray-400 mr-2"></div>
+                              Logging out...
+                            </>
+                          ) : (
+                            'Log out'
+                          )}
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <>
+                  <Link
+                    to="/login"
+                    className="text-black font-sans font-medium uppercase text-sm hover:text-gray-600 transition-colors"
+                  >
+                    LOGIN
+                  </Link>
+                  <Link
+                    to="/login"
+                    className="text-white px-4 py-2 rounded-lg font-sans font-medium uppercase text-sm transition-colors hover:opacity-90"
+                    style={{backgroundColor: '#0B5858'}}
+                  >
+                    SIGNUP
+                  </Link>
+                </>
+              )}
             </div>
           </div>
         </div>
-      )}
+      </div>
     </nav>
   );
 };

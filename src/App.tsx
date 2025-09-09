@@ -1,23 +1,18 @@
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
-import { Navbar, Footer } from './components';
-import { Home } from './pages';
-import './App.css';
-import Booking from './pages/Booking';
-import Login from './pages/Login';
+import { AuthProvider } from './contexts/AuthContext';
+import Home from './components/Home';
+import Login from './components/Login';
 
 function App() {
   return (
-    <Router>
-      <div className="App pt-20">
-        <Navbar />
+    <AuthProvider>
+      <Router>
         <Routes>
           <Route path="/" element={<Home />} />
-          <Route path="/booking" element={<Booking />} />
           <Route path="/login" element={<Login />} />
         </Routes>
-        <Footer />
-      </div>
-    </Router>
+      </Router>
+    </AuthProvider>
   );
 }
 
