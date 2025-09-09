@@ -117,37 +117,34 @@ const ManageUnits: React.FC = () => {
     return (
       <div className="min-h-screen bg-gray-50">
         <Navbar />
-        <div className="pt-24 px-12 py-8">
-          <div className="max-w-4xl mx-auto">
+        <div className="pt-24">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             {/* Header Section */}
-            <div className="flex justify-between items-center mb-6">
-              <div className="flex items-center">
-                <button
-                  onClick={() => setShowNewListing(false)}
-                  className="mr-4 p-2 text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-lg transition-colors"
-                >
-                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-                  </svg>
-                </button>
-                <h1 
-                  className="text-3xl font-bold text-black"
-                  style={{fontFamily: 'Poppins', fontWeight: 700}}
-                >
-                  Create New Listing
-                </h1>
-              </div>
+            <div className="flex items-center mb-6">
+              <button
+                onClick={() => setShowNewListing(false)}
+                className="mr-4 p-2 text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-lg transition-colors"
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                </svg>
+              </button>
+              <h1 
+                className="text-3xl font-bold text-black"
+                style={{fontFamily: 'Poppins', fontWeight: 700}}
+              >
+                Create New Listing
+              </h1>
             </div>
             <p className="text-gray-600 mb-8" style={{fontFamily: 'Poppins'}}>
               Fill out the form below to add a new property listing to your portfolio.
             </p>
-
-            {/* New Listing Form Component */}
-            <NewListingForm 
-              onSuccess={handleListingCreated} 
-              onCancel={() => setShowNewListing(false)} 
-            />
           </div>
+          
+          <NewListingForm 
+            onSuccess={handleListingCreated} 
+            onCancel={() => setShowNewListing(false)} 
+          />
         </div>
         <Footer />
       </div>
@@ -159,8 +156,8 @@ const ManageUnits: React.FC = () => {
     <div className="min-h-screen bg-gray-50">
       <Navbar />
       
-      <div className="pt-24 px-12 py-8">
-        <div className="max-w-7xl mx-auto">
+      <div className="pt-24 py-8">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           {/* Header Section */}
           <div className="flex justify-between items-center mb-6">
             <h1 
@@ -308,9 +305,6 @@ const ManageUnits: React.FC = () => {
                     <th className="px-6 py-3 text-left text-white font-medium w-24" style={{fontFamily: 'Poppins'}}>
                       Status
                     </th>
-                    <th className="px-6 py-3 text-left text-white font-medium w-16" style={{fontFamily: 'Poppins'}}>
-                      Slots
-                    </th>
                     <th className="px-6 py-3 text-left text-white font-medium w-20" style={{fontFamily: 'Poppins'}}>
                       Bookings
                     </th>
@@ -326,7 +320,7 @@ const ManageUnits: React.FC = () => {
                   {roleLoading ? (
                     // Role loading state - show loading message
                     <tr>
-                      <td colSpan={9} className="px-6 py-8 text-center">
+                      <td colSpan={8} className="px-6 py-8 text-center">
                         <div className="flex flex-col items-center">
                           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900 mb-4"></div>
                           <p className="text-gray-600" style={{fontFamily: 'Poppins'}}>Loading...</p>
@@ -336,7 +330,7 @@ const ManageUnits: React.FC = () => {
                   ) : !isAdmin ? (
                     // Access denied state - maintain table structure
                     <tr>
-                      <td className="px-6 py-8 text-center" colSpan={9}>
+                      <td className="px-6 py-8 text-center" colSpan={8}>
                         <div className="text-red-500">
                           <svg className="w-16 h-16 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
@@ -353,7 +347,7 @@ const ManageUnits: React.FC = () => {
                   ) : isLoading ? (
                     // Data loading state - show loading message
                     <tr>
-                      <td colSpan={9} className="px-6 py-8 text-center">
+                      <td colSpan={8} className="px-6 py-8 text-center">
                         <div className="flex flex-col items-center">
                           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900 mb-4"></div>
                           <p className="text-gray-600" style={{fontFamily: 'Poppins'}}>Loading units...</p>
@@ -363,7 +357,7 @@ const ManageUnits: React.FC = () => {
                   ) : error ? (
                     // Error state - maintain table structure
                     <tr>
-                      <td className="px-6 py-8 text-center" colSpan={9}>
+                      <td className="px-6 py-8 text-center" colSpan={8}>
                         <div className="text-red-500">
                           <svg className="w-16 h-16 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
@@ -380,7 +374,7 @@ const ManageUnits: React.FC = () => {
                   ) : filteredUnits.length === 0 ? (
                     // No units found - maintain table structure
                     <tr>
-                      <td className="px-6 py-8 text-center" colSpan={9}>
+                      <td className="px-6 py-8 text-center" colSpan={8}>
                         <div className="text-gray-500">
                           <svg className="w-16 h-16 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
@@ -454,13 +448,6 @@ const ManageUnits: React.FC = () => {
                           >
                             {unit.is_available ? 'Available' : 'Unavailable'}
                           </span>
-                        </td>
-
-                        {/* Slots */}
-                        <td className="px-6 py-3 align-top">
-                          <svg className="w-5 h-5 text-yellow-500" fill="currentColor" viewBox="0 0 20 20">
-                            <path fillRule="evenodd" d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z" clipRule="evenodd" />
-                          </svg>
                         </td>
 
                         {/* Bookings - placeholder for now */}

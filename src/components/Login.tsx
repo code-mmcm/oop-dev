@@ -31,7 +31,7 @@ const Login: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen flex relative" style={{backgroundColor: '#0B5858'}}>
+    <div className="min-h-screen flex flex-col lg:flex-row relative" style={{backgroundColor: '#0B5858'}}>
       {/* Background design image - full page */}
       <div 
         className="absolute inset-0 bg-cover bg-center bg-no-repeat z-0"
@@ -41,7 +41,7 @@ const Login: React.FC = () => {
       />
       
       {/* Left Section - Welcome Panel */}
-      <div className="flex-1 relative overflow-hidden z-10">
+      <div className="flex-1 relative overflow-hidden z-10 hidden lg:block">
         
         {/* Content */}
         <div className="relative z-10 p-12 h-full flex flex-col">
@@ -70,17 +70,23 @@ const Login: React.FC = () => {
       </div>
       
       {/* Right Section - Login Form */}
-      <div className="flex-1 flex items-center justify-center p-12 relative z-10">
-        <div className="w-full max-w-lg">
+      <div className="flex-1 flex flex-col lg:items-center lg:justify-center p-4 sm:p-6 md:p-8 lg:p-12 relative z-10">
+        <div className="w-full max-w-lg flex-1 flex flex-col justify-center">
+          {/* Mobile Logo - Center */}
+          <div className="lg:hidden pb-4 flex justify-center">
+            <Link to="/" className="block">
+              <img src="/logo.png" alt="kelsey's homestay" className="h-20 sm:h-24 w-auto hover:opacity-80 transition-opacity" />
+            </Link>
+          </div>
           {/* Login Form Card */}
-          <div className="bg-white rounded-3xl shadow-xl p-10">
+          <div className="bg-white rounded-2xl sm:rounded-3xl shadow-xl p-6 sm:p-8 md:p-10">
             {/* Title */}
-            <h2 className="text-black text-center text-3xl mb-2" style={{fontFamily: 'Poppins', fontWeight: 700}}>
+            <h2 className="text-black text-center text-2xl sm:text-3xl mb-2" style={{fontFamily: 'Poppins', fontWeight: 700}}>
               Log In
             </h2>
             
             {/* Sign Up Link */}
-            <p className="text-gray-600 text-center text-sm mb-8" style={{fontFamily: 'Poppins', fontWeight: 400}}>
+            <p className="text-gray-600 text-center text-xs sm:text-sm mb-6 sm:mb-8" style={{fontFamily: 'Poppins', fontWeight: 400}}>
               Don't have an account? <a href="#" className="underline" style={{color: '#0B5858', fontFamily: 'Poppins', fontWeight: 600}}>Sign Up</a>
             </p>
 
@@ -92,11 +98,11 @@ const Login: React.FC = () => {
             )}
             
             {/* Form */}
-            <form onSubmit={handleSubmit} className="space-y-6 animate-fade-in">
+            <form onSubmit={handleSubmit} className="space-y-4 sm:space-y-6 animate-fade-in">
               {/* Email Field */}
               <div className="relative">
-                <div className="absolute -left-1 top-1/2 transform -translate-y-1/2 w-10 h-10 rounded-xl flex items-center justify-center z-10" style={{backgroundColor: '#0B5858'}}>
-                  <svg className="h-5 w-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <div className="absolute -left-1 top-1/2 transform -translate-y-1/2 w-8 h-8 sm:w-10 sm:h-10 rounded-lg sm:rounded-xl flex items-center justify-center z-10" style={{backgroundColor: '#0B5858'}}>
+                  <svg className="h-4 w-4 sm:h-5 sm:w-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 4.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
                   </svg>
                 </div>
@@ -106,15 +112,15 @@ const Login: React.FC = () => {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   required
-                  className="w-full py-2 pl-12 pr-4 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-300 hover:border-gray-400 hover:shadow-md"
+                  className="w-full py-2 sm:py-3 pl-10 sm:pl-12 pr-4 border border-gray-300 rounded-lg sm:rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-300 hover:border-gray-400 hover:shadow-md text-sm sm:text-base"
                   style={{fontFamily: 'Poppins', fontWeight: 400}}
                 />
               </div>
               
               {/* Password Field */}
               <div className="relative">
-                <div className="absolute -left-1 top-1/2 transform -translate-y-1/2 w-10 h-10 rounded-xl flex items-center justify-center z-10" style={{backgroundColor: '#0B5858'}}>
-                  <svg className="h-5 w-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <div className="absolute -left-1 top-1/2 transform -translate-y-1/2 w-8 h-8 sm:w-10 sm:h-10 rounded-lg sm:rounded-xl flex items-center justify-center z-10" style={{backgroundColor: '#0B5858'}}>
+                  <svg className="h-4 w-4 sm:h-5 sm:w-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
                   </svg>
                 </div>
@@ -124,13 +130,13 @@ const Login: React.FC = () => {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   required
-                  className="w-full py-2 pl-12 pr-4 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-300 hover:border-gray-400 hover:shadow-md"
+                  className="w-full py-2 sm:py-3 pl-10 sm:pl-12 pr-4 border border-gray-300 rounded-lg sm:rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-300 hover:border-gray-400 hover:shadow-md text-sm sm:text-base"
                   style={{fontFamily: 'Poppins', fontWeight: 400}}
                 />
               </div>
               
               {/* Options */}
-              <div className="flex items-center justify-between">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-0">
                 <div className="flex items-center">
                   <input
                     id="remember-me"
@@ -138,11 +144,11 @@ const Login: React.FC = () => {
                     type="checkbox"
                     className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
                   />
-                  <label htmlFor="remember-me" className="ml-2 block text-sm text-gray-700 font-poppins" style={{fontFamily: 'Poppins', fontWeight: 400}}>
+                  <label htmlFor="remember-me" className="ml-2 block text-xs sm:text-sm text-gray-700 font-poppins" style={{fontFamily: 'Poppins', fontWeight: 400}}>
                     Remember me
                   </label>
                 </div>
-                <div className="text-sm">
+                <div className="text-xs sm:text-sm">
                   <a href="#" className="hover:opacity-80" style={{color: '#0B5858', fontFamily: 'Poppins', fontWeight: 400}}>
                     Forgot password?
                   </a>
@@ -153,7 +159,7 @@ const Login: React.FC = () => {
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full py-3 px-4 rounded-3xl text-white text-lg transition-all duration-300 hover:opacity-90 hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed relative overflow-hidden group"
+                className="w-full py-2 sm:py-3 px-4 rounded-2xl sm:rounded-3xl text-white text-base sm:text-lg transition-all duration-300 hover:opacity-90 hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed relative overflow-hidden group"
                 style={{backgroundColor: '#0B5858', fontFamily: 'Poppins', fontWeight: 600}}
               >
                 {loading ? (
