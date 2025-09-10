@@ -87,12 +87,12 @@ const Navbar: React.FC = () => {
               >
                 HOME
               </Link>
-              <a
-                href="#"
+              <Link
+                to="/booking"
                 className="text-black font-sans font-medium uppercase text-sm hover:text-gray-600 transition-colors"
               >
                 BOOKING
-              </a>
+              </Link>
               <a
                 href="#"
                 className="text-black font-sans font-medium uppercase text-sm hover:text-gray-600 transition-colors"
@@ -245,13 +245,13 @@ const Navbar: React.FC = () => {
               >
                 HOME
               </Link>
-              <a
-                href="#"
+              <Link
+                to="/booking"
                 onClick={() => setIsMobileMenuOpen(false)}
                 className="block px-3 py-2 text-black font-sans font-medium uppercase text-sm hover:text-gray-600 hover:bg-gray-50 rounded-md transition-colors text-left"
               >
                 BOOKING
-              </a>
+              </Link>
               <a
                 href="#"
                 onClick={() => setIsMobileMenuOpen(false)}
