@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
@@ -13,27 +13,33 @@ interface UserWithRole extends UserProfile {
 
 const ManageUsers: React.FC = () => {
   const navigate = useNavigate();
-  const { isAdmin, loading, user } = useAuth();
+  const { isAdmin, roleLoading, user, loading } = useAuth();
   const [users, setUsers] = useState<UserWithRole[]>([]);
   const [loadingUsers, setLoadingUsers] = useState(true);
   const [updatingRole, setUpdatingRole] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
+  const hasFetchedUsers = useRef(false);
 
   useEffect(() => {
-    if (!loading) {
+    if (!loading && !roleLoading) {
       // If user is not authenticated, redirect to parent directory
       if (!user) {
         navigate('../');
         return;
       }
       
-      // If user is authenticated but not admin, redirect to home
+      // If user is authenticated but not admin, redirect to parent directory
       if (!isAdmin) {
-        navigate('/');
+        navigate('../');
         return;
       }
     }
-  }, [loading, user, isAdmin, navigate]);
+  }, [loading, roleLoading, user, isAdmin, navigate]);
+
+  // Reset fetch flag when user changes
+  useEffect(() => {
+    hasFetchedUsers.current = false;
+  }, [user]);
 
   useEffect(() => {
     let isMounted = true;
@@ -65,6 +71,9 @@ const ManageUsers: React.FC = () => {
           // Continue without roles data - users will default to 'user' role
         }
 
+        // Debug: Log the actual user data structure
+        console.log('Users data from database:', usersData);
+        
         // Combine user data with role data
         let usersWithRoles = usersData?.map(user => {
           const userRole = rolesData?.find(role => role.user_id === user.id);
@@ -119,15 +128,16 @@ const ManageUsers: React.FC = () => {
       }
     };
 
-    // Only fetch if user is authenticated and is admin
-    if (!loading && user && isAdmin) {
+    // Only fetch once when component mounts and user is confirmed to be admin
+    if (!loading && !roleLoading && user && isAdmin && !hasFetchedUsers.current) {
+      hasFetchedUsers.current = true;
       fetchUsers();
     }
 
     return () => {
       isMounted = false;
     };
-  }, [loading, user, isAdmin]);
+  }, [loading, roleLoading, user, isAdmin]); // Keep dependencies but add condition to prevent re-fetch
 
   const updateUserRole = async (userId: string, newRole: string) => {
     try {
@@ -174,44 +184,10 @@ const ManageUsers: React.FC = () => {
   };
 
   const filteredUsers = users.filter(user =>
-    user.fullname.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    user.email.toLowerCase().includes(searchTerm.toLowerCase())
+    (user.fullname || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (user.email || '').toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  if (loading || loadingUsers) {
-    return (
-      <div className="min-h-screen bg-gray-50">
-        <Navbar />
-        <div className="pt-24 flex items-center justify-center">
-          <div className="text-center">
-            <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-[#0B5858] mx-auto mb-4"></div>
-            <p className="text-lg text-gray-600" style={{fontFamily: 'Poppins'}}>Loading Users...</p>
-          </div>
-        </div>
-        <Footer />
-      </div>
-    );
-  }
-
-  if (!isAdmin) {
-    return (
-      <div className="min-h-screen bg-gray-50">
-        <Navbar />
-        <div className="pt-24 flex items-center justify-center">
-          <div className="text-center bg-white p-8 rounded-lg shadow-lg">
-            <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
-              <svg className="w-8 h-8 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
-              </svg>
-            </div>
-            <h1 className="text-2xl font-bold text-gray-900 mb-4" style={{fontFamily: 'Poppins'}}>Access Denied</h1>
-            <p className="text-gray-600" style={{fontFamily: 'Poppins'}}>You don't have permission to access this page.</p>
-          </div>
-        </div>
-        <Footer />
-      </div>
-    );
-  }
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -293,7 +269,45 @@ const ManageUsers: React.FC = () => {
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredUsers.length === 0 ? (
+                  {loading || roleLoading ? (
+                    // Role loading state - show loading message
+                    <tr>
+                      <td colSpan={6} className="px-6 py-8 text-center">
+                        <div className="flex flex-col items-center">
+                          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900 mb-4"></div>
+                          <p className="text-gray-600" style={{fontFamily: 'Poppins'}}>Loading...</p>
+                        </div>
+                      </td>
+                    </tr>
+                  ) : !isAdmin ? (
+                    // Access denied state - maintain table structure
+                    <tr>
+                      <td className="px-6 py-8 text-center" colSpan={6}>
+                        <div className="text-red-500">
+                          <svg className="w-16 h-16 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                          </svg>
+                          <p className="text-lg font-semibold mb-2" style={{fontFamily: 'Poppins'}}>
+                            Access Denied
+                          </p>
+                          <p className="text-gray-600" style={{fontFamily: 'Poppins'}}>
+                            You need admin privileges to access the Manage Users page.
+                          </p>
+                        </div>
+                      </td>
+                    </tr>
+                  ) : loadingUsers ? (
+                    // Data loading state - show loading message
+                    <tr>
+                      <td colSpan={6} className="px-6 py-8 text-center">
+                        <div className="flex flex-col items-center">
+                          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900 mb-4"></div>
+                          <p className="text-gray-600" style={{fontFamily: 'Poppins'}}>Loading users...</p>
+                        </div>
+                      </td>
+                    </tr>
+                  ) : filteredUsers.length === 0 ? (
+                    // No users found - maintain table structure
                     <tr>
                       <td className="px-6 py-8 text-center" colSpan={6}>
                         <div className="text-gray-500">
@@ -322,15 +336,15 @@ const ManageUsers: React.FC = () => {
                           <div className="flex items-center space-x-3">
                             <div className="h-12 w-12 rounded-full bg-[#0B5858] flex items-center justify-center">
                               <span className="text-sm font-medium text-white" style={{fontFamily: 'Poppins'}}>
-                                {user.fullname.charAt(0).toUpperCase()}
+                                {(user.fullname || 'U').charAt(0).toUpperCase()}
                               </span>
                             </div>
                             <div>
                               <div className="font-medium text-gray-900" style={{fontFamily: 'Poppins'}}>
-                                {user.fullname}
+                                {user.fullname || 'No Name'}
                               </div>
                               <div className="text-sm text-gray-500" style={{fontFamily: 'Poppins'}}>
-                                {user.email}
+                                {user.email || 'No Email'}
                               </div>
                             </div>
                           </div>
@@ -362,11 +376,11 @@ const ManageUsers: React.FC = () => {
                           <span 
                             className="inline-flex px-3 py-1 rounded-full text-xs font-medium text-white"
                             style={{
-                              backgroundColor: user.role === 'admin' ? '#F10E3B' : user.role === 'moderator' ? '#FACC15' : '#0B5858',
+                              backgroundColor: user.role === 'admin' ? '#F10E3B' : user.role === 'agent' ? '#FACC15' : '#0B5858',
                               fontFamily: 'Poppins'
                             }}
                           >
-                            {user.role === 'admin' ? 'Admin' : user.role === 'moderator' ? 'Moderator' : 'User'}
+                            {user.role === 'admin' ? 'Admin' : user.role === 'agent' ? 'Agent' : 'User'}
                           </span>
                         </td>
 
@@ -380,9 +394,9 @@ const ManageUsers: React.FC = () => {
                               className="border border-gray-300 rounded-md px-3 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-[#0B5858] disabled:opacity-50 disabled:cursor-not-allowed"
                               style={{fontFamily: 'Poppins'}}
                             >
-                              <option value="user">User</option>
-                              <option value="admin">Admin</option>
-                              <option value="moderator">Moderator</option>
+                            <option value="user">User</option>
+                            <option value="admin">Admin</option>
+                            <option value="agent">Agent</option>
                             </select>
                             {updatingRole === user.id && (
                               <div className="ml-2">
@@ -410,16 +424,16 @@ const ManageUsers: React.FC = () => {
                 >
                   User
                 </span>
-                <span className="text-sm text-gray-600" style={{fontFamily: 'Poppins'}}>Can browse and book properties</span>
+                <span className="text-sm text-gray-600" style={{fontFamily: 'Poppins'}}>Can browse</span>
               </div>
               <div className="flex items-center">
                 <span 
                   className="inline-flex px-3 py-1 text-xs font-semibold rounded-full text-white mr-3"
                   style={{backgroundColor: '#FACC15', fontFamily: 'Poppins'}}
                 >
-                  Moderator
+                  Agent
                 </span>
-                <span className="text-sm text-gray-600" style={{fontFamily: 'Poppins'}}>Can manage listings and moderate content</span>
+                <span className="text-sm text-gray-600" style={{fontFamily: 'Poppins'}}>Can make bookings only</span>
               </div>
               <div className="flex items-center">
                 <span 

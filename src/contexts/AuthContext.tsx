@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useState } from 'react'
+import React, { createContext, useContext, useEffect, useState, useRef } from 'react'
 import type { User, Session } from '@supabase/supabase-js'
 import { supabase } from '../lib/supabase'
 import { AuthService } from '../services/authService'
@@ -39,10 +39,32 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [user, setUser] = useState<User | null>(null)
   const [session, setSession] = useState<Session | null>(null)
   const [loading, setLoading] = useState(true)
-  const [userRole, setUserRole] = useState<UserRole | null>(null)
-  const [userProfile, setUserProfile] = useState<UserProfile | null>(null)
-  const [isAdmin, setIsAdmin] = useState<boolean>(false)
+  const [userRole, setUserRole] = useState<UserRole | null>(() => {
+    try {
+      const saved = localStorage.getItem('userRole')
+      return saved ? JSON.parse(saved) : null
+    } catch {
+      return null
+    }
+  })
+  const [userProfile, setUserProfile] = useState<UserProfile | null>(() => {
+    try {
+      const saved = localStorage.getItem('userProfile')
+      return saved ? JSON.parse(saved) : null
+    } catch {
+      return null
+    }
+  })
+  const [isAdmin, setIsAdmin] = useState<boolean>(() => {
+    try {
+      const saved = localStorage.getItem('isAdmin')
+      return saved === 'true'
+    } catch {
+      return false
+    }
+  })
   const [roleLoading, setRoleLoading] = useState(false)
+  const hasFetchedData = useRef(false)
 
   // Function to fetch user role and profile data
   const fetchUserData = async () => {
@@ -55,21 +77,28 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     try {
       setRoleLoading(true)
-      const [roleData, profileData, adminStatus] = await Promise.all([
+      const [roleData, profileData] = await Promise.all([
         AuthService.getUserRole(),
-        AuthService.getUserProfile(),
-        AuthService.isAdmin()
+        AuthService.getUserProfile()
       ])
 
       setUserRole(roleData)
       setUserProfile(profileData)
-      const finalAdminStatus = adminStatus || (roleData?.role === 'admin')
+      const finalAdminStatus = roleData?.role === 'admin'
       setIsAdmin(finalAdminStatus)
+      
+      // Save to localStorage for persistence
+      try {
+        localStorage.setItem('userRole', JSON.stringify(roleData))
+        localStorage.setItem('userProfile', JSON.stringify(profileData))
+        localStorage.setItem('isAdmin', finalAdminStatus.toString())
+      } catch (error) {
+        console.error('Error saving user data to localStorage:', error)
+      }
     } catch (err) {
       console.error('Error fetching user data:', err)
-      setUserRole(null)
-      setUserProfile(null)
-      setIsAdmin(false)
+      // Don't clear anything on error - keep existing data
+      // The data from localStorage will still be available
     } finally {
       setRoleLoading(false)
     }
@@ -112,24 +141,27 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           }
         }
         
-        // Refresh user data after sign in
-        console.log('Refreshing user data after sign in');
-        fetchUserData();
+        // Reset fetch flag so useEffect can fetch data for new user
+        // console.log('User signed in, resetting fetch flag');
+        // hasFetchedData.current = false;
       }
     })
 
     return () => subscription.unsubscribe()
   }, [])
 
-  // Fetch user data when user changes
+  // Fetch user data when user changes (only fetch once per user)
   useEffect(() => {
-    if (user && !loading) {
+    if (user && !loading && !hasFetchedData.current) {
+      hasFetchedData.current = true
       fetchUserData()
-    } else if (!user) {
+    } else if (!user && !loading) {
+      // Only clear state, NOT localStorage (keep data for when user comes back)
       setUserRole(null)
       setUserProfile(null)
       setIsAdmin(false)
       setRoleLoading(false)
+      hasFetchedData.current = false
     }
   }, [user, loading])
 
@@ -234,6 +266,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setUserProfile(null)
     setIsAdmin(false)
     setRoleLoading(false)
+    hasFetchedData.current = false
+    
+    // Clear localStorage on logout
+    try {
+      localStorage.removeItem('userRole')
+      localStorage.removeItem('userProfile')
+      localStorage.removeItem('isAdmin')
+    } catch (error) {
+      console.error('Error clearing localStorage:', error)
+    }
   }
 
   const refreshUserData = async () => {
