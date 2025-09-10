@@ -27,19 +27,12 @@ export class AuthService {
         console.error('Error fetching user role:', error);
         console.log('No role found in user_roles table, returning default user role');
         
-        // Get user info separately
-        const { data: userData } = await supabase
-          .from('users')
-          .select('fullname, email')
-          .eq('id', user.id)
-          .single();
-
-        // Return default user role without inserting to database
+        // Return default user role without additional fetching
         return {
           role: 'user',
           user_id: user.id,
-          fullname: userData?.fullname || '',
-          email: userData?.email || ''
+          fullname: '', // Will be populated by getUserProfile if needed
+          email: user.email || ''
         };
       }
 
@@ -116,20 +109,10 @@ export class AuthService {
         return null;
       }
 
-      // Get user role separately to avoid join issues
-      const { data: roleData, error: roleError } = await supabase
-        .from('user_roles')
-        .select('role')
-        .eq('user_id', user.id)
-        .single();
-
-      if (roleError) {
-        console.log('No role found, using default user role');
-      }
-
+      // Set default user role without additional fetching
       return {
         ...userData,
-        role: roleData?.role || 'user'
+        role: 'user' // Default role, can be overridden by getUserRole if needed
       };
     } catch (error) {
       console.error('Error in getUserProfile:', error);

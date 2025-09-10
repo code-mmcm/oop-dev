@@ -4,6 +4,7 @@ import Navbar from './Navbar';
 import Footer from './Footer';
 import { useAuth } from '../contexts/AuthContext';
 import { UserService } from '../services/userService';
+import { supabase } from '../lib/supabase';
 import type { UserProfile } from '../types/user';
 
 const ProfileCard: React.FC = () => {
@@ -24,10 +25,41 @@ const ProfileCard: React.FC = () => {
       try {
         setIsLoading(true);
         setError(null);
-        const profileData = await UserService.getUserProfile(user.id);
-        setProfile(profileData);
+        console.log('ProfileCard: Fetching profile for user ID:', user.id);
+        
+        // Try UserService first
+        const { data: profileData, error: profileError } = await UserService.getUserProfile(user.id);
+        
+        if (profileError || !profileData) {
+          console.log('ProfileCard: UserService failed, trying direct Supabase query');
+          
+          // Fallback: Direct Supabase query
+          const { data: directData, error: directError } = await supabase
+            .from('users')
+            .select('*')
+            .eq('id', user.id)
+            .single();
+
+          if (directError) {
+            console.error('ProfileCard: Direct query also failed:', directError);
+            setError('Failed to load profile data. Please try again later.');
+            return;
+          }
+
+          if (!directData) {
+            console.error('ProfileCard: No profile data found for user:', user.id);
+            setError('Profile not found. Please contact support.');
+            return;
+          }
+
+          console.log('ProfileCard: Profile data loaded via direct query:', directData);
+          setProfile(directData);
+        } else {
+          console.log('ProfileCard: Profile data loaded via UserService:', profileData);
+          setProfile(profileData);
+        }
       } catch (err) {
-        console.error('Error fetching profile:', err);
+        console.error('ProfileCard: Unexpected error fetching profile:', err);
         setError('Failed to load profile data. Please try again later.');
       } finally {
         setIsLoading(false);
@@ -59,7 +91,11 @@ const ProfileCard: React.FC = () => {
   };
 
   // Format date for display
-  const formatDate = (dateString: string) => {
+  const formatDate = (dateString: string | undefined | null) => {
+    if (!dateString) {
+      return 'Not provided';
+    }
+    
     try {
       const date = new Date(dateString);
       return date.toLocaleDateString('en-US', { 
@@ -73,7 +109,11 @@ const ProfileCard: React.FC = () => {
   };
 
   // Format phone number for display
-  const formatPhoneNumber = (phoneNumber: number) => {
+  const formatPhoneNumber = (phoneNumber: number | undefined | null) => {
+    if (!phoneNumber) {
+      return 'Not provided';
+    }
+    
     const phoneStr = phoneNumber.toString();
     if (phoneStr.length === 12 && phoneStr.startsWith('63')) {
       return `+${phoneStr.slice(0, 2)} ${phoneStr.slice(2, 5)} ${phoneStr.slice(5, 8)} ${phoneStr.slice(8)}`;
@@ -251,10 +291,10 @@ const ProfileCard: React.FC = () => {
                   <div className="flex items-center justify-between">
                     <div>
                       <h1 className="text-xl sm:text-2xl text-black" style={{fontFamily: 'Poppins', fontWeight: 700}}>
-                        {profile.fullname}
+                        {profile.fullname || 'User'}
                       </h1>
                       <p className="text-xs sm:text-sm text-gray-500 -mt-0.5" style={{fontFamily: 'Poppins', fontWeight: 600}}>
-                        {profile.email}
+                        {profile.email || 'No email provided'}
                       </p>
                     </div>
                     <button onClick={handleEditAccount} className="px-3 sm:px-4 py-2 rounded-lg text-white text-xs sm:text-sm" style={{backgroundColor: '#0B5858', fontFamily: 'Poppins', fontWeight: 600}}>Edit account</button>
@@ -279,7 +319,7 @@ const ProfileCard: React.FC = () => {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6 px-4 sm:px-5 py-4">
                 <div className="space-y-0.5 sm:space-y-1">
                   <p className="text-sm sm:text-base text-black" style={{fontFamily: 'Poppins', fontWeight: 600}}>
-                    {profile.fullname}
+                    {profile.fullname || 'Not provided'}
                   </p>
                   <p className="text-[11px] sm:text-xs text-gray-500" style={{fontFamily: 'Poppins', fontWeight: 400}}>Full name</p>
                 </div>
@@ -291,13 +331,13 @@ const ProfileCard: React.FC = () => {
                 </div>
                 <div className="space-y-0.5 sm:space-y-1">
                   <p className="text-sm sm:text-base text-black" style={{fontFamily: 'Poppins', fontWeight: 600}}>
-                    {profile.gender}
+                    {profile.gender || 'Not provided'}
                   </p>
                   <p className="text-[11px] sm:text-xs text-gray-500" style={{fontFamily: 'Poppins', fontWeight: 400}}>Gender</p>
                 </div>
                 <div className="space-y-0.5 sm:space-y-1">
                   <p className="text-sm sm:text-base text-black" style={{fontFamily: 'Poppins', fontWeight: 600}}>
-                    {profile.address}
+                    {profile.address || 'Not provided'}
                   </p>
                   <p className="text-[11px] sm:text-xs text-gray-500" style={{fontFamily: 'Poppins', fontWeight: 400}}>Location</p>
                 </div>
@@ -339,7 +379,7 @@ const ProfileCard: React.FC = () => {
               <div className="px-4 sm:px-5 py-4 space-y-4">
                 <div>
                   <p className="text-sm sm:text-base text-black" style={{fontFamily: 'Poppins', fontWeight: 600}}>
-                    {profile.email}
+                    {profile.email || 'Not provided'}
                   </p>
                   <p className="text-[11px] sm:text-xs text-gray-500" style={{fontFamily: 'Poppins', fontWeight: 400}}>email address</p>
                 </div>
@@ -351,7 +391,7 @@ const ProfileCard: React.FC = () => {
                 </div>
                 <div>
                   <p className="text-sm sm:text-base text-black" style={{fontFamily: 'Poppins', fontWeight: 600}}>
-                    {profile.fullname}
+                    {profile.fullname || 'Not provided'}
                   </p>
                   <p className="text-[11px] sm:text-xs text-gray-500" style={{fontFamily: 'Poppins', fontWeight: 400}}>Full Name</p>
                 </div>

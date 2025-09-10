@@ -1,4 +1,4 @@
-import React, { useMemo, useRef, useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { logger } from '../lib/logger';
@@ -199,6 +199,7 @@ const SignUp: React.FC = () => {
     }
   }, [countryCode]);
 
+
   // Close dropdown when clicking outside
   React.useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -266,21 +267,49 @@ const SignUp: React.FC = () => {
       return;
     }
 
+    // Prevent double submission
+    if (loading) {
+      console.log('SignUp Component: Already processing, ignoring duplicate submission');
+      return;
+    }
+
     setLoading(true);
     setError('');
     logger.info('Attempting user sign up', { email });
 
     try {
-      const { error } = await signUp(email, password);
+      // Prepare user profile data
+      const fullname = `${firstName.trim()} ${lastName.trim()}`;
+      const birthDate = `${birthYear}-${birthMonth.padStart(2, '0')}-${birthDay.padStart(2, '0')}`;
+      const address = `${street.trim()}, ${barangay.trim()}, ${city.trim()}, ${zipCode.trim()}`;
+      
+      // Convert phone number to numeric (remove spaces and country code for storage)
+      const phoneDigits = phone.replace(/\D/g, '');
+      const contactNumber = parseInt(phoneDigits, 10);
+
+      const userProfile = {
+        fullname,
+        birth: birthDate,
+        contact_number: contactNumber,
+        gender,
+        address,
+      };
+
+      console.log('SignUp Component: Calling signUp with profile:', userProfile);
+
+      const { error } = await signUp(email, password, userProfile);
       if (error) {
+        console.error('SignUp Component: Sign up error', error);
         logger.error('Sign up error', error);
         setError(error.message || 'Sign up failed');
         return;
       }
 
+      console.log('SignUp Component: Sign up success, redirecting to home');
       logger.info('Sign up success, redirecting to home');
       navigate('/');
     } catch (err) {
+      console.error('SignUp Component: Unexpected sign up exception', err);
       logger.error('Unexpected sign up exception', err);
       setError('An unexpected error occurred');
     } finally {
