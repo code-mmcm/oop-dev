@@ -246,7 +246,7 @@ const AdminPanel: React.FC = React.memo(() => {
   }, [loading, user, isAdmin, navigate, fetchStats, fetchWeeklyUserData, fetchWeeklyBookingData]);
 
 
-  if (loading || loadingStats) {
+  if (loading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center">
         <div className="text-center">
@@ -275,8 +275,16 @@ const AdminPanel: React.FC = React.memo(() => {
 
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 relative">
       <Navbar />
+      {loadingStats && (
+        <div className="fixed inset-0 bg-white flex items-center justify-center z-50">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#0B5858] mx-auto mb-3"></div>
+            <p className="text-lg text-gray-600" style={{fontFamily: 'Poppins'}}>Loading Dashboard...</p>
+          </div>
+        </div>
+      )}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 pt-24">
         {/* Header */}
         <div className="mb-8">
@@ -332,13 +340,7 @@ const AdminPanel: React.FC = React.memo(() => {
               </div>
               <div>
                 <p className="text-white/80 text-sm font-medium mb-1" style={{fontFamily: 'Poppins'}}>Total Users</p>
-                {loadingStats ? (
-                  <div className="animate-pulse">
-                    <div className="h-12 bg-white/20 rounded mb-2"></div>
-                  </div>
-                ) : (
-                  <p className="text-4xl font-bold text-white mb-2" style={{fontFamily: 'Poppins'}}>{stats.totalUsers}</p>
-                )}
+                <p className="text-4xl font-bold text-white mb-2" style={{fontFamily: 'Poppins'}}>{stats.totalUsers}</p>
               </div>
             </div>
             <div className="absolute -bottom-4 -right-4 w-20 h-20 bg-white/5 rounded-full group-hover:scale-110 transition-transform duration-500"></div>
@@ -360,13 +362,7 @@ const AdminPanel: React.FC = React.memo(() => {
               </div>
               <div>
                 <p className="text-white/80 text-sm font-medium mb-1" style={{fontFamily: 'Poppins'}}>Total Listings</p>
-                {loadingStats ? (
-                  <div className="animate-pulse">
-                    <div className="h-12 bg-white/20 rounded mb-2"></div>
-                  </div>
-                ) : (
-                  <p className="text-4xl font-bold text-white mb-2" style={{fontFamily: 'Poppins'}}>{stats.totalListings}</p>
-                )}
+                <p className="text-4xl font-bold text-white mb-2" style={{fontFamily: 'Poppins'}}>{stats.totalListings}</p>
               </div>
             </div>
             <div className="absolute -bottom-4 -right-4 w-20 h-20 bg-white/5 rounded-full group-hover:scale-110 transition-transform duration-500"></div>
@@ -388,13 +384,7 @@ const AdminPanel: React.FC = React.memo(() => {
               </div>
               <div>
                 <p className="text-black/70 text-sm font-medium mb-1" style={{fontFamily: 'Poppins'}}>Total Bookings</p>
-                {loadingStats ? (
-                  <div className="animate-pulse">
-                    <div className="h-12 bg-black/20 rounded mb-2"></div>
-                  </div>
-                ) : (
-                  <p className="text-4xl font-bold text-black mb-2" style={{fontFamily: 'Poppins'}}>{stats.totalBookings}</p>
-                )}
+                <p className="text-4xl font-bold text-black mb-2" style={{fontFamily: 'Poppins'}}>{stats.totalBookings}</p>
               </div>
             </div>
             <div className="absolute -bottom-4 -right-4 w-20 h-20 bg-white/10 rounded-full group-hover:scale-110 transition-transform duration-500"></div>
@@ -413,37 +403,29 @@ const AdminPanel: React.FC = React.memo(() => {
                 <span style={{fontFamily: 'Poppins'}}>Users</span>
               </div>
             </div>
-            {loadingStats || weeklyUserData.length === 0 ? (
-              <div className="flex items-center justify-center h-[300px]">
-                <div className="animate-pulse">
-                  <div className="h-64 w-full bg-gray-200 rounded"></div>
-                </div>
-              </div>
-            ) : (
-              <ResponsiveContainer width="100%" height={300}>
-                <LineChart data={chartData.weeklyUserGrowth}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                  <XAxis dataKey="name" stroke="#666" fontSize={12} />
-                  <YAxis stroke="#666" fontSize={12} />
-                  <Tooltip 
-                    contentStyle={{
-                      backgroundColor: 'white',
-                      border: '1px solid #e5e7eb',
-                      borderRadius: '8px',
-                      boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
-                      fontSize: '12px'
-                    }}
-                  />
-                  <Line 
-                    type="monotone" 
-                    dataKey="users" 
-                    stroke="#10B981" 
-                    strokeWidth={2}
-                    dot={{ fill: '#10B981', strokeWidth: 2, r: 4 }}
-                  />
-                </LineChart>
-              </ResponsiveContainer>
-            )}
+            <ResponsiveContainer width="100%" height={300}>
+              <LineChart data={chartData.weeklyUserGrowth}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                <XAxis dataKey="name" stroke="#666" fontSize={12} />
+                <YAxis stroke="#666" fontSize={12} />
+                <Tooltip 
+                  contentStyle={{
+                    backgroundColor: 'white',
+                    border: '1px solid #e5e7eb',
+                    borderRadius: '8px',
+                    boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
+                    fontSize: '12px'
+                  }}
+                />
+                <Line 
+                  type="monotone" 
+                  dataKey="users" 
+                  stroke="#10B981" 
+                  strokeWidth={2}
+                  dot={{ fill: '#10B981', strokeWidth: 2, r: 4 }}
+                />
+              </LineChart>
+            </ResponsiveContainer>
           </div>
 
           {/* Daily Bookings Chart */}
@@ -455,37 +437,29 @@ const AdminPanel: React.FC = React.memo(() => {
                 <span style={{fontFamily: 'Poppins'}}>Bookings</span>
               </div>
             </div>
-            {loadingStats || weeklyBookingData.length === 0 ? (
-              <div className="flex items-center justify-center h-[300px]">
-                <div className="animate-pulse">
-                  <div className="h-64 w-full bg-gray-200 rounded"></div>
-                </div>
-              </div>
-            ) : (
-              <ResponsiveContainer width="100%" height={300}>
-                <LineChart data={chartData.weeklyBookingData}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                  <XAxis dataKey="name" stroke="#666" fontSize={12} />
-                  <YAxis stroke="#666" fontSize={12} />
-                  <Tooltip 
-                    contentStyle={{
-                      backgroundColor: 'white',
-                      border: '1px solid #e5e7eb',
-                      borderRadius: '8px',
-                      boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
-                      fontSize: '12px'
-                    }}
-                  />
-                  <Line 
-                    type="monotone" 
-                    dataKey="bookings" 
-                    stroke="#FACC15" 
-                    strokeWidth={2}
-                    dot={{ fill: '#FACC15', strokeWidth: 2, r: 4 }}
-                  />
-                </LineChart>
-              </ResponsiveContainer>
-            )}
+            <ResponsiveContainer width="100%" height={300}>
+              <LineChart data={chartData.weeklyBookingData}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                <XAxis dataKey="name" stroke="#666" fontSize={12} />
+                <YAxis stroke="#666" fontSize={12} />
+                <Tooltip 
+                  contentStyle={{
+                    backgroundColor: 'white',
+                    border: '1px solid #e5e7eb',
+                    borderRadius: '8px',
+                    boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
+                    fontSize: '12px'
+                  }}
+                />
+                <Line 
+                  type="monotone" 
+                  dataKey="bookings" 
+                  stroke="#FACC15" 
+                  strokeWidth={2}
+                  dot={{ fill: '#FACC15', strokeWidth: 2, r: 4 }}
+                />
+              </LineChart>
+            </ResponsiveContainer>
           </div>
         </div>
 
