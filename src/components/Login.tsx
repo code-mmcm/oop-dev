@@ -48,7 +48,7 @@ const Login: React.FC = () => {
           {/* Logo */}
           <div className="pt-8 mb-16 ml-8">
             <Link to="/" className="block">
-              <img src="/logo.png" alt="kelsey's homestay" className="h-20 w-auto hover:opacity-80 transition-opacity" />
+              <img src="/logo.svg" alt="kelsey's homestay" className="h-24 w-auto hover:opacity-80 transition-opacity" />
             </Link>
           </div>
           
@@ -62,8 +62,8 @@ const Login: React.FC = () => {
           
           {/* Tagline */}
           <div className="ml-8">
-            <p className="text-white text-2xl" style={{fontFamily: 'Poppins', fontWeight: 400}}>
-              TAGLINE
+            <p className="text-white text-3xl" style={{fontFamily: 'Poppins', fontWeight: 400}}>
+              A welcoming stay, the Kelsey’s way
             </p>
           </div>
         </div>
@@ -86,8 +86,8 @@ const Login: React.FC = () => {
             </h2>
             
             {/* Sign Up Link */}
-            <p className="text-gray-600 text-center text-xs sm:text-sm mb-6 sm:mb-8" style={{fontFamily: 'Poppins', fontWeight: 400}}>
-              Don't have an account? <a href="#" className="underline" style={{color: '#0B5858', fontFamily: 'Poppins', fontWeight: 600}}>Sign Up</a>
+            <p className="text-gray-600 text-center text-sm mb-8" style={{fontFamily: 'Poppins', fontWeight: 400}}>
+              Don't have an account? <Link to="/signup" className="underline" style={{color: '#0B5858', fontFamily: 'Poppins', fontWeight: 600}}>Sign Up</Link>
             </p>
 
             {/* Error Message */}

@@ -221,7 +221,7 @@ const Navbar: React.FC = () => {
                     LOGIN
                   </Link>
                   <Link
-                    to="/login"
+                    to="/signup"
                     className="text-white px-4 py-2 rounded-lg font-sans font-medium uppercase text-sm transition-colors hover:opacity-90"
                     style={{backgroundColor: '#0B5858'}}
                   >
