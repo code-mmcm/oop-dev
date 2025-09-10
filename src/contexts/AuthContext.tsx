@@ -205,7 +205,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
 
       console.log('User profile created successfully');
-      
       if (authData.session) {
         await fetchUserData();
       } else {

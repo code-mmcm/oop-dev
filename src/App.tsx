@@ -8,6 +8,8 @@ import ManageUnits from './components/ManageUnits';
 import Profile from './components/ProfileCard';
 import Booking from './components/Booking';
 import SignUp from './components/SignUp';
+import AdminPanel from './components/AdminPanel';
+import ManageUsers from './components/ManageUsers';
 
 function App() {
   useEffect(() => {
@@ -39,6 +41,8 @@ function App() {
           <Route path="/profile" element={<Profile />} />
           <Route path="/booking" element={<Booking />} />
           <Route path="/signup" element={<SignUp />} />
+          <Route path="/admin" element={<AdminPanel />} />
+          <Route path="/manageusers" element={<ManageUsers />} />
         </Routes>
       </Router>
     </AuthProvider>

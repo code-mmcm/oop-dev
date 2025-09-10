@@ -172,16 +172,18 @@ const Navbar: React.FC = () => {
                       {/* Menu Items */}
                       <div className="py-1">
                         {isAdmin && (
-                          <Link
-                            to="/manage"
-                            onClick={() => setIsDropdownOpen(false)}
-                            className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors"
-                            style={{fontFamily: 'Poppins'}}
-                          >
-                            <div className="flex items-center">
-                              Manage Units
-                            </div>
-                          </Link>
+                          <>
+                            <Link
+                              to="/admin"
+                              onClick={() => setIsDropdownOpen(false)}
+                              className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors"
+                              style={{fontFamily: 'Poppins'}}
+                            >
+                              <div className="flex items-center">
+                                Admin Panel
+                              </div>
+                            </Link>
+                          </>
                         )}
                         <a
                           href="#"
@@ -322,14 +324,32 @@ const Navbar: React.FC = () => {
                   
                   {/* Admin Menu */}
                   {isAdmin && (
-                    <Link
-                      to="/manage"
-                      onClick={() => setIsMobileMenuOpen(false)}
-                      className="block px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 rounded-md transition-colors text-left"
-                      style={{fontFamily: 'Poppins'}}
-                    >
-                      Manage Units
-                    </Link>
+                    <>
+                      <Link
+                        to="/admin"
+                        onClick={() => setIsMobileMenuOpen(false)}
+                        className="block px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 rounded-md transition-colors text-left"
+                        style={{fontFamily: 'Poppins'}}
+                      >
+                        Admin Panel
+                      </Link>
+                      <Link
+                        to="/manage"
+                        onClick={() => setIsMobileMenuOpen(false)}
+                        className="block px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 rounded-md transition-colors text-left"
+                        style={{fontFamily: 'Poppins'}}
+                      >
+                        Manage Units
+                      </Link>
+                      <Link
+                        to="/manageusers"
+                        onClick={() => setIsMobileMenuOpen(false)}
+                        className="block px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 rounded-md transition-colors text-left"
+                        style={{fontFamily: 'Poppins'}}
+                      >
+                        Manage Users
+                      </Link>
+                    </>
                   )}
                   
                   {/* Other Menu Items */}
