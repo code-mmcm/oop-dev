@@ -111,6 +111,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             localStorage.removeItem('pendingUserProfile');
           }
         }
+        
+        // Refresh user data after sign in
+        console.log('Refreshing user data after sign in');
+        fetchUserData();
       }
     })
 
@@ -201,13 +205,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
 
       console.log('User profile created successfully');
-
-      // If user is immediately signed in (no email confirmation required)
+      
       if (authData.session) {
-        console.log('User is immediately signed in - no email confirmation required');
+        await fetchUserData();
       } else {
-        console.log('Email confirmation required - user needs to confirm email');
-        // Store the profile data in localStorage temporarily for auth state change listener
         localStorage.setItem('pendingUserProfile', JSON.stringify({
           id: authData.user.id,
           fullname: userProfile.fullname,

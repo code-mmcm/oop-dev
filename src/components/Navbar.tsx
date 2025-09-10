@@ -142,7 +142,11 @@ const Navbar: React.FC = () => {
                           </div>
                           <div className="flex-1">
                             <div className="text-sm font-medium" style={{color: '#0B5858', fontFamily: 'Poppins'}}>
-                              {userProfile?.fullname || userRole?.fullname || 'User'}
+                              {roleLoading ? (
+                                <span className="animate-pulse">Loading...</span>
+                              ) : (
+                                userProfile?.fullname || userRole?.fullname || user?.email?.split('@')[0] || 'User'
+                              )}
                             </div>
                             {roleLoading ? (
                               <div className="text-xs text-gray-400 animate-pulse">Loading role...</div>
@@ -289,7 +293,11 @@ const Navbar: React.FC = () => {
                       </div>
                       <div className="flex-1">
                         <div className="text-sm font-medium" style={{color: '#0B5858', fontFamily: 'Poppins'}}>
-                          {userProfile?.fullname || userRole?.fullname || 'User'}
+                          {roleLoading ? (
+                            <span className="animate-pulse">Loading...</span>
+                          ) : (
+                            userProfile?.fullname || userRole?.fullname || user?.email?.split('@')[0] || 'User'
+                          )}
                         </div>
                         {roleLoading ? (
                           <div className="text-xs text-gray-400 animate-pulse">Loading role...</div>
