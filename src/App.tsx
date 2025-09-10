@@ -6,6 +6,7 @@ import Home from './components/Home';
 import Login from './components/Login';
 import ManageUnits from './components/ManageUnits';
 import Profile from './components/ProfileCard';
+import Booking from './components/Booking';
 
 function App() {
   useEffect(() => {
@@ -35,6 +36,7 @@ function App() {
           <Route path="/login" element={<Login />} />
           <Route path="/manage" element={<ManageUnits />} />
           <Route path="/profile" element={<Profile />} />
+          <Route path="/booking" element={<Booking />} />
         </Routes>
       </Router>
     </AuthProvider>
