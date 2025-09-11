@@ -7,6 +7,8 @@ const Login: React.FC = () => {
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [emailFocused, setEmailFocused] = useState(false);
+  const [passwordFocused, setPasswordFocused] = useState(false);
   
   const { signIn } = useAuth();
   const navigate = useNavigate();
@@ -34,9 +36,9 @@ const Login: React.FC = () => {
     <div className="min-h-screen flex relative" style={{backgroundColor: '#0B5858'}}>
       {/* Background design image - full page */}
       <div 
-        className="absolute inset-0 bg-cover bg-center bg-no-repeat z-0"
+        className="fixed inset-0 bg-cover bg-center bg-no-repeat z-0"
         style={{
-          backgroundImage: "url('./bg.png')"
+          backgroundImage: "url('./bg.svg')"
         }}
       />
       
@@ -46,14 +48,14 @@ const Login: React.FC = () => {
         {/* Content */}
         <div className="relative z-10 p-12 h-full flex flex-col">
           {/* Logo */}
-          <div className="pt-8 mb-16 ml-8">
+          <div className="pt-8 mb-16 ml-13">
             <Link to="/" className="block">
               <img src="/logo.svg" alt="kelsey's homestay" className="h-24 w-auto hover:opacity-80 transition-opacity" />
             </Link>
           </div>
           
           {/* Greeting */}
-          <div className="mb-6 ml-8 mt-8">
+          <div className="mb-6 ml-16 mt-16">
             <h1 className="text-white text-6xl mb-2" style={{fontFamily: 'Poppins', fontWeight: 400}}>
               Hello,<br />
               <span className="text-yellow-400" style={{fontFamily: 'Poppins', fontWeight: 600}}>welcome!</span>
@@ -61,9 +63,9 @@ const Login: React.FC = () => {
           </div>
           
           {/* Tagline */}
-          <div className="ml-8">
+          <div className="ml-16">
             <p className="text-white text-3xl" style={{fontFamily: 'Poppins', fontWeight: 400}}>
-              A welcoming stay, the Kelsey’s way
+              A welcoming stay, the Kelsey's way
             </p>
           </div>
         </div>
@@ -81,7 +83,7 @@ const Login: React.FC = () => {
             
             {/* Sign Up Link */}
             <p className="text-gray-600 text-center text-sm mb-8" style={{fontFamily: 'Poppins', fontWeight: 400}}>
-              Don't have an account? <Link to="/signup" className="underline" style={{color: '#0B5858', fontFamily: 'Poppins', fontWeight: 600}}>Sign Up</Link>
+              Don't have an account? <Link to="/signup" className="underline cursor-pointer" style={{color: '#0B5858', fontFamily: 'Poppins', fontWeight: 600}}>Sign Up</Link>
             </p>
 
             {/* Error Message */}
@@ -95,38 +97,62 @@ const Login: React.FC = () => {
             <form onSubmit={handleSubmit} className="space-y-6 animate-fade-in">
               {/* Email Field */}
               <div className="relative">
-                <div className="absolute -left-1 top-1/2 transform -translate-y-1/2 w-10 h-10 rounded-xl flex items-center justify-center z-10" style={{backgroundColor: '#0B5858'}}>
-                  <svg className="h-5 w-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 4.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                  </svg>
-                </div>
                 <input
                   type="email"
-                  placeholder="Email Address"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
+                  onFocus={() => setEmailFocused(true)}
+                  onBlur={() => setEmailFocused(false)}
                   required
-                  className="w-full py-2 pl-12 pr-4 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-300 hover:border-gray-400 hover:shadow-md"
-                  style={{fontFamily: 'Poppins', fontWeight: 400}}
+                  className="w-full py-3 pl-4 pr-4 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:border-transparent transition-all duration-300 hover:border-gray-400 hover:shadow-md"
+                  style={{
+                    fontFamily: 'Poppins', 
+                    fontWeight: 400,
+                    '--tw-ring-color': '#549F74',
+                  } as React.CSSProperties}
                 />
+                <label 
+                  htmlFor="email" 
+                  className={`absolute left-4 transition-all duration-200 pointer-events-none ${
+                    (email || emailFocused) ? '-top-2 text-xs bg-white px-1 rounded' : 'top-1/2 -translate-y-1/2 text-gray-500'
+                  }`}
+                  style={{
+                    fontFamily: 'Poppins',
+                    color: (email || emailFocused) ? '#0B5858' : undefined
+                  }}
+                >
+                  Email Address
+                </label>
               </div>
               
               {/* Password Field */}
               <div className="relative">
-                <div className="absolute -left-1 top-1/2 transform -translate-y-1/2 w-10 h-10 rounded-xl flex items-center justify-center z-10" style={{backgroundColor: '#0B5858'}}>
-                  <svg className="h-5 w-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-                  </svg>
-                </div>
                 <input
                   type="password"
-                  placeholder="Password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
+                  onFocus={() => setPasswordFocused(true)}
+                  onBlur={() => setPasswordFocused(false)}
                   required
-                  className="w-full py-2 pl-12 pr-4 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-300 hover:border-gray-400 hover:shadow-md"
-                  style={{fontFamily: 'Poppins', fontWeight: 400}}
+                  className="w-full py-3 pl-4 pr-4 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:border-transparent transition-all duration-300 hover:border-gray-400 hover:shadow-md"
+                  style={{
+                    fontFamily: 'Poppins', 
+                    fontWeight: 400,
+                    '--tw-ring-color': '#549F74',
+                  } as React.CSSProperties}
                 />
+                <label 
+                  htmlFor="password" 
+                  className={`absolute left-4 transition-all duration-200 pointer-events-none ${
+                    (password || passwordFocused) ? '-top-2 text-xs bg-white px-1 rounded' : 'top-1/2 -translate-y-1/2 text-gray-500'
+                  }`}
+                  style={{
+                    fontFamily: 'Poppins',
+                    color: (password || passwordFocused) ? '#0B5858' : undefined
+                  }}
+                >
+                  Password
+                </label>
               </div>
               
               {/* Options */}
@@ -136,14 +162,14 @@ const Login: React.FC = () => {
                     id="remember-me"
                     name="remember-me"
                     type="checkbox"
-                    className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                    className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded cursor-pointer"
                   />
-                  <label htmlFor="remember-me" className="ml-2 block text-sm text-gray-700 font-poppins" style={{fontFamily: 'Poppins', fontWeight: 400}}>
+                  <label htmlFor="remember-me" className="ml-2 block text-sm text-gray-700 font-poppins cursor-pointer" style={{fontFamily: 'Poppins', fontWeight: 400}}>
                     Remember me
                   </label>
                 </div>
                 <div className="text-sm">
-                  <a href="#" className="hover:opacity-80" style={{color: '#0B5858', fontFamily: 'Poppins', fontWeight: 400}}>
+                  <a href="#" className="hover:opacity-80 cursor-pointer" style={{color: '#0B5858', fontFamily: 'Poppins', fontWeight: 400}}>
                     Forgot password?
                   </a>
                 </div>
@@ -153,7 +179,7 @@ const Login: React.FC = () => {
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full py-3 px-4 rounded-3xl text-white text-lg transition-all duration-300 hover:opacity-90 hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed relative overflow-hidden group"
+                className="w-full py-3 px-4 rounded-3xl text-white text-lg transition-all duration-300 hover:opacity-90 hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer relative overflow-hidden group"
                 style={{backgroundColor: '#0B5858', fontFamily: 'Poppins', fontWeight: 600}}
               >
                 {loading ? (
