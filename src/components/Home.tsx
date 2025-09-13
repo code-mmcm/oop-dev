@@ -324,7 +324,7 @@ const Home: React.FC = () => {
               </div>
               
               {/* Search Button */}
-              <div className="flex-shrink-0 w-full sm:w-auto self-stretch sm:self-auto flex justify-center">
+              <div className="flex-shrink-0 w-full sm:w-auto self-stretch sm:self-auto flex justify-center pr-3 pl-3">
                 <button 
                   onClick={handleSearch}
                   className="text-white px-6 sm:px-8 py-3 rounded-lg font-poppins transition-all duration-300 flex items-center justify-center gap-2 hover:opacity-90 hover:scale-105 active:scale-95 w-full sm:w-auto h-full sm:h-auto" 
