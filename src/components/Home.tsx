@@ -184,12 +184,12 @@ const Home: React.FC = () => {
         </div>
         
         {/* Search Bar - positioned between hero and white section */}
-        <div className="relative z-20 flex justify-center -mt-20 sm:-mt-10 md:-mt-12 px-4 sm:px-6 lg:px-8 animate-slide-up" style={{animationDelay: '0.8s'}}>
+        <div className="relative z-20 flex justify-center items-center -mt-20 sm:-mt-10 md:-mt-12 px-4 sm:px-6 lg:px-8 animate-slide-up" style={{animationDelay: '0.8s'}}>
           <div className="bg-white rounded-xl sm:rounded-2xl shadow-md p-3 w-full max-w-3xl relative overflow-visible">
-              <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 items-stretch sm:items-end">
+              <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 items-stretch sm:items-center">
               {/* Search Location */}
               <div className="flex-1 relative dropdown-container">
-                <label className="block text-gray-700 font-poppins font-bold text-sm mb-1 px-0 sm:px-4">
+                <label className="block text-gray-700 font-poppins font-medium text-base px-0 sm:px-4">
                   Search Location
                 </label>
                 <div className="relative">
@@ -199,7 +199,7 @@ const Home: React.FC = () => {
                     value={searchLocation}
                     onChange={(e) => setSearchLocation(e.target.value)}
                     onFocus={() => setIsLocationDropdownOpen(true)}
-                    className="w-full px-3 sm:px-4 py-2 border-none focus:outline-none font-poppins font-bold bg-transparent text-gray-700"
+                    className="w-full px-3 sm:px-4 py-2 border-none focus:outline-none font-poppins font-medium bg-transparent text-gray-700"
                   />
                   <button
                     onClick={() => setIsLocationDropdownOpen(!isLocationDropdownOpen)}
@@ -236,18 +236,18 @@ const Home: React.FC = () => {
               
               {/* Separator */}
               <div className="flex items-end pb-3 hidden sm:block">
-                <span className="text-gray-400 font-poppins text-4xl">|</span>
+                <span className="text-gray-400 font-poppins text-4xl font-thin" style={{fontWeight: 100}}>|</span>
               </div>
               
               {/* Price Range */}
               <div className="flex-1 relative dropdown-container">
-                <label className="block text-gray-700 font-poppins font-bold text-sm mb-1 px-0 sm:px-4">
+                <label className="block text-gray-700 font-poppins font-medium text-base px-0 sm:px-4">
                   Price Range
                 </label>
                 <div className="relative">
                   <button
                     onClick={() => setIsPriceDropdownOpen(!isPriceDropdownOpen)}
-                    className="w-full px-3 sm:px-4 py-2 border-none focus:outline-none font-poppins font-bold appearance-none bg-transparent text-gray-700 text-left flex items-center justify-between"
+                    className="w-full px-3 sm:px-4 py-2 border-none focus:outline-none font-poppins font-medium appearance-none bg-transparent text-gray-700 text-left flex items-center justify-between"
                   >
                     <span className="text-sm sm:text-base">₱{priceRange.min.toLocaleString()} - ₱{priceRange.max.toLocaleString()}</span>
                     <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -320,11 +320,11 @@ const Home: React.FC = () => {
               
               {/* Separator */}
               <div className="flex items-end pb-3 hidden sm:block">
-                <span className="text-gray-400 font-poppins text-4xl">|</span>
+                <span className="text-gray-400 font-poppins text-4xl font-thin" style={{fontWeight: 100}}>|</span>
               </div>
               
               {/* Search Button */}
-              <div className="flex-shrink-0 w-full sm:w-auto self-stretch sm:self-auto">
+              <div className="flex-shrink-0 w-full sm:w-auto self-stretch sm:self-auto flex justify-center sm:pr-3 sm:pl-3">
                 <button 
                   onClick={handleSearch}
                   className="text-white px-6 sm:px-8 py-3 rounded-lg font-poppins transition-all duration-300 flex items-center justify-center gap-2 hover:opacity-90 hover:scale-105 active:scale-95 w-full sm:w-auto h-full sm:h-auto" 
