@@ -1,5 +1,6 @@
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { useEffect } from 'react';
+import { HelmetProvider } from 'react-helmet-async';
 import Lenis from '@studio-freight/lenis';
 import { AuthProvider } from './contexts/AuthContext';
 import Home from './components/Home';
@@ -40,21 +41,23 @@ function App() {
   }, []);
 
   return (
-    <AuthProvider>
-      <Router>
-        <Routes>
-          <Route path="/" element={<Home />} />
-          <Route path="/unit/:id" element={<UnitView />} />
-          <Route path="/login" element={<Login />} />
-          <Route path="/manage" element={<ManageUnits />} />
-          <Route path="/profile" element={<Profile />} />
-          <Route path="/booking" element={<Booking />} />
-          <Route path="/signup" element={<SignUp />} />
-          <Route path="/admin" element={<AdminPanel />} />
-          <Route path="/manageusers" element={<ManageUsers />} />
-        </Routes>
-      </Router>
-    </AuthProvider>
+    <HelmetProvider>
+      <AuthProvider>
+        <Router>
+          <Routes>
+            <Route path="/" element={<Home />} />
+            <Route path="/unit/:id" element={<UnitView />} />
+            <Route path="/login" element={<Login />} />
+            <Route path="/manage" element={<ManageUnits />} />
+            <Route path="/profile" element={<Profile />} />
+            <Route path="/booking" element={<Booking />} />
+            <Route path="/signup" element={<SignUp />} />
+            <Route path="/admin" element={<AdminPanel />} />
+            <Route path="/manageusers" element={<ManageUsers />} />
+          </Routes>
+        </Router>
+      </AuthProvider>
+    </HelmetProvider>
   );
 }
 

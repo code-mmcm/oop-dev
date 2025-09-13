@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import { Helmet } from 'react-helmet-async';
 import Navbar from './Navbar';
+import Footer from './Footer';
 import { ListingService } from '../services/listingService';
 import type { Listing, ListingView } from '../types/listing';
 import { getLenis } from '../App';
@@ -352,6 +354,44 @@ const UnitView: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-white text-black">
+      {/* Dynamic Meta Tags for Social Sharing */}
+      <Helmet>
+        <title>{listing ? `${listing.title} - Kelsey's Homestay` : 'Property Details - Kelsey\'s Homestay'}</title>
+        <meta name="description" content={listing?.description || 'Discover this amazing property at Kelsey\'s Homestay. Book your stay today!'} />
+        
+        {/* Open Graph Meta Tags */}
+        <meta property="og:title" content={listing ? `${listing.title} - Kelsey's Homestay` : 'Property Details - Kelsey\'s Homestay'} />
+        <meta property="og:description" content={listing?.description || 'Discover this amazing property at Kelsey\'s Homestay. Book your stay today!'} />
+        <meta property="og:image" content={listing?.main_image_url || `${window.location.origin}/avida.jpg`} />
+        <meta property="og:url" content={`${window.location.origin}/unit/${id}`} />
+        <meta property="og:type" content="website" />
+        <meta property="og:site_name" content="Kelsey's Homestay" />
+        
+        {/* Twitter Card Meta Tags */}
+        <meta name="twitter:card" content="summary_large_image" />
+        <meta name="twitter:title" content={listing ? `${listing.title} - Kelsey's Homestay` : 'Property Details - Kelsey\'s Homestay'} />
+        <meta name="twitter:description" content={listing?.description || 'Discover this amazing property at Kelsey\'s Homestay. Book your stay today!'} />
+        <meta name="twitter:image" content={listing?.main_image_url || `${window.location.origin}/avida.jpg`} />
+        
+        {/* Additional Meta Tags */}
+        <meta name="keywords" content={`${listing?.title || 'property'}, ${listing?.location || 'accommodation'}, ${listing?.property_type || 'rental'}, Kelsey's Homestay, booking, vacation rental`} />
+        <meta name="author" content="Kelsey's Homestay" />
+        <link rel="canonical" href={`${window.location.origin}/unit/${id}`} />
+        
+        {/* Property-specific Meta Tags */}
+        {listing && (
+          <>
+            <meta property="og:price:amount" content={listing.price?.toString() || ''} />
+            <meta property="og:price:currency" content={listing.currency || 'USD'} />
+            {listing.latitude && <meta property="place:location:latitude" content={listing.latitude.toString()} />}
+            {listing.longitude && <meta property="place:location:longitude" content={listing.longitude.toString()} />}
+            <meta property="business:contact_data:street_address" content={listing.location || ''} />
+            {listing.city && <meta property="business:contact_data:locality" content={listing.city} />}
+            {listing.country && <meta property="business:contact_data:country_name" content={listing.country} />}
+          </>
+        )}
+      </Helmet>
+
       <Navbar />
       <div className="h-16" />
 
@@ -925,78 +965,7 @@ const UnitView: React.FC = () => {
         </div>
       </section>
 
-      {/* Footer Section */}
-      <footer className="bg-[#0B5858] text-white py-12 px-4">
-        <div className="max-w-7xl mx-auto">
-          {/* Top section of footer */}
-          <div className="flex flex-col md:flex-row justify-between items-center md:items-start mb-8">
-            {/* Logo */}
-            <div className="flex items-center mb-8 md:mb-0">
-              <img 
-                src="./footerlogo.png" 
-                alt="Kelsey's Homestay Logo" 
-                className="w-60 h-auto hover:scale-105 transition-transform duration-300"
-              />
-            </div>
-
-            {/* Contact Section */}
-            <div className="text-center md:text-right">
-              <p className="text-2xl font-poppins font-semibold mb-4" style={{fontFamily: 'Poppins', fontWeight: 600}}>
-                For more inquiries please<br />
-                contact us via email
-              </p>
-              <div className="flex justify-center md:justify-end shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1">
-                <input
-                  type="email"
-                  placeholder="Your email"
-                  className="p-4 rounded-l-2xl focus:outline-none text-black w-80 text-base bg-white transition-all duration-300 focus:ring-2 focus:ring-yellow-400 focus:ring-opacity-50"
-                  style={{fontFamily: 'Poppins', fontWeight: 400}}
-                />
-                <button className="bg-yellow-400 text-black p-4 rounded-r-2xl font-poppins font-medium text-base transition-all duration-300 hover:bg-yellow-500 hover:scale-105 active:scale-95" style={{fontFamily: 'Poppins', fontWeight: 500}}>
-                  Send
-                </button>
-              </div>
-            </div>
-          </div>
-
-          {/* Divider Line */}
-          <div className="border-t border-white my-8"></div>
-
-          {/* Bottom section of footer */}
-          <div className="flex flex-col md:flex-row justify-between items-center text-sm">
-            {/* Copyright */}
-            <p className="font-poppins mb-4 md:mb-0" style={{fontFamily: 'Poppins', fontWeight: 400}}>
-              ©2025 Kelsey's Homestay. All Rights Reserved.
-            </p>
-
-            {/* Social Media */}
-            <div className="flex items-center">
-              <p className="font-poppins mr-4" style={{fontFamily: 'Poppins', fontWeight: 400}}>
-                Follow us on
-              </p>
-              <div className="flex">
-                {/* Facebook Icon */}
-                <a href="https://www.facebook.com/kelseycaiden" target="_blank" rel="noopener noreferrer" className="text-white">
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    width="24"
-                    height="24"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    className="feather feather-facebook"
-                  >
-                    <path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z"></path>
-                  </svg>
-                </a>
-              </div>
-            </div>
-          </div>
-        </div>
-      </footer>
+      <Footer />
     </div>
   );
 };
