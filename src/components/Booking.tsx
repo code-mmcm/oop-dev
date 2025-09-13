@@ -9,7 +9,7 @@ const BookingPage: React.FC = () => {
   const [filteredBookings, setFilteredBookings] = useState<Booking[]>([]);
   const [activeTab, setActiveTab] = useState<BookingStatus | 'all'>('all');
   const [isLoading, setIsLoading] = useState(true);
-  const [toggleOn, setToggleOn] = useState(true);
+  const [toggleStates, setToggleStates] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
     loadBookings();
@@ -122,22 +122,6 @@ const BookingPage: React.FC = () => {
                   </button>
                 ))}
               </div>
-              
-              {/* Toggle Switch */}
-              <div className="flex items-center">
-                <button
-                  onClick={() => setToggleOn(!toggleOn)}
-                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                    toggleOn ? 'bg-green-500' : 'bg-gray-300'
-                  }`}
-                >
-                  <span
-                    className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                      toggleOn ? 'translate-x-6' : 'translate-x-1'
-                    }`}
-                  />
-                </button>
-              </div>
             </div>
           </div>
 
@@ -160,10 +144,34 @@ const BookingPage: React.FC = () => {
                   className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 hover:shadow-md transition-shadow"
                 >
                   {/* Date Range */}
-                  <div className="mb-4">
+                  <div className="mb-4 flex items-center justify-between">
                     <p className="text-gray-800 font-medium" style={{fontFamily: 'Poppins'}}>
                       {formatDateRange(booking.check_in_date, booking.check_out_date)}
                     </p>
+                    
+                    {/* Toggle Switch */}
+                    <div className="flex items-center">
+                      <span className="text-sm text-gray-500 mr-2" style={{fontFamily: 'Poppins'}}>
+                        Notifications
+                      </span>
+                      <button
+                        onClick={() => {
+                          setToggleStates(prev => ({
+                            ...prev,
+                            [booking.id]: !prev[booking.id]
+                          }));
+                        }}
+                        className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                          toggleStates[booking.id] ? 'bg-green-500' : 'bg-gray-300'
+                        }`}
+                      >
+                        <span
+                          className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                            toggleStates[booking.id] ? 'translate-x-6' : 'translate-x-1'
+                          }`}
+                        />
+                      </button>
+                    </div>
                   </div>
 
                   {/* Booking Details */}
