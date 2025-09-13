@@ -61,7 +61,10 @@ const FloatingInput: React.FC<{
         className={`absolute ${labelLeftClass} transition-all duration-200 pointer-events-none text-left ${
           isActive ? '-top-2 text-xs bg-white px-1 rounded' : 'top-1/2 -translate-y-1/2 text-gray-500'
         }`}
-        style={{fontFamily: 'Poppins'}}
+        style={{
+          fontFamily: 'Poppins',
+          color: isActive ? '#0B5858' : undefined
+        }}
       >
         {label}
       </label>
@@ -122,6 +125,8 @@ const SignUp: React.FC = () => {
   const [countryCode, setCountryCode] = useState('+63');
   const [isFocused, setIsFocused] = useState(false);
   const [showCountryDropdown, setShowCountryDropdown] = useState(false);
+  const [showMonthDropdown, setShowMonthDropdown] = useState(false);
+  const [showGenderDropdown, setShowGenderDropdown] = useState(false);
 
   // Country data with formatting patterns
   const countries = [
@@ -207,16 +212,22 @@ const SignUp: React.FC = () => {
       if (showCountryDropdown && !target.closest('.country-dropdown')) {
         setShowCountryDropdown(false);
       }
+      if (showMonthDropdown && !target.closest('.month-dropdown')) {
+        setShowMonthDropdown(false);
+      }
+      if (showGenderDropdown && !target.closest('.gender-dropdown')) {
+        setShowGenderDropdown(false);
+      }
     };
 
-    if (showCountryDropdown) {
+    if (showCountryDropdown || showMonthDropdown || showGenderDropdown) {
       document.addEventListener('mousedown', handleClickOutside);
     }
 
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
     };
-  }, [showCountryDropdown]);
+  }, [showCountryDropdown, showMonthDropdown, showGenderDropdown]);
 
   // Computed flags for validation control
   const isStep1Valid = useMemo(() => {
@@ -325,9 +336,9 @@ const SignUp: React.FC = () => {
     <div className="min-h-screen flex relative" style={{backgroundColor: '#0B5858'}}>
       {/* Background design image - full page */}
       <div 
-        className="absolute inset-0 bg-cover bg-center bg-no-repeat z-0"
+        className="fixed inset-0 bg-cover bg-center bg-no-repeat z-0"
         style={{
-          backgroundImage: "url('./bg.png')"
+          backgroundImage: "url('./bg.svg')"
         }}
       />
 
@@ -335,14 +346,14 @@ const SignUp: React.FC = () => {
       <div className="flex-1 relative overflow-hidden z-10">
         <div className="relative z-10 p-12 h-full flex flex-col">
           {/* Logo */}
-          <div className="pt-8 mb-16 ml-8">
+          <div className="pt-8 mb-16 ml-13">
             <Link to="/" className="block">
               <img src="/logo.svg" alt="kelsey's homestay" className="h-24 w-auto hover:opacity-80 transition-opacity" />
             </Link>
           </div>
 
           {/* Greeting */}
-          <div className="mb-6 ml-8 mt-8">
+          <div className="mb-6 ml-16 mt-16">
             <h1 className="text-white text-6xl mb-2" style={{fontFamily: 'Poppins', fontWeight: 400}}>
               Hello,<br />
               <span className="text-yellow-400" style={{fontFamily: 'Poppins', fontWeight: 600}}>welcome!</span>
@@ -350,9 +361,9 @@ const SignUp: React.FC = () => {
           </div>
 
           {/* Tagline */}
-          <div className="ml-8">
+          <div className="ml-16">
             <p className="text-white text-3xl" style={{fontFamily: 'Poppins', fontWeight: 400}}>
-              A welcoming stay, the Kelsey’s way
+              A welcoming stay, the Kelsey's way
             </p>
           </div>
         </div>
@@ -363,17 +374,17 @@ const SignUp: React.FC = () => {
         <div className="w-full max-w-lg">
           <div className="bg-white rounded-3xl shadow-xl p-10">
             {/* Title */}
-            <h2 className="text-black text-center text-3xl mb-2" style={{fontFamily: 'Poppins', fontWeight: 700}}>
+            <h2 className="text-black text-center text-3xl mb-2 animate-fade-in" style={{fontFamily: 'Poppins', fontWeight: 700}}>
               Create an Account
             </h2>
 
             {/* Login Link */}
-            <p className="text-gray-600 text-center text-sm mb-8" style={{fontFamily: 'Poppins', fontWeight: 400}}>
-              Already have an account? <Link to="/login" className="underline" style={{color: '#0B5858', fontFamily: 'Poppins', fontWeight: 600}}>Log In</Link>
+            <p className="text-gray-600 text-center text-sm mb-8 animate-fade-in" style={{fontFamily: 'Poppins', fontWeight: 400}}>
+              Already have an account? <Link to="/login" className="underline cursor-pointer" style={{color: '#0B5858', fontFamily: 'Poppins', fontWeight: 600}}>Log In</Link>
             </p>
 
             {/* Enhanced Step Indicator - Circles with connecting line */}
-            <div className="flex items-center justify-center mb-8">
+            <div className="flex items-center justify-center mb-8 animate-fade-in">
               <div className="flex items-center relative">
                 {/* Step 1 Circle */}
                 <div className="flex flex-col items-center relative z-10 mr-8">
@@ -442,8 +453,9 @@ const SignUp: React.FC = () => {
             )}
 
             {/* Step Content */}
-            {step === 1 ? (
-              <form onSubmit={handleContinue} className="space-y-5 animate-fade-in">
+            <div className="relative">
+              {step === 1 ? (
+                <form onSubmit={handleContinue} className="space-y-5 animate-fade-in">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-[18px]">
                   <FloatingInput id="firstName" label="First Name" value={firstName} setValue={setFirstName} />
                   <FloatingInput id="lastName" label="Last Name" value={lastName} setValue={setLastName} />
@@ -467,29 +479,50 @@ const SignUp: React.FC = () => {
                   >
                     <div className="grid items-center px-1" style={{ gridTemplateColumns: '41.6667% 25% 41.6667%' }}>
                       {/* Month dropdown */}
-                      <div className="relative">
-                        <select
-                          id="birthMonth"
-                          value={birthMonth}
-                          onChange={(e) => setBirthMonth(e.target.value)}
-                          className={`appearance-none w-full py-3 pl-4 pr-8 rounded-l-xl focus:outline-none ${birthMonth ? 'text-black' : 'text-gray-500'}`}
-                          style={{fontFamily: 'Poppins', fontWeight: 400}}
+                      <div className="relative month-dropdown">
+                        <div 
+                          className="flex items-center justify-between py-3 pl-4 pr-3 cursor-pointer rounded-l-xl"
+                          onClick={() => setShowMonthDropdown(!showMonthDropdown)}
                         >
-                          <option value="" disabled className="text-gray-500">MM</option>
-                          <option value="01">01</option>
-                          <option value="02">02</option>
-                          <option value="03">03</option>
-                          <option value="04">04</option>
-                          <option value="05">05</option>
-                          <option value="06">06</option>
-                          <option value="07">07</option>
-                          <option value="08">08</option>
-                          <option value="09">09</option>
-                          <option value="10">10</option>
-                          <option value="11">11</option>
-                          <option value="12">12</option>
-                        </select>
-                        <img src="/dropdown_icon.svg" alt="dropdown" className="pointer-events-none absolute right-1 top-1/2 -translate-y-1/2 h-5 w-5 opacity-90" />
+                          <span className={`${birthMonth ? 'text-black' : 'text-gray-500'}`} style={{fontFamily: 'Poppins', fontWeight: 400}}>
+                            {birthMonth || 'MM'}
+                          </span>
+                          <img src="/dropdown_icon.svg" alt="dropdown" className="h-5 w-5 opacity-90" />
+                        </div>
+                        
+                        {/* Month Dropdown Options */}
+                        {showMonthDropdown && (
+                          <div className="absolute top-full left-0 bg-white border border-gray-300 rounded-lg shadow-lg z-50 w-full max-h-48 overflow-y-auto">
+                            {[
+                              { value: '01', label: '01' },
+                              { value: '02', label: '02' },
+                              { value: '03', label: '03' },
+                              { value: '04', label: '04' },
+                              { value: '05', label: '05' },
+                              { value: '06', label: '06' },
+                              { value: '07', label: '07' },
+                              { value: '08', label: '08' },
+                              { value: '09', label: '09' },
+                              { value: '10', label: '10' },
+                              { value: '11', label: '11' },
+                              { value: '12', label: '12' }
+                            ].map((month) => (
+                              <div
+                                key={month.value}
+                                className="flex items-center py-3 px-4 hover:bg-gray-50 cursor-pointer"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setBirthMonth(month.value);
+                                  setShowMonthDropdown(false);
+                                }}
+                              >
+                                <span className="text-sm" style={{fontFamily: 'Poppins', fontWeight: 400}}>
+                                  {month.label}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        )}
                       </div>
                       {/* Separator after MM (moved slightly right) */}
                       <div className="absolute top-1/2 -translate-y-1/2 h-7 w-px bg-gray-300" style={{ left: '44%' }} />
@@ -526,32 +559,64 @@ const SignUp: React.FC = () => {
                     </div>
                   </div>
                   <div className="relative">
-                    <label htmlFor="gender" className={`absolute left-4 transition-all duration-200 pointer-events-none ${gender ? '-top-2 text-xs bg-white px-1 rounded' : 'top-1/2 -translate-y-1/2 text-gray-500'}`} style={{fontFamily: 'Poppins'}}>Gender</label>
-                    <select
-                      id="gender"
-                      value={gender}
-                      onChange={(e) => setGender(e.target.value)}
+                    <label htmlFor="gender" className={`absolute left-4 transition-all duration-200 pointer-events-none ${gender ? '-top-2 text-xs bg-white px-1 rounded' : 'top-1/2 -translate-y-1/2 text-gray-500'}`} style={{
+                      fontFamily: 'Poppins',
+                      color: gender ? '#0B5858' : undefined
+                    }}>Gender</label>
+                    <div 
+                      className="flex border border-gray-300 rounded-xl hover:border-gray-400 hover:shadow-md transition-all duration-300 focus-within:ring-2"
+                      style={{ 
+                        '--tw-ring-color': '#549F74',
+                        borderColor: 'rgb(209 213 219)', // gray-300
+                      } as React.CSSProperties}
                       onFocus={(e) => {
-                        e.currentTarget.style.boxShadow = '0 0 0 2px #549F74';
                         e.currentTarget.style.borderColor = 'transparent';
+                        e.currentTarget.style.boxShadow = '0 0 0 2px #549F74';
                       }}
                       onBlur={(e) => {
+                        e.currentTarget.style.borderColor = 'rgb(209 213 219)'; // gray-300
                         e.currentTarget.style.boxShadow = '';
-                        e.currentTarget.style.borderColor = 'rgb(209 213 219)';
-                      }}
-                      className="appearance-none w-full py-3 pl-4 pr-12 border border-gray-300 rounded-xl focus:outline-none transition-all duration-300 hover:border-gray-400 hover:shadow-md"
-                      style={{
-                        fontFamily: 'Poppins', 
-                        fontWeight: 400,
                       }}
                     >
-                      <option value=""></option>
-                      <option>Male</option>
-                      <option>Female</option>
-                      <option>Non-binary</option>
-                      <option>Prefer not to say</option>
-                    </select>
-                    <img src="/dropdown_icon.svg" alt="dropdown" className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 h-5 w-5 opacity-90" />
+                      {/* Gender Selector - Custom Dropdown */}
+                      <div className="relative gender-dropdown w-full">
+                        <div 
+                          className="flex items-center justify-between py-3 pl-4 pr-3 cursor-pointer rounded-xl"
+                          onClick={() => setShowGenderDropdown(!showGenderDropdown)}
+                        >
+                          <span className={`${gender ? 'text-black' : 'text-gray-500'}`} style={{fontFamily: 'Poppins', fontWeight: 400}}>
+                            {gender || ''}
+                          </span>
+                          <img src="/dropdown_icon.svg" alt="dropdown" className="h-5 w-5 opacity-90" />
+                        </div>
+                        
+                        {/* Gender Dropdown Options */}
+                        {showGenderDropdown && (
+                          <div className="absolute top-full left-0 bg-white border border-gray-300 rounded-lg shadow-lg z-50 w-full max-h-48 overflow-y-auto">
+                            {[
+                              { value: 'Male', label: 'Male' },
+                              { value: 'Female', label: 'Female' },
+                              { value: 'Non-binary', label: 'Non-binary' },
+                              { value: 'Prefer not to say', label: 'Prefer not to say' }
+                            ].map((genderOption) => (
+                              <div
+                                key={genderOption.value}
+                                className="flex items-center py-3 px-4 hover:bg-gray-50 cursor-pointer"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setGender(genderOption.value);
+                                  setShowGenderDropdown(false);
+                                }}
+                              >
+                                <span className="text-sm" style={{fontFamily: 'Poppins', fontWeight: 400}}>
+                                  {genderOption.label}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </div>
                   </div>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-[18px]">
@@ -565,14 +630,14 @@ const SignUp: React.FC = () => {
                 <button
                   type="submit"
                   disabled={!isStep1Valid}
-                  className="w-full py-3 px-4 rounded-3xl text-white text-lg transition-all duration-300 hover:opacity-90 hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="w-full py-3 px-4 rounded-3xl text-white text-lg transition-all duration-300 hover:opacity-90 hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
                   style={{backgroundColor: '#0B5858', fontFamily: 'Poppins', fontWeight: 600}}
                 >
                   Save and Continue
                 </button>
               </form>
-            ) : (
-              <form onSubmit={handleSubmit} className="space-y-5 animate-fade-in">
+              ) : (
+                <form onSubmit={handleSubmit} className="space-y-5 animate-fade-in">
                 <FloatingInput id="email" label="Email" type="email" value={email} setValue={setEmail} />
                 {/* Phone Number with Country Code */}
                 <div className="relative">
@@ -594,7 +659,7 @@ const SignUp: React.FC = () => {
                     {/* Country Code Selector - Custom Dropdown */}
                     <div className="relative border-r border-gray-300 rounded-l-xl country-dropdown">
                       <div 
-                        className="flex items-center justify-between py-3 pl-4 pr-3 cursor-pointer hover:bg-gray-50 rounded-l-xl"
+                        className="flex items-center justify-between py-3 pl-4 pr-3 cursor-pointer rounded-l-xl"
                         onClick={() => setShowCountryDropdown(!showCountryDropdown)}
                         style={{minWidth: '80px'}}
                       >
@@ -721,7 +786,7 @@ const SignUp: React.FC = () => {
                   <button
                     type="button"
                     onClick={() => setStep(1)}
-                    className="px-4 py-2 rounded-xl text-gray-700 border border-gray-300 hover:bg-gray-50"
+                    className="px-4 py-2 rounded-xl text-gray-700 border border-gray-300 hover:bg-gray-50 cursor-pointer"
                     style={{fontFamily: 'Poppins', fontWeight: 500}}
                   >
                     Back
@@ -729,14 +794,15 @@ const SignUp: React.FC = () => {
                   <button
                     type="submit"
                     disabled={loading || !isStep2Valid}
-                    className="py-3 px-6 rounded-3xl text-white text-lg transition-all duration-300 hover:opacity-90 hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="py-3 px-6 rounded-3xl text-white text-lg transition-all duration-300 hover:opacity-90 hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
                     style={{backgroundColor: '#0B5858', fontFamily: 'Poppins', fontWeight: 600}}
                   >
                     {loading ? 'Creating...' : 'Create Account'}
                   </button>
                 </div>
-              </form>
-            )}
+                </form>
+              )}
+            </div>
           </div>
         </div>
       </div>
