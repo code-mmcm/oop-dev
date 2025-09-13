@@ -1,10 +1,13 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import Navbar from './Navbar';
 import Footer from './Footer';
 import { ListingService } from '../services/listingService';
 import type { ListingView } from '../types/listing';
+import { getLenis } from '../App';
 
 const Home: React.FC = () => {
+  const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(true);
   const [sortBy, setSortBy] = useState('Recently added');
   const [apartments, setApartments] = useState<ListingView[]>([]);
@@ -112,6 +115,15 @@ const Home: React.FC = () => {
 
   const handlePriceRangeChange = (field: 'min' | 'max', value: number) => {
     setPriceRange(prev => ({ ...prev, [field]: value }));
+  };
+
+  const handleListingClick = (listingId: string) => {
+    navigate(`/unit/${listingId}`);
+    // Use Lenis for smooth scroll to top
+    const lenis = getLenis();
+    if (lenis) {
+      lenis.scrollTo(0, { duration: 1.2 });
+    }
   };
 
   // Skeleton component
@@ -419,7 +431,7 @@ const Home: React.FC = () => {
             ) : (
               // Show actual listings
               apartments.map((apartment) => (
-                <div key={apartment.id} className="group bg-white rounded-xl sm:rounded-2xl shadow-lg overflow-hidden hover:shadow-2xl transition-all duration-500 transform hover:-translate-y-1 sm:hover:-translate-y-3 border border-gray-100 cursor-pointer">
+                <div key={apartment.id} onClick={() => handleListingClick(apartment.id)} className="group bg-white rounded-xl sm:rounded-2xl shadow-lg overflow-hidden hover:shadow-2xl transition-all duration-500 transform hover:-translate-y-1 sm:hover:-translate-y-3 border border-gray-100 cursor-pointer">
                   {/* Image Container with Overlay */}
                   <div className="relative h-48 sm:h-56 overflow-hidden">
                     <div 

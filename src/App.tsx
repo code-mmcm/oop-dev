@@ -10,24 +10,32 @@ import Booking from './components/Booking';
 import SignUp from './components/SignUp';
 import AdminPanel from './components/AdminPanel';
 import ManageUsers from './components/ManageUsers';
+import UnitView from './components/UnitView';
+
+// Global Lenis instance
+let globalLenis: Lenis | null = null;
+
+// Export function to access Lenis instance
+export const getLenis = () => globalLenis;
 
 function App() {
   useEffect(() => {
     // Initialize Lenis smooth scrolling
-    const lenis = new Lenis({
+    globalLenis = new Lenis({
       duration: 1.2,
       easing: (t) => Math.min(1, 1.001 - Math.pow(2, -10 * t)),
     });
 
     // Animation frame loop for Lenis
     function raf(time: number) {
-      lenis.raf(time);
+      globalLenis?.raf(time);
       requestAnimationFrame(raf);
     }
     requestAnimationFrame(raf);
 
     return () => {
-      lenis.destroy();
+      globalLenis?.destroy();
+      globalLenis = null;
     };
   }, []);
 
@@ -36,6 +44,7 @@ function App() {
       <Router>
         <Routes>
           <Route path="/" element={<Home />} />
+          <Route path="/unit/:id" element={<UnitView />} />
           <Route path="/login" element={<Login />} />
           <Route path="/manage" element={<ManageUnits />} />
           <Route path="/profile" element={<Profile />} />

@@ -190,4 +190,29 @@ export class ListingService {
 
     return data || [];
   }
+
+  // Get listings in the same area/city (excluding current listing)
+  static async getListingsInSameArea(city: string, excludeId?: string): Promise<ListingView[]> {
+    let query = supabase
+      .from('listings_view')
+      .select('*')
+      .ilike('city', `%${city}%`)
+      .eq('is_available', true)
+      .order('is_featured', { ascending: false })
+      .order('created_at', { ascending: false })
+      .limit(6);
+
+    if (excludeId) {
+      query = query.neq('id', excludeId);
+    }
+
+    const { data, error } = await query;
+
+    if (error) {
+      console.error('Error fetching listings in same area:', error);
+      throw error;
+    }
+
+    return data || [];
+  }
 }
