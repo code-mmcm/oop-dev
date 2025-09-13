@@ -361,7 +361,7 @@ const ProfileCard: React.FC = () => {
                     <p className="text-[11px] sm:text-xs text-gray-500" style={{fontFamily: 'Poppins', fontWeight: 400}}>Active</p>
                   </div>
                   <div className="flex items-center justify-end gap-3">
-                    <span className="text-sm sm:text-base text-black" style={{fontFamily: 'Poppins', fontWeight: 600}}>Notifications</span>
+                    <span className="text-sm sm:text-base text-black" style={{fontFamily: 'Poppins', fontWeight: 600}}></span>
                     <label className="relative inline-flex items-center cursor-pointer">
                       <input type="checkbox" defaultChecked className="sr-only peer" />
                       <div className="w-9 h-5 sm:w-10 sm:h-5 bg-gray-200 rounded-full peer peer-checked:bg-emerald-500 transition-colors"></div>
