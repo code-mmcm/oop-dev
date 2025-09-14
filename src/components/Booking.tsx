@@ -96,7 +96,7 @@ const BookingPage: React.FC = () => {
     <div className="min-h-screen bg-gray-50">
       <Navbar />
       
-      <div className="pt-20 pb-8">
+      <div className="pt-20 pb-8 min-h-[calc(100vh-5rem)]">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           {/* Header */}
           <div className="mb-8">
@@ -126,16 +126,18 @@ const BookingPage: React.FC = () => {
           </div>
 
           {/* Booking Cards */}
-          <div className="space-y-6">
+          <div className="space-y-6 min-h-[400px]">
             {isLoading ? (
               <div className="flex justify-center items-center py-12">
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-600"></div>
               </div>
             ) : filteredBookings.length === 0 ? (
-              <div className="text-center py-12">
-                <p className="text-gray-500 text-lg" style={{fontFamily: 'Poppins'}}>
-                  No bookings found for the selected filter.
-                </p>
+              <div className="flex justify-center items-center py-12 min-h-[400px]">
+                <div className="text-center">
+                  <p className="text-gray-500 text-lg" style={{fontFamily: 'Poppins'}}>
+                    No bookings found for the selected filter.
+                  </p>
+                </div>
               </div>
             ) : (
               filteredBookings.map((booking) => (
