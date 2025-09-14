@@ -79,23 +79,23 @@ const Navbar: React.FC = () => {
           </div>
 
           {/* Center - Navigation Links */}
-          <div className="hidden md:block absolute left-1/2 transform -translate-x-1/2">
-            <div className="flex items-baseline space-x-8">
+          <div className="hidden md:block absolute left-1/2 transform -translate-x-1/2 translate-x-[-137px]">
+            <div className="flex items-baseline">
               <Link
                 to="/"
-                className="text-black font-sans font-medium uppercase text-sm hover:text-gray-600 transition-colors"
+                className="text-black font-sans font-medium uppercase text-sm hover:text-teal-900 transition-colors px-4 py-2 mx-1"
               >
                 HOME
               </Link>
               <Link
                 to="/booking"
-                className="text-black font-sans font-medium uppercase text-sm hover:text-gray-600 transition-colors"
+                className="text-black font-sans font-medium uppercase text-sm hover:text-teal-900 transition-colors px-4 py-2 mx-1"
               >
                 BOOKING
               </Link>
               <a
                 href="#"
-                className="text-black font-sans font-medium uppercase text-sm hover:text-gray-600 transition-colors"
+                className="text-black font-sans font-medium uppercase text-sm hover:text-teal-900 transition-colors px-4 py-2 mx-1"
               >
                 CALENDAR
               </a>

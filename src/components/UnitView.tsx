@@ -580,11 +580,11 @@ const UnitView: React.FC = () => {
                 {listing.image_urls && listing.image_urls.length > 0 ? (
                   // Show grid layout when there are additional images
                   <div className="grid grid-cols-3 gap-3 h-64">
-                    <div className="col-span-2 h-full w-full cursor-pointer" onClick={() => handleImageClick(0)}>
+                    <div className="col-span-2 h-full w-full cursor-pointer overflow-hidden" onClick={() => handleImageClick(0)}>
                       <img 
                         src={listing.main_image_url || '/avida.jpg'} 
                         className="h-full w-full object-cover rounded-lg hover:opacity-90 transition-opacity" 
-                        style={{aspectRatio: '16/9'}}
+                        style={{aspectRatio: '16/9', maxHeight: '100%'}}
                         alt="main" 
                       />
                     </div>
@@ -593,7 +593,7 @@ const UnitView: React.FC = () => {
                         <div key={index} className="cursor-pointer" onClick={() => handleImageClick(index + 1)}>
                           <img 
                             src={imageUrl} 
-                            className="h-30 w-full object-cover rounded-lg hover:opacity-90 transition-opacity" 
+                            className="h-36 w-full object-cover rounded-lg hover:opacity-90 transition-opacity" 
                             alt={`additional ${index + 1}`} 
                           />
                         </div>
