@@ -24,3 +24,6 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+.gitcopy/description
+/.gitcopy
+/.gitproduct
