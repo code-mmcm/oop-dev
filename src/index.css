@@ -103,6 +103,18 @@
   }
 }
 
+/* Mobile dropdown slide-down animation */
+.mobile-menu-dropdown {
+  max-height: 0;
+  opacity: 0;
+  overflow: hidden;
+  transition: max-height 0.4s cubic-bezier(0.4,0,0.2,1), opacity 0.3s ease;
+}
+.mobile-menu-dropdown.open {
+  max-height: 800px; /* large enough for content */
+  opacity: 1;
+}
+
 @keyframes slideInFromRight {
   from {
     opacity: 0;

@@ -239,7 +239,7 @@ const UnitView: React.FC = () => {
                 </div>
 
                 {/* Property Details Table Skeleton */}
-                <div className="grid grid-cols-4 gap-0 border border-gray-200 rounded-xl overflow-hidden mb-8">
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-0 border border-gray-200 rounded-xl overflow-hidden mb-8">
                   {[1,2,3,4].map((i) => (
                     <div key={i} className="p-6 border-r border-gray-200">
                       <div className="h-4 bg-gray-300 rounded w-16 mb-2 animate-pulse"></div>
@@ -576,10 +576,12 @@ const UnitView: React.FC = () => {
             {/* Left Column - Property Details */}
             <div className="flex-1">
               {/* Image Gallery */}
-              <div className="mb-8">
+              <div className="mb-1">
                 {listing.image_urls && listing.image_urls.length > 0 ? (
                   // Show grid layout when there are additional images
-                  <div className="grid grid-cols-3 gap-3 h-64">
+
+                  listing.image_urls.length >= 2 ? (
+                  <div className="grid grid-cols-3 gap-3 h-75">
                     <div className="col-span-2 h-full w-full cursor-pointer overflow-hidden" onClick={() => handleImageClick(0)}>
                       <img 
                         src={listing.main_image_url || '/avida.jpg'} 
@@ -599,13 +601,32 @@ const UnitView: React.FC = () => {
                         </div>
                       ))}
                     </div>
-                  </div>
+                  </div>) : (
+                  <div className="grid grid-cols-2 gap-3 h-75">
+                    <div className="col-span-1 h-full w-full cursor-pointer overflow-hidden flex items-center justify-center" onClick={() => handleImageClick(0)}>
+                      <img
+                        src={listing.main_image_url || '/avida.jpg'}
+                        className="h-full w-full object-cover rounded-lg hover:opacity-90 transition-opacity"
+                        style={{aspectRatio: '16/9', maxHeight: '100%'}}
+                        alt="main"
+                      />
+                    </div>
+                    <div className="col-span-1 h-full w-full cursor-pointer overflow-hidden flex items-center justify-center" onClick={() => handleImageClick(0)}>
+                      <img
+                        src={listing.main_image_url || '/avida.jpg'}
+                        className="h-full w-full object-cover rounded-lg hover:opacity-90 transition-opacity"
+                        style={{aspectRatio: '16/9', maxHeight: '100%'}}
+                        alt="main"
+                      />
+                    </div>
+                  </div>)
                 ) : (
                   // Show single image when no additional images
-                  <div className="w-full flex justify-center cursor-pointer" onClick={() => handleImageClick(0)}>
+                 <div className="h-75 w-full flex justify-center cursor-pointer" onClick={() => handleImageClick(0)}>
                     <img 
                       src={listing.main_image_url || '/avida.jpg'} 
-                      className="max-w-full h-auto object-contain rounded-lg hover:opacity-90 transition-opacity" 
+                      className="h-full w-full object-cover rounded-lg hover:opacity-90 transition-opacity"
+                      style={{aspectRatio: '16/9', maxHeight: '100%'}}
                       alt="main" 
                     />
                   </div>
@@ -613,7 +634,7 @@ const UnitView: React.FC = () => {
               </div>
 
               {/* Property Title and Location */}
-              <div className={`mb-6 ${listing.image_urls && listing.image_urls.length > 0 ? 'mt-20' : 'mt-8'}`}>
+              <div className={`mb-6 ${listing.image_urls && listing.image_urls.length > 0 ? 'mt-5' : 'mt-8'}`}>
                 <h1 className="text-3xl font-bold mb-3" style={{fontFamily: 'Poppins', fontWeight: 700}}>
                   {listing.title}
                 </h1>
@@ -657,28 +678,30 @@ const UnitView: React.FC = () => {
               </div>
 
               {/* Property Details Table */}
-              <div className="grid grid-cols-4 gap-0 border border-gray-200 rounded-xl overflow-hidden mb-8">
-                <div className="p-6 border-r border-gray-200">
-                  <p className="text-base text-gray-600 mb-2" style={{fontFamily: 'Poppins'}}>Bedroom</p>
-                  <p className="text-xl font-bold" style={{fontFamily: 'Poppins', fontWeight: 700}}>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-0 border border-gray-200 rounded-xl overflow-hidden mb-8">
+                <div className="p-3 border-r border-gray-200">
+                  <p className="text-base text-gray-600 mb-1" style={{fontFamily: 'Poppins'}}>Bedroom</p>
+                  <p className="text-xl text-center font-bold" style={{fontFamily: 'Poppins', fontWeight: 700}}>
                     {listing.bedrooms}
                   </p>
                 </div>
-                <div className="p-6 border-r border-gray-200">
-                  <p className="text-base text-gray-600 mb-2" style={{fontFamily: 'Poppins'}}>Bathroom</p>
-                  <p className="text-xl font-bold" style={{fontFamily: 'Poppins', fontWeight: 700}}>
+                <div className="p-3 border-r border-gray-200">
+                  <p className="text-base text-gray-600 mb-1" style={{fontFamily: 'Poppins'}}>Bathroom</p>
+                  <p className="text-xl text-center font-bold" style={{fontFamily: 'Poppins', fontWeight: 700}}>
                     {listing.bathrooms}
                   </p>
                 </div>
-                <div className="p-6 border-r border-gray-200">
-                  <p className="text-base text-gray-600 mb-2" style={{fontFamily: 'Poppins'}}>Area</p>
-                  <p className="text-xl font-bold" style={{fontFamily: 'Poppins', fontWeight: 700}}>
+                {/* Horizontal line for mobile between rows */}
+                <div className="col-span-2 md:hidden border-t border-gray-200 mx-3"></div>
+                <div className="p-3 border-r border-gray-200">
+                  <p className="text-base text-gray-600 mb-1" style={{fontFamily: 'Poppins'}}>Area</p>
+                  <p className="text-xl text-center font-bold" style={{fontFamily: 'Poppins', fontWeight: 700}}>
                     {listing.square_feet ? `${listing.square_feet} sqft` : 'N/A'}
                   </p>
                 </div>
-                <div className="p-6">
-                  <p className="text-base text-gray-600 mb-2" style={{fontFamily: 'Poppins'}}>Type</p>
-                  <p className="text-xl font-bold" style={{fontFamily: 'Poppins', fontWeight: 700}}>
+                <div className="p-3">
+                  <p className="text-base text-gray-600 mb-1" style={{fontFamily: 'Poppins'}}>Type</p>
+                  <p className="text-xl text-center font-bold" style={{fontFamily: 'Poppins', fontWeight: 700}}>
                     {listing.property_type}
                   </p>
                 </div>
