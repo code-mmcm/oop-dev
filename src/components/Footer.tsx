@@ -9,7 +9,7 @@ const Footer: React.FC = () => {
           {/* Logo */}
           <div className="flex items-center mb-6 sm:mb-8 md:mb-0 animate-fade-in-left" style={{animationDelay: '0.2s'}}>
             <img 
-              src="./footerlogo.png" 
+              src="../footerlogo.png" 
               alt="Kelsey's Homestay Logo" 
               className="w-48 sm:w-56 md:w-60 h-auto hover:scale-105 transition-transform duration-300"
             />
