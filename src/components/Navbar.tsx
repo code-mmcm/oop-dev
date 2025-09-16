@@ -240,9 +240,8 @@ const Navbar: React.FC = () => {
         </div>
 
         {/* Mobile Menu Dropdown */}
-        {isMobileMenuOpen && (
-          <div className="md:hidden border-t border-gray-200">
-            <div className="px-4 py-3 space-y-1">
+        <div className={`md:hidden border-t border-gray-200 mobile-menu-dropdown${isMobileMenuOpen ? ' open' : ''}`}> 
+          <div className="px-4 py-3 space-y-1">
               {/* Navigation Links */}
               <Link
                 to="/"
@@ -411,7 +410,7 @@ const Navbar: React.FC = () => {
               )}
             </div>
           </div>
-        )}
+        
       </div>
     </nav>
   );
