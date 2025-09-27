@@ -12,6 +12,7 @@ import SignUp from './components/SignUp';
 import AdminPanel from './components/AdminPanel';
 import ManageUsers from './components/ManageUsers';
 import UnitView from './components/UnitView';
+import Updates from './components/Updates';
 
 // Global Lenis instance
 let globalLenis: Lenis | null = null;
@@ -23,7 +24,7 @@ function App() {
   useEffect(() => {
     // Initialize Lenis smooth scrolling
     globalLenis = new Lenis({
-      duration: 1.2,
+      duration: 0.4,
       easing: (t) => Math.min(1, 1.001 - Math.pow(2, -10 * t)),
     });
 
@@ -54,6 +55,8 @@ function App() {
             <Route path="/signup" element={<SignUp />} />
             <Route path="/admin" element={<AdminPanel />} />
             <Route path="/manageusers" element={<ManageUsers />} />
+            <Route path="/updates" element={<Updates />} />
+            {/* <Route path="/calendar" element={<CalendarView />} /> */}
           </Routes>
         </Router>
       </AuthProvider>

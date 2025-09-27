@@ -1,5 +1,15 @@
 @import "tailwindcss";
 
+/* Hide scrollbars for calendar */
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+
 @font-face {
   font-family: 'Poppins';
   font-style: normal;
