@@ -1,10 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useAuth } from '../contexts/AuthContext';
-import { supabase } from '../lib/supabase';
-import Navbar from './Navbar';
-import Footer from './Footer';
-import type { UserProfile } from '../types/auth';
+import { useAuth } from '../../contexts/AuthContext';
+import { supabase } from '../../lib/supabase';
+import Navbar from '../../components/Navbar';
+import Footer from '../../components/Footer';
+import type { UserProfile } from '../../types/auth';
 
 interface UserWithRole extends UserProfile {
   role?: string;
