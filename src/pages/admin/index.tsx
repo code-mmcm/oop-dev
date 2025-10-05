@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useAuth } from '../contexts/AuthContext';
-import { supabase } from '../lib/supabase';
-import Navbar from './Navbar';
-import Footer from './Footer';
+import { useAuth } from '../../contexts/AuthContext';
+import { supabase } from '../../lib/supabase';
+import Navbar from '../../components/Navbar';
+import Footer from '../../components/Footer';
 import {
   LineChart,
   Line,

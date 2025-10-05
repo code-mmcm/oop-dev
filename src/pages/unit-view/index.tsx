@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Helmet } from 'react-helmet-async';
-import Navbar from './Navbar';
-import Footer from './Footer';
-import { ListingService } from '../services/listingService';
-import type { Listing, ListingView } from '../types/listing';
-import { getLenis } from '../App';
+import Navbar from '../../components/Navbar';
+import Footer from '../../components/Footer';
+import { ListingService } from '../../services/listingService';
+import type { Listing, ListingView } from '../../types/listing';
+import { getLenis } from '../../App';
 
 const UnitView: React.FC = () => {
   const { id } = useParams<{ id: string }>();

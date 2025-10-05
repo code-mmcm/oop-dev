@@ -5,11 +5,11 @@
 
 import React, { useState, useEffect } from 'react';
 import { Helmet } from 'react-helmet-async';
-import type { UpdateEntry } from '../types/update';
-import UpdatesService from '../services/updatesService';
-import { logger } from '../lib/logger';
-import Navbar from './Navbar';
-import Footer from './Footer';
+import type { UpdateEntry } from '../../types/update';
+import UpdatesService from '../../services/updatesService';
+import { logger } from '../../lib/logger';
+import Navbar from '../../components/Navbar';
+import Footer from '../../components/Footer';
 
 /**
  * Updates page component

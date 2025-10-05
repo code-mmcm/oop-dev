@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import Navbar from './Navbar';
-import Footer from './Footer';
-import NewListingForm from './NewListingForm';
-import { ListingService } from '../services/listingService';
-import { useAuth } from '../contexts/AuthContext';
-import type { Listing } from '../types/listing';
+import Navbar from '../../components/Navbar';
+import Footer from '../../components/Footer';
+import NewListingForm from '../../components/NewListingForm';
+import { ListingService } from '../../services/listingService';
+import { useAuth } from '../../contexts/AuthContext';
+import type { Listing } from '../../types/listing';
 
 const ManageUnits: React.FC = () => {
   const navigate = useNavigate();

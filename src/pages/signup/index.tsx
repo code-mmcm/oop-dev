@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { useAuth } from '../contexts/AuthContext';
-import { logger } from '../lib/logger';
+import { useAuth } from '../../contexts/AuthContext';
+import { logger } from '../../lib/logger';
 
 // Floating input extracted to top-level to keep component identity stable across renders
 const FloatingInput: React.FC<{

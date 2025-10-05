@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import Navbar from './Navbar';
-import Footer from './Footer';
-import { useAuth } from '../contexts/AuthContext';
-import { UserService } from '../services/userService';
-import { supabase } from '../lib/supabase';
-import type { UserProfile } from '../types/user';
+import Navbar from '../../components/Navbar';
+import Footer from '../../components/Footer';
+import { useAuth } from '../../contexts/AuthContext';
+import { UserService } from '../../services/userService';
+import { supabase } from '../../lib/supabase';
+import type { UserProfile } from '../../types/user';
 
 const ProfileCard: React.FC = () => {
   const navigate = useNavigate();

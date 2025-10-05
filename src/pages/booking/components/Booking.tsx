@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import Navbar from './Navbar';
-import Footer from './Footer';
-import { BookingService } from '../services/bookingService';
-import type { Booking, BookingStatus } from '../types/booking';
+import Navbar from '../../../components/Navbar';
+import Footer from '../../../components/Footer';
+import { BookingService } from '../../../services/bookingService';
+import type { Booking, BookingStatus } from '../../../types/booking';
 
-const BookingPage: React.FC = () => {
+const BookingComponent: React.FC = () => {
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [filteredBookings, setFilteredBookings] = useState<Booking[]>([]);
   const [activeTab, setActiveTab] = useState<BookingStatus | 'all'>('all');
@@ -251,4 +251,4 @@ const BookingPage: React.FC = () => {
   );
 };
 
-export default BookingPage;
+export default BookingComponent;

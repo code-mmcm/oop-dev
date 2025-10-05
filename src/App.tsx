@@ -3,16 +3,16 @@ import { useEffect } from 'react';
 import { HelmetProvider } from 'react-helmet-async';
 import Lenis from '@studio-freight/lenis';
 import { AuthProvider } from './contexts/AuthContext';
-import Home from './components/Home';
-import Login from './components/Login';
-import ManageUnits from './components/ManageUnits';
-import Profile from './components/ProfileCard';
-import Booking from './components/Booking';
-import SignUp from './components/SignUp';
-import AdminPanel from './components/AdminPanel';
-import ManageUsers from './components/ManageUsers';
-import UnitView from './components/UnitView';
-import Updates from './components/Updates';
+import Home from './pages/home';
+import Login from './pages/login';
+import ManageUnits from './pages/manage-units';
+import Profile from './pages/profile';
+import Booking from './pages/booking';
+import SignUp from './pages/signup';
+import AdminPanel from './pages/admin';
+import ManageUsers from './pages/manage-users';
+import UnitView from './pages/unit-view';
+import Updates from './pages/updates';
 
 // Global Lenis instance
 let globalLenis: Lenis | null = null;
