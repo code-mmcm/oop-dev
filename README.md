@@ -1,16 +1,85 @@
-# 🚀 Kelsey's Staycation
+<div align="center">
+  <img src="https://raw.githubusercontent.com/code-mmcm/oop-dev/refs/heads/main/public/logo.png?token=GHSAT0AAAAAADJGMRL2GZXRQ5PTRDVR7IWO2HCTD6A" alt="Kelsey's Homestay Logo" width="200" height="200">
+</div>
 
-A modern web application built with **React**, **Vite**, and **Tailwind CSS**.
+A React-based property listing and booking management application built with TypeScript, Tailwind CSS, and Supabase.
 
----
+## 📁 Project Structure
 
-## 📦 Tech Stack
+```
+src/
+├── components/                 # Reusable UI components
+│   ├── Footer.tsx
+│   ├── ImageGallery.tsx
+│   ├── ImageUpload.tsx
+│   ├── Navbar.tsx
+│   ├── NewListingForm.tsx
+│   └── ProtectedRoute.tsx
+│
+├── contexts/                  # React Context providers
+│   └── AuthContext.tsx
+│
+├── hooks/                     # Custom React hooks
+│   └── useAuthRole.ts
+│
+├── lib/                       # Utility libraries
+│   ├── logger.ts
+│   └── supabase.ts
+│
+├── pages/                     # Page components organized by route
+│   ├── home/                  # Sample page structure
+│   │   ├── components/
+│   │   │   ├── Filters.tsx    # Search and filter controls
+│   │   │   ├── Hero.tsx       # Hero section with search
+│   │   │   ├── Listings.tsx   # Property listings grid
+│   │   │   ├── PropertyCard.tsx # Individual property card
+│   │   │   └── ResultsSection.tsx # Results display section
+│   │   └── index.tsx          # Home page (main logic)
+│   │
+│   ├── admin/                 # Admin dashboard
+│   ├── booking/               # Booking management
+│   ├── login/                 # User authentication
+│   ├── manage-units/          # Unit management
+│   ├── manage-users/          # User management
+│   ├── profile/               # User profile
+│   ├── signup/                # User registration
+│   ├── unit-view/             # Property detail view
+│   ├── updates/               # Updates/announcements
+│   └── ...                    # Other pages follow same pattern
+│
+├── services/                  # API service layers
+│   ├── authService.ts
+│   ├── bookingService.ts
+│   ├── calendarService.ts
+│   ├── imageService.ts
+│   ├── listingService.ts
+│   ├── updatesService.ts
+│   ├── userService.ts
+│   └── ...
+│
+├── types/                     # TypeScript type definitions
+│   ├── auth.ts
+│   ├── booking.ts
+│   ├── calendar.ts
+│   ├── listing.ts
+│   ├── update.ts
+│   ├── user.ts
+│   └── ...
+│
+├── App.tsx                    # Main app component with routing
+├── index.css                  # Global styles
+├── main.tsx                   # Application entry point
+└── vite-env.d.ts             # Vite type definitions
+```
 
-- ⚛️ [React](https://react.dev/) – Component-based UI library  
-- ⚡ [Vite](https://vitejs.dev/) – Next-generation frontend tooling  
-- 🎨 [Tailwind CSS](https://tailwindcss.com/) – Utility-first CSS framework  
+## 🛠️ Technology Stack
 
----
+- **Frontend**: React, TypeScript, Vite
+- **Styling**: Tailwind CSS
+- **Backend**: Supabase
+- **Charts**: Recharts
+- **Routing**: React Router DOM
+- **Animations**: Lenis smooth scrolling
 
 ## 🛠️ Getting Started
 # GitHub Practices
