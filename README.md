@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="https://raw.githubusercontent.com/code-mmcm/oop-dev/refs/heads/main/public/logo.png?token=GHSAT0AAAAAADJGMRL2GZXRQ5PTRDVR7IWO2HCTD6A" alt="Kelsey's Homestay Logo" width="200" height="200">
+  <img src="https://github.com/user-attachments/assets/11518a44-e593-4c6c-b70c-a82146280fe3" alt="Kelsey's Homestay Logo" width="200" height="200">
 </div>
 
 A React-based property listing and booking management application built with TypeScript, Tailwind CSS, and Supabase.
