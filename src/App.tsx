@@ -4,6 +4,7 @@ import { HelmetProvider } from 'react-helmet-async';
 import Lenis from '@studio-freight/lenis';
 import { AuthProvider } from './contexts/AuthContext';
 import Home from './pages/home';
+import Homepage from './pages/homepage';
 import Login from './pages/login';
 import ManageUnits from './pages/manage-units';
 import Profile from './pages/profile';
@@ -46,7 +47,8 @@ function App() {
       <AuthProvider>
         <Router>
           <Routes>
-            <Route path="/" element={<Home />} />
+            <Route path="/" element={<Homepage />} />
+            <Route path="/home" element={<Home />} />
             <Route path="/unit/:id" element={<UnitView />} />
             <Route path="/login" element={<Login />} />
             <Route path="/manage" element={<ManageUnits />} />
