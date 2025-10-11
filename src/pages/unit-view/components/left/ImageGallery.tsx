@@ -13,7 +13,7 @@ export const ImageGallerySkeleton: React.FC = () => (
   </div>
 );
 
-const ImageGallery: React.FC<ImageGalleryProps> = ({ mainImageUrl, imageUrls, onImageClick }) => {
+const ImageGallery: React.FC<ImageGalleryProps> = ({ mainImageUrl, imageUrls }) => {
   const [showImageModal, setShowImageModal] = useState(false);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [isImageTransitioning, setIsImageTransitioning] = useState(false);

@@ -19,9 +19,8 @@ const UnitView: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showShareModal, setShowShareModal] = useState(false);
-  const [showImageModal, setShowImageModal] = useState(false);
-  const [currentImageIndex, setCurrentImageIndex] = useState(0);
-  const [isImageTransitioning, setIsImageTransitioning] = useState(false);
+  const [, setShowImageModal] = useState(false);
+  const [, setCurrentImageIndex] = useState(0);
   const [isLinkCopied, setIsLinkCopied] = useState(false);
 
   useEffect(() => {
@@ -83,10 +82,6 @@ const UnitView: React.FC = () => {
     }, 100);
   };
 
-  const handleShare = () => {
-    setIsLinkCopied(false); // Reset copied state when opening modal
-    setShowShareModal(true);
-  };
 
   const handleCopyLink = async () => {
     const shareUrl = `${window.location.origin}/unit/${id}`;
