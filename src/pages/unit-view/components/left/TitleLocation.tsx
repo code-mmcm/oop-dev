@@ -1,6 +1,5 @@
 import React from 'react';
 import ShareModal from './TitleComponent/ShareModal';
-import { circle } from 'leaflet';
 
 interface TitleLocationProps {
   title: string;
