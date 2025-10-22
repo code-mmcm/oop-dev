@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Helmet } from 'react-helmet-async';
+import { useMetaTags } from '../../hooks/useMetaTags';
 import Navbar from '../../components/Navbar';
 import Footer from '../../components/Footer';
 import { ListingService } from '../../services/listingService';
@@ -22,6 +22,21 @@ const UnitView: React.FC = () => {
   const [, setShowImageModal] = useState(false);
   const [, setCurrentImageIndex] = useState(0);
   const [isLinkCopied, setIsLinkCopied] = useState(false);
+
+  // Set meta tags for SEO and social sharing
+  useMetaTags({
+    title: listing ? `${listing.title} - Kelsey's Homestay` : 'Property Details - Kelsey\'s Homestay',
+    description: listing?.description || 'Discover this amazing property at Kelsey\'s Homestay. Book your stay today!',
+    keywords: `${listing?.title || 'property'}, ${listing?.location || 'accommodation'}, ${listing?.property_type || 'rental'}, Kelsey's Homestay, booking, vacation rental`,
+    ogTitle: listing ? `${listing.title} - Kelsey's Homestay` : 'Property Details - Kelsey\'s Homestay',
+    ogDescription: listing?.description || 'Discover this amazing property at Kelsey\'s Homestay. Book your stay today!',
+    ogImage: listing?.main_image_url || `${window.location.origin}/avida.jpg`,
+    ogUrl: `${window.location.origin}/unit/${id}`,
+    twitterCard: 'summary_large_image',
+    twitterTitle: listing ? `${listing.title} - Kelsey's Homestay` : 'Property Details - Kelsey\'s Homestay',
+    twitterDescription: listing?.description || 'Discover this amazing property at Kelsey\'s Homestay. Book your stay today!',
+    twitterImage: listing?.main_image_url || `${window.location.origin}/avida.jpg`
+  });
 
   useEffect(() => {
     // Scroll to top when component mounts or id changes using Lenis
@@ -212,44 +227,6 @@ const UnitView: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-white text-black">
-      {/* Dynamic Meta Tags for Social Sharing */}
-      <Helmet>
-        <title>{listing ? `${listing.title} - Kelsey's Homestay` : 'Property Details - Kelsey\'s Homestay'}</title>
-        <meta name="description" content={listing?.description || 'Discover this amazing property at Kelsey\'s Homestay. Book your stay today!'} />
-        
-        {/* Open Graph Meta Tags */}
-        <meta property="og:title" content={listing ? `${listing.title} - Kelsey's Homestay` : 'Property Details - Kelsey\'s Homestay'} />
-        <meta property="og:description" content={listing?.description || 'Discover this amazing property at Kelsey\'s Homestay. Book your stay today!'} />
-        <meta property="og:image" content={listing?.main_image_url || `${window.location.origin}/avida.jpg`} />
-        <meta property="og:url" content={`${window.location.origin}/unit/${id}`} />
-        <meta property="og:type" content="website" />
-        <meta property="og:site_name" content="Kelsey's Homestay" />
-        
-        {/* Twitter Card Meta Tags */}
-        <meta name="twitter:card" content="summary_large_image" />
-        <meta name="twitter:title" content={listing ? `${listing.title} - Kelsey's Homestay` : 'Property Details - Kelsey\'s Homestay'} />
-        <meta name="twitter:description" content={listing?.description || 'Discover this amazing property at Kelsey\'s Homestay. Book your stay today!'} />
-        <meta name="twitter:image" content={listing?.main_image_url || `${window.location.origin}/avida.jpg`} />
-        
-        {/* Additional Meta Tags */}
-        <meta name="keywords" content={`${listing?.title || 'property'}, ${listing?.location || 'accommodation'}, ${listing?.property_type || 'rental'}, Kelsey's Homestay, booking, vacation rental`} />
-        <meta name="author" content="Kelsey's Homestay" />
-        <link rel="canonical" href={`${window.location.origin}/unit/${id}`} />
-        
-        {/* Property-specific Meta Tags */}
-        {listing && (
-          <>
-            <meta property="og:price:amount" content={listing.price?.toString() || ''} />
-            <meta property="og:price:currency" content={listing.currency || 'USD'} />
-            {listing.latitude && <meta property="place:location:latitude" content={listing.latitude.toString()} />}
-            {listing.longitude && <meta property="place:location:longitude" content={listing.longitude.toString()} />}
-            <meta property="business:contact_data:street_address" content={listing.location || ''} />
-            {listing.city && <meta property="business:contact_data:locality" content={listing.city} />}
-            {listing.country && <meta property="business:contact_data:country_name" content={listing.country} />}
-          </>
-        )}
-      </Helmet>
-
       <Navbar />
       <div className="h-16" />
 
