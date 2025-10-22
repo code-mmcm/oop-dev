@@ -56,7 +56,7 @@ const Hero: React.FC<HeroProps> = ({
         {/* Main Heading */}
         <h1 
           className="text-white text-3xl sm:text-4xl md:text-5xl lg:text-6xl mb-4 sm:mb-6 leading-tight mt-16 sm:mt-20 md:mt-24 animate-fade-in-up"
-          style={{fontFamily: 'Poppins', fontWeight: 700, animationDelay: '0.1s', animationDuration: '400ms'}}
+          style={{fontFamily: 'Poppins', fontWeight: 700, animationDelay: '0.3s', animationDuration: '600ms'}}
         >
           Feel at home anytime,<br className="hidden sm:block" /> anywhere!
         </h1>
@@ -64,7 +64,7 @@ const Hero: React.FC<HeroProps> = ({
         {/* Sub-heading */}
         <p 
           className="text-white text-base sm:text-lg md:text-xl mb-8 sm:mb-10 md:mb-12 max-w-2xl leading-relaxed animate-fade-in-up px-2"
-          style={{fontFamily: 'Poppins', fontWeight: 600, animationDelay: '0.2s', animationDuration: '400ms'}}
+          style={{fontFamily: 'Poppins', fontWeight: 600, animationDelay: '0.6s', animationDuration: '600ms'}}
         >
           Find your perfect home away from home
           while you're on your dream vacation
@@ -72,7 +72,7 @@ const Hero: React.FC<HeroProps> = ({
       </div>
       
       {/* Search Bar - positioned between hero and white section */}
-      <div className="relative z-20 flex justify-center items-center -mt-20 sm:-mt-10 md:-mt-12 px-4 sm:px-6 lg:px-8 animate-slide-up" style={{animationDelay: '0.4s', animationDuration: '400ms'}}>
+      <div className="relative z-20 flex justify-center items-center -mt-20 sm:-mt-10 md:-mt-12 px-4 sm:px-6 lg:px-8 animate-slide-up" style={{animationDelay: '1.0s', animationDuration: '600ms'}}>
         <div className="bg-white rounded-xl sm:rounded-2xl shadow-md p-3 w-full max-w-3xl relative overflow-visible">
             <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 items-stretch sm:items-center">
             {/* Search Location */}
