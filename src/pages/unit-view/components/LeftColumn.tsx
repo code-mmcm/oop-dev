@@ -75,7 +75,10 @@ const LeftColumn: React.FC<LeftColumnProps> = ({
       />
 
       <ListingTabs 
-        amenities={listing.amenities} defaultShow={true} 
+        amenities={listing.amenities} 
+        defaultShow={true}
+        latitude={listing.latitude}
+        longitude={listing.longitude}
       />
     </div>
   );

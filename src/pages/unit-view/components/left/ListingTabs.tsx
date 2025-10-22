@@ -109,6 +109,13 @@ const ListingTabs: React.FC<ListingTabsProps> = ({ amenities = [], defaultShow =
                 zoom={selectedPosition ? 15 : 13}
                 style={{ height: '100%', width: '100%' }}
                 key={selectedPosition ? 'selected' : 'default'}
+                zoomControl={false}
+                dragging={false}
+                doubleClickZoom={false}
+                scrollWheelZoom={false}
+                touchZoom={false}
+                boxZoom={false}
+                keyboard={false}
               >
                 <TileLayer
                   attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
