@@ -36,10 +36,10 @@ const HomePage: React.FC = () => {
         setError('Failed to load listings. Please try again later.');
         setApartments([]);
       } finally {
-        // Wait for header animations to complete before showing listings
+        // Wait for slower hero animations to complete before showing listings
         setTimeout(() => {
           setIsLoading(false);
-        }, 500);
+        }, 1000);
       }
     };
 
