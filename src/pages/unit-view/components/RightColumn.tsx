@@ -1,5 +1,6 @@
 import React from 'react';
 import type { Listing } from '../../../types/listing';
+import ReviewPanel from '../RightReviews/ReviewPanel.tsx';
 
 interface RightColumnProps {
   listing: Listing | null;
@@ -21,7 +22,7 @@ const RightColumn: React.FC<RightColumnProps> = ({
   if (isLoading) {
     return (
       <div className="w-full xl:w-96">
-        <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6 sticky top-24 animate-pulse">
+        <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6 top-24 animate-pulse">
           <div className="mb-6">
             <div className="h-6 bg-gray-300 rounded w-2/3 mb-2"></div>
             <div className="h-4 bg-gray-300 rounded w-full animate-pulse"></div>
@@ -59,13 +60,25 @@ const RightColumn: React.FC<RightColumnProps> = ({
           </div>
           <div className="h-12 bg-gray-300 rounded-lg animate-pulse"></div>
         </div>
+        <div className="mt-6">
+          <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6 animate-pulse">
+            <div className="mb-4">
+              <div className="h-6 bg-gray-300 rounded w-1/3 mb-3"></div>
+              <div className="h-4 bg-gray-300 rounded w-full"></div>
+            </div>
+            <div>
+              <div className="h-4 bg-gray-300 rounded w-3/4 mb-2"></div>
+              <div className="h-4 bg-gray-300 rounded w-2/3"></div>
+            </div>
+          </div>
+        </div>
       </div>
     );
   }
 
   if (error || !listing) {
     return (
-      <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6 sticky top-24">
+      <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6 top-24">
         <div className="text-red-500 text-center py-12">
           <svg className="w-16 h-16 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
@@ -79,7 +92,8 @@ const RightColumn: React.FC<RightColumnProps> = ({
   }
 
   return (
-    <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6 sticky top-24">
+    <>
+    <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6 top-24">
       <div className="mb-6">
         <h3 className="text-xl font-bold" style={{fontFamily: 'Poppins', fontWeight: 700}}>
           {listing.title}
@@ -168,6 +182,11 @@ const RightColumn: React.FC<RightColumnProps> = ({
         Reserve
       </button>
     </div>
+
+    <div className="mt-6">
+      <ReviewPanel />
+    </div>
+    </>
   );
 };
 
