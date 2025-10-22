@@ -4,7 +4,7 @@
  */
 
 import React, { useState, useEffect } from 'react';
-import { Helmet } from 'react-helmet-async';
+import { useMetaTags } from '../../hooks/useMetaTags';
 import type { UpdateEntry } from '../../types/update';
 import UpdatesService from '../../services/updatesService';
 import { logger } from '../../lib/logger';
@@ -20,6 +20,12 @@ const Updates: React.FC = () => {
   const [updates, setUpdates] = useState<UpdateEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  // Set meta tags for SEO
+  useMetaTags({
+    title: 'System Updates - Kelsey\'s Homestay',
+    description: 'View the latest system updates, bug fixes, and new features for Kelsey\'s Homestay application'
+  });
 
   /**
    * Fetches updates data on component mount
@@ -120,11 +126,6 @@ const Updates: React.FC = () => {
 
   return (
     <div className="App">
-      <Helmet>
-        <title>System Updates - Kelsey's Homestay</title>
-        <meta name="description" content="View the latest system updates, bug fixes, and new features for Kelsey's Homestay application" />
-      </Helmet>
-
       <Navbar />
       
       {/* Main Content */}
