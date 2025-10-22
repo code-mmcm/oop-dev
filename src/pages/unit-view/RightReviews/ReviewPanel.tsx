@@ -1,0 +1,155 @@
+import React, { useState, useEffect } from 'react';
+
+type Review = {
+    id: string;
+    author?: string;
+    rating?: number; // 0-5
+    text?: string;
+};
+
+interface ReviewPanelProps {
+    reviews?: Review[];
+}
+
+const defaultReviews: Review[] = [
+    {
+        id: 'r1',
+        author: 'Alyssa Argoncillo',
+        rating: 5,
+        text:
+            'The unit was clean and well-maintained. The host was very responsive and helpful throughout our stay. Highly recommend!'
+    },
+    {
+        id: 'r2',
+        author: 'John Doe',
+        rating: 4,
+        text: 'Good place overall. A few small issues but would stay again.'
+    },
+    {
+        id: 'r3',
+        author: 'Jane Smith',
+        rating: 5,
+        text: 'Excellent location and great host — 10/10.'
+    }
+];
+
+const ReviewPanel: React.FC<ReviewPanelProps> = ({ reviews }) => {
+    // If parent passed an explicit empty array, show the empty state.
+    const hasExplicitNoReviews = Array.isArray(reviews) && reviews.length === 0;
+    const items = hasExplicitNoReviews ? [] : reviews && reviews.length > 0 ? reviews : defaultReviews;
+    const [index, setIndex] = useState(0);
+    const current = items.length > 0 ? items[index] : undefined;
+
+    // Keep index in-range when items change
+    useEffect(() => {
+        if (index >= items.length) setIndex(0);
+    }, [items.length, index]);
+
+    const prev = () => items.length > 0 && setIndex((i) => (i - 1 + items.length) % items.length);
+    const next = () => items.length > 0 && setIndex((i) => (i + 1) % items.length);
+
+    return (
+        <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
+            <div className="flex items-start justify-between">
+                <h4 className="text-lg font-bold mb-2" style={{ fontFamily: 'Poppins', fontWeight: 700 }}>
+                    Reviews
+                </h4>
+            </div>
+
+            <div className="mt-3">
+                {hasExplicitNoReviews ? (
+                    <div className="py-6">
+                        <p className="text-lg font-semibold text-gray-700" style={{ fontFamily: 'Poppins', fontWeight: 400 }}>
+                            No reviews yet.
+                        </p>
+                    </div>
+                ) : (
+                    <>
+                        <div className="flex items-start mb-3 ml-3 mr-3">
+                            <div className="w-15 h-15 bg-gray-300 rounded-full mr-3 flex-shrink-0"></div>
+                            <div className="flex-1">
+                                <div>
+                                    <p className="text-lg font-semibold" style={{ fontFamily: 'Poppins', fontWeight: 600 }}>
+                                        {current?.author}
+                                    </p>
+                                    <div className="flex items-center gap-2 mt-1 text-sm text-gray-500">
+                                        <div className="flex items-center">
+                                            {Array.from({ length: 5 }).map((_, i) => (
+                                                <svg
+                                                    key={i}
+                                                    className={`w-4 h-4 ${i < (current?.rating ?? 0) ? 'text-yellow-400' : 'text-gray-200'}`}
+                                                    viewBox="0 0 20 20"
+                                                    fill="currentColor"
+                                                    aria-hidden
+                                                >
+                                                    <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.286 3.966a1 1 0 00.95.69h4.178c.969 0 1.371 
+                                                    1.24.588 1.81l-3.385 2.46a1 1 0 00-.364 1.118l1.286 3.965c.3.922-.755 1.688-1.538 1.118l-3.385-2.46a1 
+                                                    1 0 00-1.176 0l-3.385 2.46c-.783.57-1.838-.196-1.538-1.118l1.286-3.965a1 1 0 00-.364-1.118L2.047 9.393c-.783-.57-.38-1.81.588-1.81h4.178a1 
+                                                    1 0 00.95-.69L9.049 2.927z" />
+                                                </svg>
+                                            ))}
+                                        </div>
+                                        <span className="text-sm text-gray-600 mt-0.5" style={{fontFamily: 'Poppins'}}>{(current?.rating ?? 0).toFixed(1)}</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div className="ml-3 mr-3">
+                            {current?.text && (
+                                    <p className="text-sm text-gray-700 mt-4 justify-around" style={{ fontFamily: 'Poppins', fontWeight: 400 }}>
+                                        {current.text}
+                                    </p>
+                                )}
+                                </div>
+
+
+                        {/* indicators with arrows aligned on the same horizontal level */}
+                        <div className="flex items-center justify-between mt-4">
+                            {/* left arrow */}
+                            <div className="flex-shrink-0">
+                                <button
+                                    aria-label="Previous review"
+                                    onClick={prev}
+                                    className="p-1 rounded hover:bg-gray-100"
+                                    title="Previous"
+                                >
+                                    <svg className="w-5 h-5 text-gray-600 rotate-180" viewBox="0 0 20 20" fill="currentColor">
+                                        <path fillRule="evenodd" d="M12.293 16.293a1 1 0 010-1.414L15.586 11H4a1 1 0 110-2h11.586l-3.293-3.879a1 1 0 011.538-1.273l5 5.882a1 1 0 010 1.273l-5 5.882a1 1 0 01-1.538-1.273z" clipRule="evenodd" />
+                                    </svg>
+                                </button>
+                            </div>
+
+                            {/* centered indicators */}
+                            <div className="flex items-center justify-center gap-2">
+                                {items.map((r, i) => (
+                                    <button
+                                        key={r.id}
+                                        aria-label={`Show review ${i + 1}`}
+                                        onClick={() => setIndex(i)}
+                                        className={`w-2 h-2 rounded-full ${i === index ? 'bg-gray-800' : 'bg-gray-300'}`}
+                                    />
+                                ))}
+                            </div>
+
+                            {/* right arrow */}
+                            <div className="flex-shrink-0">
+                                <button
+                                    aria-label="Next review"
+                                    onClick={next}
+                                    className="p-1 rounded hover:bg-gray-100"
+                                    title="Next"
+                                >
+                                    <svg className="w-5 h-5 text-gray-600" viewBox="0 0 20 20" fill="currentColor">
+                                        <path fillRule="evenodd" d="M12.293 16.293a1 1 0 010-1.414L15.586 11H4a1 1 0 110-2h11.586l-3.293-3.879a1 1 0 011.538-1.273l5 5.882a1 1 0 010 1.273l-5 5.882a1 1 0 01-1.538-1.273z" clipRule="evenodd" />
+                                    </svg>
+                                </button>
+                            </div>
+                        </div>
+                    </>
+                )}
+            </div>
+        </div>
+    );
+};
+
+export default ReviewPanel;

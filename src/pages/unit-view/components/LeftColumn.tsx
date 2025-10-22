@@ -5,6 +5,7 @@ import ImageGallery, { ImageGallerySkeleton } from './left/ImageGallery';
 import TitleLocation, { TitleLocationSkeleton } from './left/TitleLocation';
 import PropertyDetailsTable, { PropertyDetailsTableSkeleton } from './left/PropertyDetailsTable';
 import DescriptionSection, { DescriptionSectionSkeleton } from './left/DescriptionSection';
+import ListingTabs from './left/ListingTabs';
 
 interface LeftColumnProps {
   listing: Listing | null;
@@ -49,6 +50,8 @@ const LeftColumn: React.FC<LeftColumnProps> = ({
     );
   }
 
+  
+
   return (
     <div>
       <ImageGallery
@@ -69,6 +72,10 @@ const LeftColumn: React.FC<LeftColumnProps> = ({
       />
       <DescriptionSection
         description={listing.description}
+      />
+
+      <ListingTabs 
+        amenities={listing.amenities} defaultShow={true} 
       />
     </div>
   );
