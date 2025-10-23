@@ -102,7 +102,7 @@ const ListingTabs: React.FC<ListingTabsProps> = ({ amenities = [], defaultShow =
 
       {activeTab === 'location' && (
         <div id="MapSection" className="mt-4">
-          <div className="w-full h-96 border border-gray-200 rounded-lg overflow-hidden relative z-0 mt-2">
+          <div className="w-full h-67 border border-gray-200 rounded-lg overflow-hidden relative z-0 mt-2">
             {isClient ? (
               <MapContainer
                 center={selectedPosition || fallback}

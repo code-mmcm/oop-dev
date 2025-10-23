@@ -1,3 +1,4 @@
+// ...existing code...
 import React, { useState, useEffect } from 'react';
 
 type Review = {
@@ -9,6 +10,7 @@ type Review = {
 
 interface ReviewPanelProps {
     reviews?: Review[];
+    isLoading: boolean; // added optional loading prop
 }
 
 const defaultReviews: Review[] = [
@@ -33,7 +35,7 @@ const defaultReviews: Review[] = [
     }
 ];
 
-const ReviewPanel: React.FC<ReviewPanelProps> = ({ reviews }) => {
+const ReviewPanel: React.FC<ReviewPanelProps> = ({ reviews, isLoading = false }) => {
     // If parent passed an explicit empty array, show the empty state.
     const hasExplicitNoReviews = Array.isArray(reviews) && reviews.length === 0;
     const items = hasExplicitNoReviews ? [] : reviews && reviews.length > 0 ? reviews : defaultReviews;
@@ -44,6 +46,42 @@ const ReviewPanel: React.FC<ReviewPanelProps> = ({ reviews }) => {
     useEffect(() => {
         if (index >= items.length) setIndex(0);
     }, [items.length, index]);
+
+    // skeleton UI when loading — inlined here
+    if (isLoading)
+        return (
+            <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
+                <div className="flex items-start justify-between">
+                    <div className='h-6 bg-gray-200 rounded w-1/3 mb-2'>
+                    </div>
+                </div>
+
+                <div className="mt-3 animate-pulse">
+                    <div className="flex items-start mb-3 ml-3 mr-3">
+                        <div className="w-12 h-12 bg-gray-200 rounded-full mr-3 flex-shrink-0" />
+                        <div className="flex-1">
+                            <div className="h-4 bg-gray-200 rounded w-1/3 mb-2" />
+                            <div className="h-3 bg-gray-200 rounded w-1/4" />
+                        </div>
+                    </div>
+
+                    <div className="ml-3 mr-3">
+                        <div className="h-3 bg-gray-200 rounded w-full mb-2" />
+                        <div className="h-3 bg-gray-200 rounded w-5/6" />
+                    </div>
+
+                    <div className="flex items-center justify-between mt-4">
+                        <div className="w-8 h-8 bg-gray-200 rounded" />
+                        <div className="flex items-center justify-center gap-2">
+                            <div className="w-2 h-2 bg-gray-200 rounded-full" />
+                            <div className="w-2 h-2 bg-gray-200 rounded-full" />
+                            <div className="w-2 h-2 bg-gray-200 rounded-full" />
+                        </div>
+                        <div className="w-8 h-8 bg-gray-200 rounded" />
+                    </div>
+                </div>
+            </div>
+        );
 
     const prev = () => items.length > 0 && setIndex((i) => (i - 1 + items.length) % items.length);
     const next = () => items.length > 0 && setIndex((i) => (i + 1) % items.length);
@@ -153,3 +191,4 @@ const ReviewPanel: React.FC<ReviewPanelProps> = ({ reviews }) => {
 };
 
 export default ReviewPanel;
+// ...existing code...
