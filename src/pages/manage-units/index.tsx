@@ -283,7 +283,7 @@ const ManageUnits: React.FC = () => {
               {/* Status Filter */}
               <div className="relative">
                 <div 
-                  className="flex border border-gray-300 rounded-xl hover:border-gray-400 hover:shadow-md transition-all duration-300 focus-within:ring-2"
+                  className="flex border border-gray-300 rounded-lg hover:border-gray-400 hover:shadow-md transition-all duration-300 focus-within:ring-2"
                   style={{ 
                     '--tw-ring-color': '#0B5858',
                     borderColor: 'rgb(209 213 219)', // gray-300
@@ -299,13 +299,13 @@ const ManageUnits: React.FC = () => {
                 >
                   <div className="relative status-dropdown w-full">
                     <div 
-                      className="flex items-center justify-between py-3 pl-4 pr-3 cursor-pointer rounded-xl"
+                      className="flex items-center justify-between py-3 pl-4 pr-4 cursor-pointer rounded-lg"
                       onClick={() => setShowStatusDropdown(!showStatusDropdown)}
                     >
                       <span className={`${statusFilter !== 'All Status' ? 'text-black' : 'text-gray-500'}`} style={{fontFamily: 'Poppins', fontWeight: 400}}>
                         {statusFilter}
                       </span>
-                      <img src="/dropdown_icon.svg" alt="dropdown" className="h-5 w-5 opacity-90" />
+                      <img src="/dropdown_icon.svg" alt="dropdown" className="h-5 w-5 opacity-90 ml-2" />
                     </div>
                     
                     {/* Status Dropdown Options */}
@@ -339,7 +339,7 @@ const ManageUnits: React.FC = () => {
               {/* Type Filter */}
               <div className="relative">
                 <div 
-                  className="flex border border-gray-300 rounded-xl hover:border-gray-400 hover:shadow-md transition-all duration-300 focus-within:ring-2"
+                  className="flex border border-gray-300 rounded-lg hover:border-gray-400 hover:shadow-md transition-all duration-300 focus-within:ring-2"
                   style={{ 
                     '--tw-ring-color': '#0B5858',
                     borderColor: 'rgb(209 213 219)', // gray-300
@@ -355,13 +355,13 @@ const ManageUnits: React.FC = () => {
                 >
                   <div className="relative type-dropdown w-full">
                     <div 
-                      className="flex items-center justify-between py-3 pl-4 pr-3 cursor-pointer rounded-xl"
+                      className="flex items-center justify-between py-3 pl-4 pr-4 cursor-pointer rounded-lg"
                       onClick={() => setShowTypeDropdown(!showTypeDropdown)}
                     >
                       <span className={`${typeFilter !== 'All Types' ? 'text-black' : 'text-gray-500'}`} style={{fontFamily: 'Poppins', fontWeight: 400}}>
                         {typeFilter}
                       </span>
-                      <img src="/dropdown_icon.svg" alt="dropdown" className="h-5 w-5 opacity-90" />
+                      <img src="/dropdown_icon.svg" alt="dropdown" className="h-5 w-5 opacity-90 ml-2" />
                     </div>
                     
                     {/* Type Dropdown Options */}
