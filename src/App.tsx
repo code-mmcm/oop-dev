@@ -1,6 +1,5 @@
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { useEffect } from 'react';
-import { HelmetProvider } from 'react-helmet-async';
 import Lenis from '@studio-freight/lenis';
 import { AuthProvider } from './contexts/AuthContext';
 import Home from './pages/home';
