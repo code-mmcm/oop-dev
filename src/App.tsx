@@ -13,6 +13,8 @@ import AdminPanel from './pages/admin';
 import ManageUsers from './pages/manage-users';
 import UnitView from './pages/unit-view';
 import Updates from './pages/updates';
+import Calendar from './pages/calendar';
+import BookingDetails from './pages/booking-details';
 
 // Global Lenis instance
 let globalLenis: Lenis | null = null;
@@ -56,7 +58,8 @@ function App() {
             <Route path="/admin" element={<AdminPanel />} />
             <Route path="/manageusers" element={<ManageUsers />} />
             <Route path="/updates" element={<Updates />} />
-            {/* <Route path="/calendar" element={<CalendarView />} /> */}
+            <Route path="/calendar" element={<Calendar />} />
+            <Route path="/booking-details" element={<BookingDetails />} />
           </Routes>
         </Router>
       </AuthProvider>
