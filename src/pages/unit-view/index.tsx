@@ -9,7 +9,7 @@ import { getLenis } from '../../App';
 import LeftColumn from './components/LeftColumn';
 import RightColumn from './components/RightColumn';
 import PropertiesInSameArea from './components/PropertiesInSameArea';
-import ShareModal from './components/left/TitleComponent/ShareModal';
+import ShareModal from './components/ShareModal';
 
 const UnitView: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -176,7 +176,8 @@ const UnitView: React.FC = () => {
                 listing={listing} 
                 isLoading={isLoading} 
                 error={error} 
-                onImageClick={handleImageClick} 
+                onImageClick={handleImageClick}
+                onShareClick={() => setShowShareModal(true)} 
               />
               <RightColumn 
                 listing={listing} 
@@ -254,7 +255,8 @@ const UnitView: React.FC = () => {
                 listing={listing} 
                 isLoading={isLoading} 
                 error={error} 
-                onImageClick={handleImageClick} 
+                  onImageClick={handleImageClick}
+                  onShareClick={() => setShowShareModal(true)} 
               />
             </div>
             {/* Right Column - Booking Sidebar */}
