@@ -93,12 +93,12 @@ const Navbar: React.FC = () => {
               >
                 BOOKING
               </Link>
-              <a
-                href="#"
+              <Link
+                to="/calendar"
                 className="text-black font-sans font-medium uppercase text-sm hover:text-teal-900 transition-colors px-4 py-2 mx-1"
               >
                 CALENDAR
-              </a>
+              </Link>
             </div>
           </div>
 
@@ -257,13 +257,13 @@ const Navbar: React.FC = () => {
               >
                 BOOKING
               </Link>
-              <a
-                href="#"
+              <Link
+                to="/calendar"
                 onClick={() => setIsMobileMenuOpen(false)}
                 className="block px-3 py-2 text-black font-sans font-medium uppercase text-sm hover:text-gray-600 hover:bg-gray-50 rounded-md transition-colors text-left"
               >
                 CALENDAR
-              </a>
+              </Link>
               
               {/* Divider */}
               <div className="border-t border-gray-200 my-2"></div>
