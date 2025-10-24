@@ -13,6 +13,7 @@ import PreviousBookings from './components/PreviousBookings';
 import ContactInfoCard from './components/ContactInfoCard';
 import ProfileSkeleton from './components/ProfileSkeleton';
 
+//hi
 const ProfileCard: React.FC = () => {
   const navigate = useNavigate();
   const { user, loading: authLoading } = useAuth();
