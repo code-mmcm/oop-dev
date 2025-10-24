@@ -1,6 +1,8 @@
 import React from 'react';
 import type { UserProfile } from '../../../types/user';
 
+
+//hi
 type Props = {
   profile: UserProfile;
   onEditAccount: () => void;
