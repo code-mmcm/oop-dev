@@ -1,5 +1,6 @@
 export interface Listing {
   id: string;
+  unit_id?: string; // User-defined unit identifier (e.g., "Floor 2, Room 201")
   title: string;
   description?: string;
   price: number;
