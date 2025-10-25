@@ -1,8 +1,17 @@
 <div align="center">
-  <img src="https://github.com/user-attachments/assets/11518a44-e593-4c6c-b70c-a82146280fe3" alt="Kelsey's Homestay Logo" width="200" height="200">
+  <img src="https://github.com/user-attachments/assets/bd9b95b4-ddbf-4d6b-bcc5-60a7747093d6" alt="Kelsey's Homestay Logo" width="200" height="200">
 </div>
 
 A React-based property listing and booking management application built with TypeScript, Tailwind CSS, and Supabase.
+
+## 🛠️ Technology Stack
+
+- **Frontend**: React, TypeScript, Vite
+- **Styling**: Tailwind CSS
+- **Backend**: Supabase
+- **Charts**: Recharts
+- **Routing**: React Router DOM
+- **Animations**: Lenis smooth scrolling
 
 ## 📁 Project Structure
 
@@ -71,15 +80,6 @@ src/
 ├── main.tsx                   # Application entry point
 └── vite-env.d.ts             # Vite type definitions
 ```
-
-## 🛠️ Technology Stack
-
-- **Frontend**: React, TypeScript, Vite
-- **Styling**: Tailwind CSS
-- **Backend**: Supabase
-- **Charts**: Recharts
-- **Routing**: React Router DOM
-- **Animations**: Lenis smooth scrolling
 
 ## 🛠️ Getting Started
 # GitHub Practices
