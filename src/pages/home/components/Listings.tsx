@@ -85,12 +85,17 @@ const Listings: React.FC<ListingsProps> = ({
         </div>
       ) : (
         // Show actual listings
-        apartments.map((apartment) => (
-          <PropertyCard
+        apartments.map((apartment, index) => (
+          <div 
             key={apartment.id}
-            apartment={apartment}
-            onApartmentClick={onApartmentClick}
-          />
+            className="animate-fade-in-up"
+            style={{animationDelay: `${0.5 + (index * 0.1)}s`, animationDuration: '400ms'}}
+          >
+            <PropertyCard
+              apartment={apartment}
+              onApartmentClick={onApartmentClick}
+            />
+          </div>
         ))
       )}
     </div>
