@@ -319,7 +319,7 @@ const UnitView: React.FC = () => {
             </p>
             <button 
               onClick={() => navigate('/')}
-              className="text-teal-700 hover:underline"
+              className="text-teal-700 hover:underline cursor-pointer"
               style={{fontFamily: 'Poppins'}}
             >
               Return to Home

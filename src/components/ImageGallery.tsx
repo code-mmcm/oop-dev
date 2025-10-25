@@ -66,9 +66,9 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
       <div>
-        <h3 className="text-lg font-semibold text-gray-900" style={{fontFamily: 'Poppins'}}>
+        <h3 className="text-lg font-semibold text-gray-900 mb-2" style={{fontFamily: 'Poppins'}}>
           Select Main Image
         </h3>
       </div>
@@ -145,8 +145,8 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({
       </div>
 
       {selectedImageId && (
-        <div className="mt-4 p-3 bg-gray-100 border border-gray-300 rounded-lg">
-          <p className="text-sm text-gray-700" style={{fontFamily: 'Poppins'}}>
+        <div className="mt-6 p-4 border border-green-800 rounded-lg">
+          <p className="text-sm text-green-800" style={{fontFamily: 'Poppins'}}>
             ✓ Main image selected. This will be the featured image for your listing.
           </p>
         </div>

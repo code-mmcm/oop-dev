@@ -28,7 +28,7 @@ const Footer: React.FC = () => {
                 className="p-3 sm:p-4 rounded-l-xl sm:rounded-l-2xl focus:outline-none text-black w-full md:w-80 text-sm sm:text-base bg-white transition-all duration-300 focus:ring-2 focus:ring-yellow-400 focus:ring-opacity-50"
                 style={{fontFamily: 'Poppins', fontWeight: 400}}
               />
-              <button className="bg-yellow-400 text-black p-3 sm:p-4 rounded-r-xl sm:rounded-r-2xl font-poppins font-medium text-sm sm:text-base transition-all duration-300 hover:bg-yellow-500 hover:scale-105 active:scale-95" style={{fontFamily: 'Poppins', fontWeight: 500}}>
+              <button className="bg-yellow-400 text-black p-3 sm:p-4 rounded-r-xl sm:rounded-r-2xl font-poppins font-medium text-sm sm:text-base transition-all duration-300 hover:bg-yellow-500 hover:scale-105 active:scale-95 cursor-pointer" style={{fontFamily: 'Poppins', fontWeight: 500}}>
                 Send
               </button>
             </div>
@@ -52,7 +52,7 @@ const Footer: React.FC = () => {
             </p>
             <div className="flex">
               {/* Facebook Icon */}
-              <a href="https://www.facebook.com/kelseycaiden" target="_blank" rel="noopener noreferrer" className="text-white hover:text-yellow-400 transition-colors duration-300">
+              <a href="https://www.facebook.com/kelseycaiden" target="_blank" rel="noopener noreferrer" className="text-white hover:text-yellow-400 transition-colors duration-300 cursor-pointer">
                 <svg
                   xmlns="http://www.w3.org/2000/svg"
                   width="20"

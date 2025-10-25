@@ -111,7 +111,7 @@ const BookingComponent: React.FC = () => {
                   <button
                     key={tab.key}
                     onClick={() => setActiveTab(tab.key)}
-                    className={`pb-4 px-1 text-sm font-medium transition-colors ${
+                    className={`pb-4 px-1 text-sm font-medium transition-colors cursor-pointer ${
                       activeTab === tab.key
                         ? 'text-gray-800 border-b-2 border-gray-800'
                         : 'text-gray-500 hover:text-gray-700'
@@ -163,7 +163,7 @@ const BookingComponent: React.FC = () => {
                             [booking.id]: !prev[booking.id]
                           }));
                         }}
-                        className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                        className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors cursor-pointer ${
                           toggleStates[booking.id] ? 'bg-green-500' : 'bg-gray-300'
                         }`}
                       >
@@ -234,7 +234,7 @@ const BookingComponent: React.FC = () => {
                         </p>
                       </div>
                       
-                      <button className="bg-[#0B5858] text-white px-6 py-2 rounded-lg font-medium hover:bg-[#0a4a4a] transition-colors" style={{fontFamily: 'Poppins'}}>
+                      <button className="bg-[#0B5858] text-white px-6 py-2 rounded-lg font-medium hover:bg-[#0a4a4a] transition-colors cursor-pointer" style={{fontFamily: 'Poppins'}}>
                         View
                       </button>
                     </div>

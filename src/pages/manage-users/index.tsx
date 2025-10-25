@@ -19,6 +19,9 @@ const ManageUsers: React.FC = () => {
   const [loadingUsers, setLoadingUsers] = useState(true);
   const [updatingRole, setUpdatingRole] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
+  const [hoveredText, setHoveredText] = useState<string | null>(null);
+  const [tooltipPosition, setTooltipPosition] = useState({ x: 0, y: 0 });
+  const [openDropdown, setOpenDropdown] = useState<string | null>(null);
   const hasFetchedUsers = useRef(false);
 
   useEffect(() => {
@@ -189,6 +192,41 @@ const ManageUsers: React.FC = () => {
     (user.email || '').toLowerCase().includes(searchTerm.toLowerCase())
   );
 
+  // Helper function to handle text hover for tooltips
+  const handleTextHover = (event: React.MouseEvent, text: string) => {
+    const element = event.currentTarget as HTMLElement;
+    const isOverflowing = element.scrollWidth > element.clientWidth;
+    
+    if (isOverflowing) {
+      setHoveredText(text);
+      setTooltipPosition({ x: event.clientX, y: event.clientY });
+    }
+  };
+
+  const handleTextLeave = () => {
+    setHoveredText(null);
+  };
+
+  // Handle role dropdown toggle
+  const toggleRoleDropdown = (userId: string) => {
+    setOpenDropdown(openDropdown === userId ? null : userId);
+  };
+
+  // Close dropdowns when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as HTMLElement;
+      if (!target.closest('.role-dropdown-container')) {
+        setOpenDropdown(null);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
+
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -220,7 +258,7 @@ const ManageUsers: React.FC = () => {
           <div className="mb-6">
             <div className="flex flex-col md:flex-row gap-4 items-center">
               {/* Search Bar */}
-              <div className="w-130 relative">
+              <div className="flex-1 relative">
                 <div className="relative">
                   <svg 
                     className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5" 
@@ -253,25 +291,22 @@ const ManageUsers: React.FC = () => {
           <div className="bg-white rounded-lg shadow-sm overflow-hidden">
             <div className="overflow-x-auto">
               <table className="w-full table-fixed">
-                <thead>
-                  <tr style={{backgroundColor: 'rgba(11, 88, 88, 0.7)'}}>
-                    <th className="px-6 py-3 text-left text-white font-medium w-1/4" style={{fontFamily: 'Poppins'}}>
+                <thead className="sticky top-0 z-10">
+                  <tr style={{backgroundColor: '#0B5858'}}>
+                    <th className="px-6 py-5 text-left text-white font-semibold w-1/3" style={{fontFamily: 'Poppins', fontSize: '16px'}}>
                       User Info
                     </th>
-                    <th className="px-6 py-3 text-left text-white font-medium w-32" style={{fontFamily: 'Poppins'}}>
+                    <th className="px-6 py-5 text-left text-white font-semibold w-28" style={{fontFamily: 'Poppins', fontSize: '16px'}}>
                       Contact
                     </th>
-                    <th className="px-6 py-3 text-left text-white font-medium w-24" style={{fontFamily: 'Poppins'}}>
+                    <th className="px-6 py-5 text-left text-white font-semibold w-20" style={{fontFamily: 'Poppins', fontSize: '16px'}}>
                       Gender
                     </th>
-                    <th className="px-6 py-3 text-left text-white font-medium w-28" style={{fontFamily: 'Poppins'}}>
+                    <th className="px-6 py-5 text-left text-white font-semibold w-24" style={{fontFamily: 'Poppins', fontSize: '16px'}}>
                       Joined Date
                     </th>
-                    <th className="px-6 py-3 text-left text-white font-medium w-24" style={{fontFamily: 'Poppins'}}>
+                    <th className="px-6 py-5 text-left text-white font-semibold w-28" style={{fontFamily: 'Poppins', fontSize: '16px'}}>
                       Role
-                    </th>
-                    <th className="px-6 py-3 text-left text-white font-medium w-32" style={{fontFamily: 'Poppins'}}>
-                      Actions
                     </th>
                   </tr>
                 </thead>
@@ -279,7 +314,7 @@ const ManageUsers: React.FC = () => {
                   {loading || roleLoading ? (
                     // Role loading state - show loading message
                     <tr>
-                      <td colSpan={6} className="px-6 py-8 text-center">
+                      <td colSpan={5} className="px-6 py-8 text-center">
                         <div className="flex flex-col items-center">
                           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900 mb-4"></div>
                           <p className="text-gray-600" style={{fontFamily: 'Poppins'}}>Loading...</p>
@@ -289,7 +324,7 @@ const ManageUsers: React.FC = () => {
                   ) : !isAdmin ? (
                     // Access denied state - maintain table structure
                     <tr>
-                      <td className="px-6 py-8 text-center" colSpan={6}>
+                      <td className="px-6 py-8 text-center" colSpan={5}>
                         <div className="text-red-500">
                           <svg className="w-16 h-16 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
@@ -306,7 +341,7 @@ const ManageUsers: React.FC = () => {
                   ) : loadingUsers ? (
                     // Data loading state - show loading message
                     <tr>
-                      <td colSpan={6} className="px-6 py-8 text-center">
+                      <td colSpan={5} className="px-6 py-8 text-center">
                         <div className="flex flex-col items-center">
                           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900 mb-4"></div>
                           <p className="text-gray-600" style={{fontFamily: 'Poppins'}}>Loading users...</p>
@@ -316,7 +351,7 @@ const ManageUsers: React.FC = () => {
                   ) : filteredUsers.length === 0 ? (
                     // No users found - maintain table structure
                     <tr>
-                      <td className="px-6 py-8 text-center" colSpan={6}>
+                      <td className="px-6 py-8 text-center" colSpan={5}>
                         <div className="text-gray-500">
                           <svg className="w-16 h-16 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z" />
@@ -341,16 +376,34 @@ const ManageUsers: React.FC = () => {
                         {/* User Info */}
                         <td className="px-6 py-3 align-top">
                           <div className="flex items-center space-x-3">
-                            <div className="h-12 w-12 rounded-full bg-[#0B5858] flex items-center justify-center">
+                            <div 
+                              className="h-12 w-12 rounded-full bg-[#0B5858] flex items-center justify-center flex-shrink-0"
+                              style={{
+                                minWidth: '48px',
+                                minHeight: '48px',
+                                maxWidth: '48px',
+                                maxHeight: '48px'
+                              }}
+                            >
                               <span className="text-sm font-medium text-white" style={{fontFamily: 'Poppins'}}>
                                 {(user.fullname || 'U').charAt(0).toUpperCase()}
                               </span>
                             </div>
-                            <div>
-                              <div className="font-medium text-gray-900" style={{fontFamily: 'Poppins'}}>
+                            <div className="min-w-0 flex-1">
+                              <div 
+                                className="font-medium text-gray-900 truncate cursor-default" 
+                                style={{fontFamily: 'Poppins', fontSize: '16px'}}
+                                onMouseEnter={(e) => handleTextHover(e, user.fullname || 'No Name')}
+                                onMouseLeave={handleTextLeave}
+                              >
                                 {user.fullname || 'No Name'}
                               </div>
-                              <div className="text-sm text-gray-500" style={{fontFamily: 'Poppins'}}>
+                              <div 
+                                className="text-gray-500 truncate cursor-default" 
+                                style={{fontFamily: 'Poppins', fontSize: '16px'}}
+                                onMouseEnter={(e) => handleTextHover(e, user.email || 'No Email')}
+                                onMouseLeave={handleTextLeave}
+                              >
                                 {user.email || 'No Email'}
                               </div>
                             </div>
@@ -359,53 +412,94 @@ const ManageUsers: React.FC = () => {
 
                         {/* Contact */}
                         <td className="px-6 py-3 align-top">
-                          <span className="text-gray-900" style={{fontFamily: 'Poppins'}}>
+                          <span 
+                            className="text-gray-900 block truncate cursor-default" 
+                            style={{fontFamily: 'Poppins', fontSize: '16px'}}
+                            onMouseEnter={(e) => handleTextHover(e, user.contact_number || 'N/A')}
+                            onMouseLeave={handleTextLeave}
+                          >
                             {user.contact_number || 'N/A'}
                           </span>
                         </td>
 
                         {/* Gender */}
                         <td className="px-6 py-3 align-top">
-                          <span className="text-gray-900" style={{fontFamily: 'Poppins'}}>
+                          <span className="text-gray-900" style={{fontFamily: 'Poppins', fontSize: '16px'}}>
                             {user.gender || 'N/A'}
                           </span>
                         </td>
 
                         {/* Joined Date */}
                         <td className="px-6 py-3 align-top">
-                          <span className="text-gray-900" style={{fontFamily: 'Poppins'}}>
+                          <span className="text-gray-900" style={{fontFamily: 'Poppins', fontSize: '16px'}}>
                             {user.created_at ? new Date(user.created_at).toLocaleDateString() : 'N/A'}
                           </span>
                         </td>
 
-                        {/* Role */}
-                        <td className="px-6 py-3 align-top">
-                          <span 
-                            className="inline-flex px-3 py-1 rounded-full text-xs font-medium text-white"
-                            style={{
-                              backgroundColor: user.role === 'admin' ? '#F10E3B' : user.role === 'agent' ? '#FACC15' : '#0B5858',
-                              fontFamily: 'Poppins'
-                            }}
-                          >
-                            {user.role === 'admin' ? 'Admin' : user.role === 'agent' ? 'Agent' : 'User'}
-                          </span>
-                        </td>
-
-                        {/* Actions - Role Selector using unified Dropdown */}
+                        {/* Role - Combined Badge and Dropdown */}
                         <td className="px-6 py-3 align-top">
                           <div className="flex items-center space-x-2">
-                            <div className="min-w-[120px]">
-                              <Dropdown
-                                label={user.role === 'admin' ? 'Admin' : user.role === 'agent' ? 'Agent' : 'User'}
-                                options={[
-                                  { value: 'user', label: 'User' },
-                                  { value: 'admin', label: 'Admin' },
-                                  { value: 'agent', label: 'Agent' }
-                                ]}
-                                onSelect={(value) => updateUserRole(user.id, value)}
+                            <div className="relative role-dropdown-container">
+                              <button
+                                className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium transition-all duration-200 hover:shadow-md focus:outline-none cursor-pointer"
+                                style={{
+                                  backgroundColor: user.role === 'admin' ? '#B84C4C' : user.role === 'agent' ? '#FACC15' : '#558B8B',
+                                  color: user.role === 'agent' ? '#0B5858' : 'white',
+                                  fontFamily: 'Poppins'
+                                }}
+                                onClick={() => toggleRoleDropdown(user.id)}
                                 disabled={updatingRole === user.id}
-                              />
+                              >
+                                <span>{user.role === 'admin' ? 'Admin' : user.role === 'agent' ? 'Agent' : 'User'}</span>
+                                <svg 
+                                  className={`ml-1 w-3 h-3 transition-transform duration-200 ${openDropdown === user.id ? 'rotate-180' : ''}`}
+                                  fill="none" 
+                                  stroke="currentColor" 
+                                  viewBox="0 0 24 24"
+                                >
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                                </svg>
+                              </button>
+                              
+                              {/* Simple Role Dropdown */}
+                              {openDropdown === user.id && (
+                                <div className="absolute top-full left-0 mt-1 w-28 bg-white rounded-lg shadow-lg border border-gray-200 z-50">
+                                  <div className="py-1">
+                                    <button
+                                      className="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors duration-150"
+                                      style={{fontFamily: 'Poppins'}}
+                                      onClick={() => {
+                                        updateUserRole(user.id, 'user');
+                                        setOpenDropdown(null);
+                                      }}
+                                    >
+                                      User
+                                    </button>
+                                    <button
+                                      className="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors duration-150"
+                                      style={{fontFamily: 'Poppins'}}
+                                      onClick={() => {
+                                        updateUserRole(user.id, 'agent');
+                                        setOpenDropdown(null);
+                                      }}
+                                    >
+                                      Agent
+                                    </button>
+                                    <button
+                                      className="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors duration-150"
+                                      style={{fontFamily: 'Poppins'}}
+                                      onClick={() => {
+                                        updateUserRole(user.id, 'admin');
+                                        setOpenDropdown(null);
+                                      }}
+                                    >
+                                      Admin
+                                    </button>
+                                  </div>
+                                </div>
+                              )}
                             </div>
+                            
                             {updatingRole === user.id && (
                               <div className="ml-2">
                                 <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-[#0B5858]"></div>
@@ -427,8 +521,8 @@ const ManageUsers: React.FC = () => {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div className="flex items-center">
                 <span 
-                  className="inline-flex px-3 py-1 text-xs font-semibold rounded-full text-white mr-3"
-                  style={{backgroundColor: '#0B5858', fontFamily: 'Poppins'}}
+                  className="inline-flex px-3 py-1 text-xs rounded-full text-white mr-3"
+                  style={{backgroundColor: '#558B8B', fontFamily: 'Poppins', fontWeight: 400}}
                 >
                   User
                 </span>
@@ -436,8 +530,8 @@ const ManageUsers: React.FC = () => {
               </div>
               <div className="flex items-center">
                 <span 
-                  className="inline-flex px-3 py-1 text-xs font-semibold rounded-full text-white mr-3"
-                  style={{backgroundColor: '#FACC15', fontFamily: 'Poppins'}}
+                  className="inline-flex px-3 py-1 text-xs rounded-full mr-3"
+                  style={{backgroundColor: '#FACC15', color: '#0B5858', fontFamily: 'Poppins', fontWeight: 400}}
                 >
                   Agent
                 </span>
@@ -445,8 +539,8 @@ const ManageUsers: React.FC = () => {
               </div>
               <div className="flex items-center">
                 <span 
-                  className="inline-flex px-3 py-1 text-xs font-semibold rounded-full text-white mr-3"
-                  style={{backgroundColor: '#F10E3B', fontFamily: 'Poppins'}}
+                  className="inline-flex px-3 py-1 text-xs rounded-full text-white mr-3"
+                  style={{backgroundColor: '#B84C4C', fontFamily: 'Poppins', fontWeight: 400}}
                 >
                   Admin
                 </span>
@@ -456,6 +550,27 @@ const ManageUsers: React.FC = () => {
           </div>
         </div>
       </div>
+
+      {/* Custom Tooltip */}
+      {hoveredText && (
+        <div
+          className="fixed z-50 px-3 py-2 text-sm text-white rounded-lg shadow-lg pointer-events-none"
+          style={{
+            left: tooltipPosition.x + 10,
+            top: tooltipPosition.y - 40,
+            backgroundColor: '#558B8B',
+            fontFamily: 'Poppins',
+            maxWidth: '300px',
+            wordWrap: 'break-word'
+          }}
+        >
+          {hoveredText}
+          <div
+            className="absolute top-full left-4 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent"
+            style={{ borderTopColor: '#558B8B' }}
+          />
+        </div>
+      )}
 
       {/* Footer Section */}
       <Footer />
