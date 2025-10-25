@@ -16,84 +16,6 @@ const isImageUrl = (url?: string) => {
   return IMAGE_EXTENSIONS.some(ext => lower.endsWith(ext));
 };
 
-const PaymentIcon: React.FC<{ method?: string; className?: string }> = ({ method, className }) => {
-  switch (method) {
-    case 'credit_card':
-      return <img src="/Credit_Cards/Credit.png" alt="Card" className={className} />;
-    case 'bank_transfer':
-      return (
-        <img
-          src="/icons/bank-transfer.svg"
-          alt="Bank"
-          className={className}
-          onError={(e) => {
-            const el = e.currentTarget as HTMLImageElement;
-            el.style.display = 'none';
-          }}
-        />
-      );
-    case 'company_account':
-      return (
-        <img
-          src="/icons/company.svg"
-          alt="Company"
-          className={className}
-          onError={(e) => {
-            (e.currentTarget as HTMLImageElement).style.display = 'none';
-          }}
-        />
-      );
-    case 'cash':
-      return (
-        <img
-          src="/icons/cash.svg"
-          alt="Cash"
-          className={className}
-          onError={(e) => {
-            (e.currentTarget as HTMLImageElement).style.display = 'none';
-          }}
-        />
-      );
-    default:
-      return null;
-  }
-};
-
-const FallbackIcon: React.FC<{ method?: string; className?: string }> = ({ method, className }) => {
-  if (method === 'credit_card') {
-    return (
-      <svg className={className} viewBox="0 0 24 24" fill="none" aria-hidden="true">
-        <rect x="2" y="6" width="20" height="12" rx="2" stroke="currentColor" strokeWidth="1.25" />
-        <path d="M2 10h20" stroke="currentColor" strokeWidth="1.25" />
-      </svg>
-    );
-  }
-  if (method === 'bank_transfer') {
-    return (
-      <svg className={className} viewBox="0 0 24 24" fill="none" aria-hidden="true">
-        <path d="M3 10h18" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round" />
-        <path d="M12 4v6" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round" />
-      </svg>
-    );
-  }
-  if (method === 'company_account') {
-    return (
-      <svg className={className} viewBox="0 0 24 24" fill="none" aria-hidden="true">
-        <rect x="3" y="6" width="18" height="12" rx="1.5" stroke="currentColor" strokeWidth="1.25" />
-        <path d="M7 10h10" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round" />
-      </svg>
-    );
-  }
-  if (method === 'cash') {
-    return (
-      <svg className={className} viewBox="0 0 24 24" fill="none" aria-hidden="true">
-        <rect x="3" y="7" width="18" height="10" rx="1.5" stroke="currentColor" strokeWidth="1.25" />
-        <circle cx="12" cy="12" r="2" stroke="currentColor" strokeWidth="1.25" />
-      </svg>
-    );
-  }
-  return null;
-};
 
 // Small icon components used in detail rows
 const IconUser = ({ className = 'w-4 h-4' }: { className?: string }) => (
@@ -223,13 +145,16 @@ const ConfirmationStep: React.FC<ConfirmationStepProps> = ({
     const totalCharges = (unitCharge * Math.max(1, nights)) + amenitiesCharge + extraGuestChargeTotal + serviceCharge - discount;
 
     return {
+      nights,
+      extraGuests,
+      baseGuests: 2, // Default base guests
       unitCharge,
       amenitiesCharge,
       serviceCharge,
       discount,
       totalCharges
     };
-  }, [services, nights, extraGuestChargeTotal]);
+  }, [services, nights, extraGuestChargeTotal, extraGuests]);
 
   const safeString = (v?: string) => (v ? v : '—');
 

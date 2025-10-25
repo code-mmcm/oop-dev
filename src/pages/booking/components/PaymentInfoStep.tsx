@@ -72,7 +72,6 @@ const PaymentInfoStep: React.FC<PaymentInfoStepProps> = ({
     return s.trim().replace(/\s+/g, ' ');
   };
 
-  const stripLeading = (s: string) => typeof s === 'string' ? s.replace(/^\s+/, '') : s;
 
   const sanitizeDigits = (value: string) => value.replace(/\D/g, '');
   const sanitizePhone = (value: string) => {
@@ -351,7 +350,6 @@ const PaymentInfoStep: React.FC<PaymentInfoStepProps> = ({
 
   // Credit card validations with explicit expired notification
   const cardNumber = formData.cardNumber ?? '';
-  const nameOnCard = formData.nameOnCard ?? '';
   const cvvCode = formData.cvvCode ?? '';
   const expirationDate = formData.expirationDate ?? '';
 

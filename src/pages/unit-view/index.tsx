@@ -84,9 +84,12 @@ const UnitView: React.FC = () => {
               main_image_url: '/heroimage.png',
               image_urls: ['/heroimage.png'],
               is_featured: true,
+              is_available: true,
               latitude: 7.1907,
               longitude: 125.4553,
-              country: 'Philippines'
+              country: 'Philippines',
+              created_at: new Date().toISOString(),
+              updated_at: new Date().toISOString()
             },
             '2': {
               id: '2',
@@ -104,9 +107,12 @@ const UnitView: React.FC = () => {
               main_image_url: '/heroimage.png',
               image_urls: ['/heroimage.png'],
               is_featured: false,
+              is_available: true,
               latitude: 14.5547,
               longitude: 121.0244,
-              country: 'Philippines'
+              country: 'Philippines',
+              created_at: new Date().toISOString(),
+              updated_at: new Date().toISOString()
             },
             '3': {
               id: '3',
@@ -124,9 +130,12 @@ const UnitView: React.FC = () => {
               main_image_url: '/heroimage.png',
               image_urls: ['/heroimage.png'],
               is_featured: false,
+              is_available: true,
               latitude: 10.3157,
               longitude: 123.8854,
-              country: 'Philippines'
+              country: 'Philippines',
+              created_at: new Date().toISOString(),
+              updated_at: new Date().toISOString()
             }
           };
           
