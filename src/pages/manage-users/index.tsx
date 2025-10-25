@@ -4,7 +4,6 @@ import { useAuth } from '../../contexts/AuthContext';
 import { supabase } from '../../lib/supabase';
 import Navbar from '../../components/Navbar';
 import Footer from '../../components/Footer';
-import Dropdown from '../../components/Dropdown';
 import type { UserProfile } from '../../types/auth';
 
 interface UserWithRole extends UserProfile {
@@ -415,7 +414,7 @@ const ManageUsers: React.FC = () => {
                           <span 
                             className="text-gray-900 block truncate cursor-default" 
                             style={{fontFamily: 'Poppins', fontSize: '16px'}}
-                            onMouseEnter={(e) => handleTextHover(e, user.contact_number || 'N/A')}
+                            onMouseEnter={(e) => handleTextHover(e, String(user.contact_number || 'N/A'))}
                             onMouseLeave={handleTextLeave}
                           >
                             {user.contact_number || 'N/A'}
