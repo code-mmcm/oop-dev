@@ -4,6 +4,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { supabase } from '../../lib/supabase';
 import Navbar from '../../components/Navbar';
 import Footer from '../../components/Footer';
+import Dropdown from '../../components/Dropdown';
 import type { UserProfile } from '../../types/auth';
 
 interface UserWithRole extends UserProfile {
@@ -200,7 +201,7 @@ const ManageUsers: React.FC = () => {
             <div className="flex items-center">
               <button
                 onClick={() => navigate('/admin')}
-                className="mr-4 p-2 text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-lg transition-colors duration-200"
+                className="mr-4 p-2 text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-lg transition-colors duration-200 cursor-pointer"
               >
                 <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
@@ -216,16 +217,17 @@ const ManageUsers: React.FC = () => {
           </div>
 
           {/* Search Section */}
-          <div className="bg-white rounded-lg p-4 mb-6 shadow-sm">
+          <div className="mb-6">
             <div className="flex flex-col md:flex-row gap-4 items-center">
               {/* Search Bar */}
-              <div className="flex-1 relative">
+              <div className="w-130 relative">
                 <div className="relative">
                   <svg 
-                    className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" 
+                    className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5" 
                     fill="none" 
                     stroke="currentColor" 
                     viewBox="0 0 24 24"
+                    style={{ color: '#558B8B' }}
                   >
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                   </svg>
@@ -234,8 +236,13 @@ const ManageUsers: React.FC = () => {
                     placeholder="Search users by name or email..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
-                    className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0B5858]"
-                    style={{fontFamily: 'Poppins'}}
+                    className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-offset-2 focus:border-transparent transition-all duration-200"
+                    style={{
+                      fontFamily: 'Poppins',
+                      fontSize: '16px',
+                      backgroundColor: 'white',
+                      '--tw-ring-color': '#549F74'
+                    } as React.CSSProperties & { '--tw-ring-color': string }}
                   />
                 </div>
               </div>
@@ -384,20 +391,21 @@ const ManageUsers: React.FC = () => {
                           </span>
                         </td>
 
-                        {/* Actions */}
+                        {/* Actions - Role Selector using unified Dropdown */}
                         <td className="px-6 py-3 align-top">
                           <div className="flex items-center space-x-2">
-                            <select
-                              value={user.role || 'user'}
-                              onChange={(e) => updateUserRole(user.id, e.target.value)}
-                              disabled={updatingRole === user.id}
-                              className="border border-gray-300 rounded-md px-3 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-[#0B5858] disabled:opacity-50 disabled:cursor-not-allowed"
-                              style={{fontFamily: 'Poppins'}}
-                            >
-                            <option value="user">User</option>
-                            <option value="admin">Admin</option>
-                            <option value="agent">Agent</option>
-                            </select>
+                            <div className="min-w-[120px]">
+                              <Dropdown
+                                label={user.role === 'admin' ? 'Admin' : user.role === 'agent' ? 'Agent' : 'User'}
+                                options={[
+                                  { value: 'user', label: 'User' },
+                                  { value: 'admin', label: 'Admin' },
+                                  { value: 'agent', label: 'Agent' }
+                                ]}
+                                onSelect={(value) => updateUserRole(user.id, value)}
+                                disabled={updatingRole === user.id}
+                              />
+                            </div>
                             {updatingRole === user.id && (
                               <div className="ml-2">
                                 <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-[#0B5858]"></div>
