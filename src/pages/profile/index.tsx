@@ -92,7 +92,7 @@ const ProfileCard: React.FC = () => {
     console.log('Most recent clicked');
   };
 
-  // Format date for display
+  // Format date for displayy
   const formatDate = (dateString: string | undefined | null) => {
     if (!dateString) return 'Not provided';
     try {
