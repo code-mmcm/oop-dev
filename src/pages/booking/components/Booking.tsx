@@ -10,7 +10,6 @@ const BookingComponent: React.FC = () => {
   const [activeTab, setActiveTab] = useState<BookingStatus | 'all'>('all');
   const [isLoading, setIsLoading] = useState(true);
   const [toggleStates, setToggleStates] = useState<Record<string, boolean>>({});
-
   useEffect(() => {
     loadBookings();
   }, []);
@@ -82,6 +81,7 @@ const BookingComponent: React.FC = () => {
         return status.charAt(0).toUpperCase() + status.slice(1);
     }
   };
+
 
   const tabs: Array<{ key: BookingStatus | 'all'; label: string }> = [
     { key: 'all', label: 'All' },

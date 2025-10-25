@@ -35,3 +35,77 @@ export interface BookingCard {
   totalBill: number;
   imageUrl?: string;
 }
+
+// Booking Form Types
+export interface BookingFormData {
+  [x: string]: any;
+  billingDocumentUploaded: any;
+  poNumber: string;
+  cashPayerContact: any;
+  cashPayerName: any;
+  billingEmail: any;
+  billingContact: any;
+  companyName: any;
+  bankReceiptUploaded: boolean;
+  bankReceiptFileName?: string;
+  billingDocumentFileName?: string;
+  billingDocumentUrl?: string; 
+  depositorName: any;
+  bankAccountNumber: any;
+  bankName: any;
+  // Stay Details
+  checkInDate: string;
+  checkInTime: string;
+  checkOutDate: string;
+  checkOutTime: string;
+  numberOfGuests: number;
+  extraGuests: number;
+  
+  // Client Info
+  firstName: string;
+  lastName: string;
+  email: string;
+  nickname: string;
+  dateOfBirth: string;
+  referredBy: string;
+  gender: 'male' | 'female' | 'other';
+  preferredContactNumber: string;
+  contactType: 'home' | 'mobile' | 'work';
+  
+  // Additional Services
+  additionalServices: AdditionalService[];
+  requestDescription: string;
+  
+  // Payment Info
+  paymentMethod: 'bank_transfer' | 'credit_card' | 'company_account' | 'cash';
+  cardNumber?: string;
+  nameOnCard?: string;
+  cvvCode?: string;
+  expirationDate?: string;
+  agreeToTerms: boolean;
+}
+
+export interface AdditionalService {
+  id: string;
+  name: string;
+  quantity: number;
+  charge: number;
+}
+
+export interface BookingSummary {
+  nights: number;
+  extraGuests: number;
+  baseGuests: any;
+  unitCharge: number;
+  amenitiesCharge: number;
+  serviceCharge: number;
+  discount: number;
+  totalCharges: number;
+}
+
+export interface BookingStep {
+  id: string;
+  title: string;
+  completed: boolean;
+  active: boolean;
+}
