@@ -1,7 +1,9 @@
 import React from 'react';
-import { Link } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 
 const FeaturedStays: React.FC = () => {
+  const navigate = useNavigate();
+  
   const featuredListings = [
     {
       id: 1,
@@ -62,7 +64,8 @@ const FeaturedStays: React.FC = () => {
           {featuredListings.map((listing) => (
             <div
               key={listing.id}
-              className="bg-white rounded-2xl shadow-lg overflow-hidden border border-gray-100 hover:shadow-xl transition-all duration-300 hover:-translate-y-1"
+              className="bg-white rounded-2xl shadow-lg overflow-hidden border border-gray-100 hover:shadow-xl transition-all duration-300 hover:-translate-y-1 cursor-pointer"
+              onClick={() => navigate(`/unit/${listing.id}`)}
             >
               {/* Property Image */}
               <div className="relative h-64 overflow-hidden">
@@ -106,7 +109,14 @@ const FeaturedStays: React.FC = () => {
                 </div>
 
                 {/* Book Button */}
-                <button className="w-full bg-[#0B5858] text-white font-semibold py-3 px-6 rounded-lg hover:bg-[#0a4a4a] transition-colors duration-200" style={{fontFamily: 'Poppins'}}>
+                <button 
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    navigate(`/unit/${listing.id}`);
+                  }}
+                  className="w-full bg-[#0B5858] text-white font-semibold py-3 px-6 rounded-lg hover:bg-[#0a4a4a] transition-colors duration-200" 
+                  style={{fontFamily: 'Poppins'}}
+                >
                   Book
                 </button>
               </div>

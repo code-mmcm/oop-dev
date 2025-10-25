@@ -1,7 +1,16 @@
 import React from 'react';
+import { useNavigate } from 'react-router-dom';
 
 const DiscoverConnectStay: React.FC = () => {
-  const features = [
+  const navigate = useNavigate();
+  
+  const features: Array<{
+    id: number;
+    title: string;
+    description: string;
+    icon: React.ReactNode;
+    onClick?: () => void;
+  }> = [
     {
       id: 1,
       title: 'Find Properties',
@@ -30,7 +39,8 @@ const DiscoverConnectStay: React.FC = () => {
         <svg className="w-8 h-8 text-[#0B5858]" fill="currentColor" viewBox="0 0 20 20">
           <path fillRule="evenodd" d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z" clipRule="evenodd" />
         </svg>
-      )
+      ),
+      onClick: () => navigate('/home') // Navigate to home page where listings are shown
     },
     {
       id: 4,
@@ -67,7 +77,11 @@ const DiscoverConnectStay: React.FC = () => {
               Search, book, or be part of our community.
             </p>
           </div>
-          <button className="inline-flex items-center justify-center px-8 py-4 bg-[#0B5858] text-white font-semibold rounded-lg hover:bg-[#0a4a4a] transition-colors duration-200" style={{fontFamily: 'Poppins'}}>
+          <button 
+            onClick={() => navigate('/home')}
+            className="inline-flex items-center justify-center px-8 py-4 bg-[#0B5858] text-white font-semibold rounded-lg hover:bg-[#0a4a4a] transition-colors duration-200" 
+            style={{fontFamily: 'Poppins'}}
+          >
             Discover More
           </button>
         </div>
@@ -77,7 +91,10 @@ const DiscoverConnectStay: React.FC = () => {
           {features.map((feature) => (
             <div
               key={feature.id}
-              className="bg-white rounded-xl p-6 shadow-lg border border-gray-100 hover:shadow-xl transition-all duration-300 hover:-translate-y-1"
+              onClick={feature.onClick || undefined}
+              className={`bg-white rounded-xl p-6 shadow-lg border border-gray-100 hover:shadow-xl transition-all duration-300 hover:-translate-y-1 ${
+                feature.onClick ? 'cursor-pointer' : ''
+              }`}
             >
               <div className="flex flex-col items-center text-center space-y-4">
                 <div className="flex items-center justify-center w-16 h-16 bg-gray-50 rounded-full">

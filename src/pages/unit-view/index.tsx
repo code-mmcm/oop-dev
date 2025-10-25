@@ -3,8 +3,10 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { Helmet } from 'react-helmet-async';
 import Navbar from '../../components/Navbar';
 import Footer from '../../components/Footer';
+import BookingForm from '../booking/components/BookingForm';
 import { ListingService } from '../../services/listingService';
 import type { Listing, ListingView } from '../../types/listing';
+import type { BookingFormData } from '../../types/booking';
 import { getLenis } from '../../App';
 
 const UnitView: React.FC = () => {
@@ -19,6 +21,7 @@ const UnitView: React.FC = () => {
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [isImageTransitioning, setIsImageTransitioning] = useState(false);
   const [isLinkCopied, setIsLinkCopied] = useState(false);
+  const [showBookingForm, setShowBookingForm] = useState(false);
 
   useEffect(() => {
     // Scroll to top when component mounts or id changes using Lenis
@@ -42,14 +45,85 @@ const UnitView: React.FC = () => {
         setIsLoading(true);
         setError(null);
         
-        // Fetch the main listing
-        const listingData = await ListingService.getListingById(id);
-        setListing(listingData);
-        
-        // Fetch listings in the same area
-        if (listingData?.city) {
-          const areaListings = await ListingService.getListingsInSameArea(listingData.city, id);
-          setSameAreaListings(areaListings);
+        // Check if this is a mock ID (1, 2, 3) from homepage
+        const mockIds = ['1', '2', '3'];
+        if (mockIds.includes(id)) {
+          // Use mock data for homepage listings
+          const mockListings = {
+            '1': {
+              id: '1',
+              title: 'Apartment complex in Davao',
+              location: 'Medina, Apilaya Davao City',
+              city: 'Davao City',
+              price: 4320,
+              currency: '₱',
+              price_unit: 'night',
+              bedrooms: 2,
+              bathrooms: 1,
+              square_feet: 800,
+              property_type: 'Apartment',
+              description: 'A beautiful apartment complex in the heart of Davao City with modern amenities and great location.',
+              main_image_url: '/heroimage.png',
+              image_urls: ['/heroimage.png'],
+              is_featured: true,
+              latitude: 7.1907,
+              longitude: 125.4553,
+              country: 'Philippines'
+            },
+            '2': {
+              id: '2',
+              title: 'Modern Condo in Manila',
+              location: 'Makati, Metro Manila',
+              city: 'Manila',
+              price: 3500,
+              currency: '₱',
+              price_unit: 'night',
+              bedrooms: 1,
+              bathrooms: 1,
+              square_feet: 600,
+              property_type: 'Condo',
+              description: 'Modern condominium in the business district of Makati with stunning city views.',
+              main_image_url: '/heroimage.png',
+              image_urls: ['/heroimage.png'],
+              is_featured: false,
+              latitude: 14.5547,
+              longitude: 121.0244,
+              country: 'Philippines'
+            },
+            '3': {
+              id: '3',
+              title: 'Cozy House in Cebu',
+              location: 'Lahug, Cebu City',
+              city: 'Cebu City',
+              price: 2800,
+              currency: '₱',
+              price_unit: 'night',
+              bedrooms: 3,
+              bathrooms: 2,
+              square_feet: 1200,
+              property_type: 'House',
+              description: 'Cozy family house in a quiet neighborhood of Cebu with garden and parking space.',
+              main_image_url: '/heroimage.png',
+              image_urls: ['/heroimage.png'],
+              is_featured: false,
+              latitude: 10.3157,
+              longitude: 123.8854,
+              country: 'Philippines'
+            }
+          };
+          
+          setListing(mockListings[id as keyof typeof mockListings]);
+          setSameAreaListings([]); // No same area listings for mock data
+        } else {
+          // Fetch real data from Supabase
+          const listingData = await ListingService.getListingById(id);
+          setListing(listingData);
+          
+          // Fetch listings in the same area
+          if (listingData?.city) {
+            const areaListings = await ListingService.getListingsInSameArea(listingData.city, id);
+            setSameAreaListings(areaListings);
+          }
         }
       } catch (err) {
         console.error('Error fetching listing data:', err);
@@ -65,7 +139,28 @@ const UnitView: React.FC = () => {
   }, [id]);
 
   const handleReserve = () => {
-    console.log('Reserve clicked');
+    setShowBookingForm(true);
+  };
+
+  const handleCancelBooking = () => {
+    setShowBookingForm(false);
+  };
+
+  const handleCompleteBooking = async (formData: BookingFormData) => {
+    try {
+      // Here you would typically save the booking to your backend
+      console.log('Booking completed for property:', listing?.id, formData);
+      
+      // For now, just show success and return to property view
+      alert('Booking completed successfully!');
+      setShowBookingForm(false);
+      
+      // You could also navigate to a confirmation page or booking list
+      // navigate('/booking');
+    } catch (error) {
+      console.error('Error completing booking:', error);
+      alert('Error completing booking. Please try again.');
+    }
   };
 
   const handleSameAreaListingClick = (listingId: string) => {
@@ -348,6 +443,20 @@ const UnitView: React.FC = () => {
             </button>
           </div>
         </div>
+      </div>
+    );
+  }
+
+  // Show booking form if user clicked Reserve
+  if (showBookingForm) {
+    return (
+      <div className="min-h-screen bg-gray-50">
+        <Navbar />
+        <BookingForm
+          onCancel={handleCancelBooking}
+          onComplete={handleCompleteBooking}
+        />
+        <Footer />
       </div>
     );
   }
