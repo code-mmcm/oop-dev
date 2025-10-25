@@ -1,626 +1,683 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import type { BookingFormData } from '../../../types/booking';
 
-interface ClientInfoStepProps {
+interface StayDetailsStepProps {
   formData: BookingFormData;
   onUpdate: (data: Partial<BookingFormData>) => void;
-  onUpdateField?: (key: keyof BookingFormData, value: any) => void;
   onNext: () => void;
-  onBack: () => void;
   onCancel: () => void;
 }
 
-const collapseSpacesTrim = (s: string) => s.replace(/ {2,}/g, ' ').replace(/^\s+/, '').replace(/\s+$/, '');
-const collapseSpacesKeepTrailing = (s: string) => {
-  const hadTrailing = /\s$/.test(s);
-  let tmp = s.replace(/ {2,}/g, ' ').replace(/^\s+/, '');
-  if (hadTrailing) tmp = tmp + ' ';
-  return tmp;
-};
+const WEEK_DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
-const FloatingInput: React.FC<{
-  id: string;
-  label: string;
-  type?: string;
-  value: string;
-  setValue: (v: string) => void;
-  inputMode?: React.HTMLAttributes<HTMLInputElement>['inputMode'];
-  inputProps?: React.InputHTMLAttributes<HTMLInputElement>;
-  preventLeadingSpace?: boolean;
-  sanitizeOnBlur?: (v: string) => string;
-}> = ({ id, label, type = 'text', value, setValue, inputMode, inputProps, preventLeadingSpace, sanitizeOnBlur }) => {
-  const [isFocused, setIsFocused] = useState(false);
-  const isActive = isFocused || (value != null && String(value).length > 0);
+/**
+ * StayDetailsStep
+ *
+ * Notes / Fixes applied:
+ * - The summary (subtotal / extra guest fees / total) is computed from the canonical formData values
+ *   (formData.checkInDate, formData.checkOutDate, formData.pricePerNight, formData.extraGuestFeePerPerson),
+ *   rather than only the local selectedDates. This prevents stale or out-of-sync totals.
+ * - Date math is done with "date-only" local midnight values to avoid timezone shifts.
+ * - All derived values (nights, subtotal, fees, total) use useMemo with correct dependency lists so they
+ *   update when formData changes.
+ * - Defensive guards: price and fee defaults, and extraGuests floored to integers.
+ * - Kept existing calendar/guest UX but tightened useEffect deps and validation.
+ */
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    let val = e.target.value;
-    if (preventLeadingSpace) val = val.replace(/^\s+/, '');
-    val = collapseSpacesKeepTrailing(val);
-    setValue(val);
+const StayDetailsStep: React.FC<StayDetailsStepProps> = ({ formData, onUpdate, onNext, onCancel }) => {
+  // Helpers for date-only (local) handling
+  const parseYMD = (s?: string): Date | null => {
+    if (!s) return null;
+    const [y, m, d] = s.split('-').map(Number);
+    if (!y || !m || !d) return null;
+    return new Date(y, m - 1, d);
   };
+  const formatYMD = (date: Date) =>
+    `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+  const toDateOnly = (d: Date | null) => (d ? new Date(d.getFullYear(), d.getMonth(), d.getDate()) : null);
 
-  const handlePaste = (e: React.ClipboardEvent<HTMLInputElement>) => {
-    e.preventDefault();
-    const text = e.clipboardData.getData('text') || '';
-    let cleaned = text;
-    if (preventLeadingSpace) cleaned = cleaned.replace(/^\s+/, '');
-    cleaned = collapseSpacesKeepTrailing(cleaned);
-    setValue((value || '') + cleaned);
-  };
+  // "Now" local time
+  const now = new Date();
+  const cutoffHour = 18;
+  const leadDays = now.getHours() >= cutoffHour ? 2 : 1;
+  const minAllowedDate = toDateOnly(new Date(now.getFullYear(), now.getMonth(), now.getDate() + leadDays));
 
-  const handleBlur = () => {
-    setIsFocused(false);
-    if (typeof sanitizeOnBlur === 'function') {
-      const final = sanitizeOnBlur(value || '');
-      if (final !== (value || '')) setValue(final);
+  // Dismissible lead notice
+  const [showLeadNotice, setShowLeadNotice] = useState<boolean>(true);
+
+  // Local selectedDates mirror formData for calendar interactions (date-only)
+  const initialStart = toDateOnly(parseYMD(formData.checkInDate));
+  const initialEnd = toDateOnly(parseYMD(formData.checkOutDate));
+  const [selectedDates, setSelectedDates] = useState<{ start: Date | null; end: Date | null }>({
+    start: initialStart,
+    end: initialEnd
+  });
+
+  // Calendar month/year state (start or minAllowedDate)
+  const initialDate = selectedDates.start ?? minAllowedDate ?? toDateOnly(new Date()) ?? new Date();
+  const [calendarMonth, setCalendarMonth] = useState<number>(initialDate.getMonth());
+  const [calendarYear, setCalendarYear] = useState<number>(initialDate.getFullYear());
+
+  // Sync incoming formData into selectedDates and validate against minAllowedDate
+  useEffect(() => {
+    const start = toDateOnly(parseYMD(formData.checkInDate));
+    const end = toDateOnly(parseYMD(formData.checkOutDate));
+
+    if (start && minAllowedDate && start.getTime() < minAllowedDate.getTime()) {
+      // clear invalid start
+      onUpdate({ checkInDate: '' });
+      setSelectedDates(prev => ({ ...prev, start: null }));
+    }
+
+    if (end && minAllowedDate && end.getTime() < minAllowedDate.getTime()) {
+      // clear invalid end
+      onUpdate({ checkOutDate: '' });
+      setSelectedDates(prev => ({ ...prev, end: null }));
+    }
+
+    if (start && end && end.getTime() < start.getTime()) {
+      // invalid range -> clear end
+      onUpdate({ checkOutDate: '' });
+      setSelectedDates(prev => ({ ...prev, end: null }));
+    }
+
+    setSelectedDates({
+      start,
+      end
+    });
+    // include minAllowedDate and onUpdate because we call them above
+  }, [formData.checkInDate, formData.checkOutDate, minAllowedDate, onUpdate]);
+
+  // Handle direct input changes
+  const handleDateChange = (field: 'checkInDate' | 'checkOutDate', value: string) => {
+    const d = toDateOnly(parseYMD(value));
+    // Prevent selecting earlier than minAllowedDate
+    if (d && minAllowedDate && d.getTime() < minAllowedDate.getTime()) return;
+
+    onUpdate({ [field]: value });
+
+    if (field === 'checkInDate') {
+      setSelectedDates(prev => ({ ...prev, start: d ?? null }));
+      if (d) {
+        setCalendarMonth(d.getMonth());
+        setCalendarYear(d.getFullYear());
+      }
+      // If new check-in is after or equal to existing check-out, clear check-out
+      const currentEnd = toDateOnly(parseYMD(formData.checkOutDate));
+      if (currentEnd && d && currentEnd.getTime() <= d.getTime()) {
+        onUpdate({ checkOutDate: '' });
+        setSelectedDates(prev => ({ ...prev, end: null }));
+      }
     } else {
-      const final = collapseSpacesTrim(value || '');
-      if (final !== (value || '')) setValue(final);
-    }
-  };
-
-  return (
-    <div className="relative">
-      <label
-        htmlFor={id}
-        className={`absolute left-4 transition-all duration-150 pointer-events-none ${
-          isActive ? '-top-2 text-xs bg-white px-1 rounded' : 'top-1/2 -translate-y-1/2 text-gray-400'
-        }`}
-        style={{ fontFamily: 'Poppins', color: isActive ? '#0B5858' : undefined }}
-      >
-        {label}
-      </label>
-
-      <input
-        id={id}
-        type={type}
-        value={value}
-        onFocus={() => setIsFocused(true)}
-        onBlur={handleBlur}
-        onChange={handleChange}
-        onPaste={handlePaste}
-        inputMode={inputMode}
-        onKeyDown={(e) => {
-          if (preventLeadingSpace && e.key === ' ' && (!value || value.length === 0)) {
-            e.preventDefault();
-            return;
-          }
-          if (inputProps?.onKeyDown) inputProps.onKeyDown(e as any);
-        }}
-        {...inputProps}
-        className={`w-full py-3 pl-4 pr-4 border rounded-xl transition-all duration-150 ${
-          isActive ? 'border-transparent ring-2 ring-[#549F74]' : 'border-gray-300'
-        } focus:outline-none`}
-        style={{ fontFamily: 'Poppins', fontWeight: 400 }}
-      />
-    </div>
-  );
-};
-
-const FloatingDateParts: React.FC<{
-  id: string;
-  label: string;
-  valueYMD?: string;
-  onChange: (ymd: string) => void;
-  allowFuture?: boolean;
-}> = ({ id, label, valueYMD = '', onChange, allowFuture = false }) => {
-  const [month, setMonth] = useState<string>('');
-  const [day, setDay] = useState<string>('');
-  const [year, setYear] = useState<string>('');
-
-  const currentYear = new Date().getFullYear();
-  const minYear = currentYear - 120;
-  const years = useMemo(() => {
-    const a: string[] = [];
-    for (let y = currentYear; y >= minYear; y--) a.push(String(y).padStart(4, '0'));
-    return a;
-  }, [currentYear]);
-
-  const months = useMemo(() => ['01','02','03','04','05','06','07','08','09','10','11','12'], []);
-
-  const maxDayForMonthYear = useMemo(() => {
-    const yNum = parseInt(year || String(currentYear), 10);
-    const mNum = parseInt(month || '1', 10);
-    if (!Number.isFinite(yNum) || !Number.isFinite(mNum) || mNum < 1 || mNum > 12) return 31;
-    return new Date(yNum, mNum, 0).getDate();
-  }, [month, year, currentYear]);
-
-  const days = useMemo(() => {
-    const arr: string[] = [];
-    for (let d = 1; d <= maxDayForMonthYear; d++) arr.push(String(d).padStart(2, '0'));
-    return arr;
-  }, [maxDayForMonthYear]);
-
-  const lastAppliedPropRef = useRef<string>('');
-
-  useEffect(() => {
-    if (valueYMD && /^\d{4}-\d{2}-\d{2}$/.test(valueYMD)) {
-      if (valueYMD === lastAppliedPropRef.current) return;
-      const [y, m, d] = valueYMD.split('-');
-      setYear((prev) => (prev === y ? prev : y));
-      setMonth((prev) => (prev === m ? prev : m));
-      setDay((prev) => (prev === d ? prev : d));
-      lastAppliedPropRef.current = valueYMD;
-      return;
-    }
-
-    if (!valueYMD) {
-      if (year || month || day) {
-        setYear('');
-        setMonth('');
-        setDay('');
-      }
-      lastAppliedPropRef.current = '';
-    }
-  }, [valueYMD]);
-
-  useEffect(() => {
-    if (!month || !day || !year) return;
-
-    const yNum = parseInt(year, 10);
-    const mNum = parseInt(month, 10);
-    const dNum = parseInt(day, 10);
-    if (!Number.isFinite(yNum) || !Number.isFinite(mNum) || !Number.isFinite(dNum)) return;
-    if (mNum < 1 || mNum > 12) return;
-
-    const maxDay = new Date(yNum, mNum, 0).getDate();
-    if (dNum < 1 || dNum > maxDay) return;
-
-    const candidate = new Date(yNum, mNum - 1, dNum);
-    if (!allowFuture) {
-      const today = new Date();
-      const todayOnly = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-      if (candidate.getTime() > todayOnly.getTime()) return;
-    }
-
-    const ymd = `${String(yNum).padStart(4, '0')}-${String(mNum).padStart(2, '0')}-${String(dNum).padStart(2, '0')}`;
-
-    if (valueYMD !== ymd) {
-      lastAppliedPropRef.current = ymd;
-      onChange(ymd);
-    }
-  }, [month, day, year, allowFuture, onChange, valueYMD]);
-
-  const onYearChange = (newYear: string) => {
-    setYear(newYear);
-    if (month) {
-      const yNum = parseInt(newYear || String(currentYear), 10);
-      const mNum = parseInt(month || '1', 10);
-      if (Number.isFinite(yNum) && Number.isFinite(mNum)) {
-        const maxDay = new Date(yNum, mNum, 0).getDate();
-        if (day && parseInt(day, 10) > maxDay) setDay(String(maxDay).padStart(2, '0'));
+      setSelectedDates(prev => ({ ...prev, end: d ?? null }));
+      if (d) {
+        setCalendarMonth(d.getMonth());
+        setCalendarYear(d.getFullYear());
       }
     }
   };
 
-  return (
-    <div>
-      <div className="rounded-xl bg-white flex items-center border px-1 border-gray-300">
-        <div className="w-1/3 px-2">
-          <label className="sr-only" htmlFor={`${id}-month`}>Month</label>
-          <select
-            id={`${id}-month`}
-            value={month}
-            onChange={(e) => setMonth(e.target.value)}
-            className="w-full py-3 pl-2 pr-2 bg-transparent"
-            aria-label={`${label} month`}
-            style={{ fontFamily: 'Poppins' }}
-          >
-            <option value="">{'MM'}</option>
-            {months.map((m) => <option key={m} value={m}>{m}</option>)}
-          </select>
-        </div>
-
-        <div className="h-7 w-px bg-gray-200 mx-2" />
-
-        <div className="w-1/4 px-2">
-          <label className="sr-only" htmlFor={`${id}-day`}>Day</label>
-          <select
-            id={`${id}-day`}
-            value={day}
-            onChange={(e) => setDay(e.target.value)}
-            className="w-full py-3 pl-2 pr-2 bg-transparent"
-            aria-label={`${label} day`}
-            style={{ fontFamily: 'Poppins' }}
-          >
-            <option value="">{'DD'}</option>
-            {days.map((d) => <option key={d} value={d}>{d}</option>)}
-          </select>
-        </div>
-
-        <div className="h-7 w-px bg-gray-200 mx-2" />
-
-        <div className="w-5/12 px-2">
-          <label className="sr-only" htmlFor={`${id}-year`}>Year</label>
-          <select
-            id={`${id}-year`}
-            value={year}
-            onChange={(e) => onYearChange(e.target.value)}
-            className="w-full py-3 pl-2 pr-2 bg-transparent"
-            aria-label={`${label} year`}
-            style={{ fontFamily: 'Poppins' }}
-          >
-            <option value="">{'YYYY'}</option>
-            {years.map((y) => <option key={y} value={y}>{y}</option>)}
-          </select>
-        </div>
-      </div>
-    </div>
-  );
-};
-
-const PhoneInput: React.FC<{
-  id: string;
-  label: string;
-  value: string;
-  setValue: (v: string) => void;
-  maxDigits?: number;
-}> = ({ id, label, value, setValue, maxDigits }) => {
-  const wrapperRef = useRef<HTMLDivElement | null>(null);
-  const [isFocused, setIsFocused] = useState(false);
-  const [showCountryDropdown, setShowCountryDropdown] = useState(false);
-
-  const countries = [
-    { code: '+63', name: 'Philippines', flag: '🇵🇭' },
-    { code: '+1', name: 'United States', flag: '🇺🇸' },
-    { code: '+44', name: 'United Kingdom', flag: '🇬🇧' },
-    { code: '+81', name: 'Japan', flag: '🇯🇵' },
-    { code: '+86', name: 'China', flag: '🇨🇳' },
-    { code: '+91', name: 'India', flag: '🇮🇳' },
-    { code: '+61', name: 'Australia', flag: '🇦🇺' },
-    { code: '+49', name: 'Germany', flag: '🇩🇪' },
-    { code: '+33', name: 'France', flag: '🇫🇷' },
-    { code: '+39', name: 'Italy', flag: '🇮🇹' },
-  ];
-
-  const formatPhoneNumber = (digits: string, countryCode: string) => {
-    const d = digits.replace(/\D/g, '');
-    if (countryCode === '+63' || countryCode === '+1') {
-      return d.replace(/(\d{3})(\d{3})(\d{4})/, '$1 $2 $3').trim();
-    } else if (countryCode === '+44') {
-      return d.replace(/(\d{4})(\d{3})(\d{3})/, '$1 $2 $3').trim();
-    } else if (countryCode === '+81' || countryCode === '+86') {
-      return d.replace(/(\d{3})(\d{4})(\d{4})/, '$1 $2 $3').trim();
-    } else if (countryCode === '+91') {
-      return d.replace(/(\d{5})(\d{5})/, '$1 $2').trim();
-    } else if (countryCode === '+61') {
-      return d.replace(/(\d{4})(\d{3})(\d{3})/, '$1 $2 $3').trim();
-    } else if (countryCode === '+49') {
-      return d.replace(/(\d{3})(\d{3})(\d{4})/, '$1 $2 $3').trim();
-    } else if (countryCode === '+33') {
-      return d.replace(/(\d{1})(\d{2})(\d{2})(\d{2})(\d{2})/, '$1 $2 $3 $4 $5').trim();
-    } else if (countryCode === '+39') {
-      return d.replace(/(\d{3})(\d{3})(\d{4})/, '$1 $2 $3').trim();
-    }
-    return d;
+  const handleTimeChange = (field: 'checkInTime' | 'checkOutTime', value: string) => {
+    onUpdate({ [field]: value });
   };
 
-  const parseStored = (stored: string) => {
-    if (!stored) return { code: '+63', rest: '' };
-    const m = stored.match(/^(\+\d{1,3})\s*(.*)$/);
-    if (m) return { code: m[1], rest: m[2].replace(/\D/g, '') };
-    return { code: '+63', rest: stored.replace(/\D/g, '') };
+  // Guest logic (baseGuests from formData or fallback)
+  const baseGuests: number = (formData as any).baseGuests ?? 2;
+
+  const handleGuestChange = (field: 'numberOfGuests' | 'extraGuests', value: number) => {
+    if (field === 'numberOfGuests') {
+      const clamped = Math.min(Math.max(1, Math.floor(value)), baseGuests);
+      onUpdate({ numberOfGuests: clamped });
+    } else {
+      const clamped = Math.max(0, Math.floor(value));
+      onUpdate({ extraGuests: clamped });
+    }
   };
 
-  const initial = parseStored(value);
-  const [countryCode, setCountryCode] = useState<string>(initial.code);
-  const [rawDigits, setRawDigits] = useState<string>(initial.rest.slice(0, maxDigits ?? initial.rest.length));
-
-  useEffect(() => {
-    const digits = maxDigits ? rawDigits.slice(0, maxDigits) : rawDigits;
-    const formatted = formatPhoneNumber(digits, countryCode);
-    const combined = formatted ? `${countryCode} ${formatted}` : '';
-    if (combined !== value) setValue(combined);
-  }, [countryCode, rawDigits, maxDigits, setValue, value]);
-
-  useEffect(() => {
-    const parsed = parseStored(value);
-    if (parsed.code !== countryCode) setCountryCode(parsed.code);
-    const trimmed = parsed.rest.slice(0, maxDigits ?? parsed.rest.length);
-    if (trimmed !== rawDigits) setRawDigits(trimmed);
-  }, [value, maxDigits]);
-
-  useEffect(() => {
-    if (typeof maxDigits === 'number' && rawDigits.length > maxDigits) {
-      const trimmed = rawDigits.slice(0, maxDigits);
-      setRawDigits(trimmed);
-      const formatted = formatPhoneNumber(trimmed, countryCode);
-      const combined = formatted ? `${countryCode} ${formatted}` : '';
-      if (combined !== value) setValue(combined);
+  const incrementGuest = (field: 'numberOfGuests' | 'extraGuests') => {
+    if (field === 'numberOfGuests') {
+      const curr = formData.numberOfGuests ?? 1;
+      if (curr >= baseGuests) return;
+      handleGuestChange('numberOfGuests', curr + 1);
+    } else {
+      const currPrimary = formData.numberOfGuests ?? 1;
+      if (currPrimary < baseGuests) {
+        handleGuestChange('numberOfGuests', currPrimary + 1);
+      } else {
+        handleGuestChange('extraGuests', (formData.extraGuests ?? 0) + 1);
+      }
     }
-  }, [maxDigits]);
+  };
 
-  useEffect(() => {
-    const onDoc = (e: MouseEvent) => {
-      if (!wrapperRef.current) return;
-      if (!wrapperRef.current.contains(e.target as Node)) setShowCountryDropdown(false);
-    };
-    document.addEventListener('mousedown', onDoc);
-    return () => document.removeEventListener('mousedown', onDoc);
-  }, []);
+  const decrementGuest = (field: 'numberOfGuests' | 'extraGuests') => {
+    if (field === 'numberOfGuests') {
+      const curr = formData.numberOfGuests ?? 1;
+      handleGuestChange('numberOfGuests', curr - 1);
+    } else {
+      handleGuestChange('extraGuests', Math.max(0, (formData.extraGuests ?? 0) - 1));
+    }
+  };
 
-  const labelActive = isFocused || rawDigits.length > 0;
+  const isFormValid = () =>
+    !!(
+      formData.checkInDate &&
+      formData.checkOutDate &&
+      (formData.numberOfGuests ?? 0) > 0 &&
+      formData.checkInTime &&
+      formData.checkOutTime
+    );
+
+  // Calendar utilities
+  const firstDayOfMonth = (y: number, m: number) => new Date(y, m, 1);
+  const lastDayOfMonth = (y: number, m: number) => new Date(y, m + 1, 0);
+
+  const generateCalendarDays = () => {
+    const first = firstDayOfMonth(calendarYear, calendarMonth);
+    const last = lastDayOfMonth(calendarYear, calendarMonth);
+    const daysInMonth = last.getDate();
+    const startingDayOfWeek = (first.getDay() + 6) % 7; // Monday=0
+
+    const days: Array<
+      | null
+      | {
+          day: number;
+          date: Date;
+          isSelected: boolean;
+          isStart: boolean;
+          isEnd: boolean;
+          isDisabled: boolean;
+        }
+    > = [];
+
+    const startOnly = selectedDates.start ? toDateOnly(selectedDates.start) : null;
+    const endOnly = selectedDates.end ? toDateOnly(selectedDates.end) : null;
+
+    for (let i = 0; i < startingDayOfWeek; i++) days.push(null);
+
+    for (let d = 1; d <= daysInMonth; d++) {
+      const date = new Date(calendarYear, calendarMonth, d);
+      const isDisabled = minAllowedDate ? date.getTime() < minAllowedDate.getTime() : false;
+      const isSelected = !!(startOnly && endOnly && date >= startOnly && date <= endOnly);
+      const isStart = !!(startOnly && date.getTime() === startOnly.getTime());
+      const isEnd = !!(endOnly && date.getTime() === endOnly.getTime());
+      days.push({ day: d, date, isSelected, isStart, isEnd, isDisabled });
+    }
+
+    while (days.length % 7 !== 0) days.push(null);
+
+    return days;
+  };
+
+  const days = useMemo(() => generateCalendarDays(), [
+    calendarMonth,
+    calendarYear,
+    selectedDates.start,
+    selectedDates.end,
+    // minAllowedDate affects isDisabled flags in calendar rendering
+    minAllowedDate
+  ]);
+
+  const onCalendarClick = (dayData: { day: number; date: Date; isDisabled?: boolean } | null) => {
+    if (!dayData || dayData.isDisabled) return;
+    const clickedDate = toDateOnly(dayData.date)!;
+    const dateStr = formatYMD(clickedDate);
+
+    const start = selectedDates.start ? toDateOnly(selectedDates.start) : null;
+    const end = selectedDates.end ? toDateOnly(selectedDates.end) : null;
+
+    if (!start || (start && end)) {
+      // start new selection
+      setSelectedDates({ start: clickedDate, end: null });
+      onUpdate({ checkInDate: dateStr });
+      onUpdate({ checkOutDate: '' });
+    } else if (start && !end) {
+      if (clickedDate.getTime() > start.getTime()) {
+        setSelectedDates(prev => ({ ...prev, end: clickedDate }));
+        onUpdate({ checkOutDate: dateStr });
+      } else {
+        // restart range
+        setSelectedDates({ start: clickedDate, end: null });
+        onUpdate({ checkInDate: dateStr });
+        onUpdate({ checkOutDate: '' });
+      }
+    }
+  };
+
+  const prevMonth = () => {
+    const m = calendarMonth - 1;
+    if (m < 0) {
+      setCalendarMonth(11);
+      setCalendarYear(calendarYear - 1);
+    } else {
+      setCalendarMonth(m);
+    }
+  };
+
+  const nextMonth = () => {
+    const m = calendarMonth + 1;
+    if (m > 11) {
+      setCalendarMonth(0);
+      setCalendarYear(calendarYear + 1);
+    } else {
+      setCalendarMonth(m);
+    }
+  };
+
+  // Summary calculations (use canonical formData values so result always reflects saved form data)
+  const pricePerNight = formData.pricePerNight ?? 2000;
+  const extraGuestFeePerPerson = formData.extraGuestFeePerPerson ?? 250;
+  const extraGuests = Math.max(0, Math.floor(formData.extraGuests ?? 0));
+
+  // compute nights from formData (date-only) to avoid relying on selectedDates which may be mid-edit
+  const nights = useMemo(() => {
+    const start = toDateOnly(parseYMD(formData.checkInDate));
+    const end = toDateOnly(parseYMD(formData.checkOutDate));
+    if (!start || !end) return 0;
+    const msPerDay = 24 * 60 * 60 * 1000;
+    const diff = Math.round((end.getTime() - start.getTime()) / msPerDay);
+    return Math.max(0, diff);
+  }, [formData.checkInDate, formData.checkOutDate]);
+
+  const subtotal = useMemo(() => nights * pricePerNight, [nights, pricePerNight]);
+  const extraGuestFees = useMemo(() => {
+    if (!extraGuests || extraGuests <= 0 || nights <= 0) return 0;
+    return extraGuests * extraGuestFeePerPerson * nights;
+  }, [extraGuests, extraGuestFeePerPerson, nights]);
+  const total = useMemo(() => subtotal + extraGuestFees, [subtotal, extraGuestFees]);
+
+  const formattedRange =
+    selectedDates.start && selectedDates.end
+      ? `${selectedDates.start.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} - ${selectedDates.end.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`
+      : null;
+
+  const formatInputDate = (dateStr?: string) => (dateStr ? dateStr : '');
+  const minDateStr = minAllowedDate ? formatYMD(minAllowedDate) : '';
+
+  const currentPrimaryGuests = formData.numberOfGuests ?? 1;
+  const reachedPrimaryMax = currentPrimaryGuests >= baseGuests;
+
+  const formatCurrency = (v: number) =>
+    v.toLocaleString('en-PH', { style: 'currency', currency: 'PHP', minimumFractionDigits: 0 });
 
   return (
-    <div ref={wrapperRef} className="relative">
-      {labelActive && (
-        <label className="absolute left-4 -top-2 text-xs bg-white px-1 rounded" style={{ fontFamily: 'Poppins', color: '#0B5858' }}>
-          {label}
-        </label>
-      )}
+    <div className="p-6">
+      <div className="max-w-6xl mx-auto">
+        <div className="mb-6">
+          <h1 className="text-2xl lg:text-3xl font-semibold text-[#0B5858]" style={{ fontFamily: 'Poppins' }}>
+            Stay Details
+          </h1>
+          <p className="text-sm text-gray-500 mt-1" style={{ fontFamily: 'Poppins' }}>
+            Please fill in your stay details to continue
+          </p>
+        </div>
 
-      <div className={`rounded-xl bg-white flex items-center border px-1 ${labelActive ? 'border-transparent ring-2 ring-[#549F74]' : 'border-gray-300'}`}>
-        <div className="relative country-dropdown">
-          <button
-            type="button"
-            onClick={() => setShowCountryDropdown(s => !s)}
-            className="flex items-center gap-2 py-3 pl-3 pr-3 rounded-l-xl text-gray-700"
-            onFocus={() => setIsFocused(true)}
-            onBlur={() => setTimeout(() => setIsFocused(false), 100)}
-            aria-haspopup="listbox"
-            aria-expanded={showCountryDropdown}
-            style={{ fontFamily: 'Poppins' }}
-          >
-            <span className="text-sm">{countryCode}</span>
-            <svg className="w-3 h-3 opacity-80" viewBox="0 0 20 20" fill="currentColor" aria-hidden>
-              <path d="M5.23 7.21a.75.75 0 011.06.02L10 11.584l3.71-4.354a.75.75 0 111.14.976l-4.25 5a.75.75 0 01-1.14 0l-4.25-5a.75.75 0 01.02-1.06z" />
-            </svg>
-          </button>
+        {showLeadNotice && (
+          <div className="max-w-6xl mx-auto mb-4">
+            <div className="flex items-start justify-between bg-[#FEF9E6] border border-[#F5EECF] rounded-md px-4 py-3">
+              <div className="flex items-start gap-3">
+                <svg className="w-5 h-5 text-[#A67C00] mt-0.5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                  <path d="M8.257 3.099c.366-.89 1.603-.89 1.97 0l.908 2.204a1 1 0 00.95.69h2.32c.969 0 1.371 1.24.588 1.81l-1.88 1.364a1 1 0 00-.364 1.118l.718 2.204c.366.89-.755 1.63-1.54 1.06L10 12.347l-1.617 1.202c-.784.57-1.906-.17-1.54-1.06l.718-2.204a1 1 0 00-.364-1.118L5.317 7.803c-.783-.57-.38-1.81.588-1.81h2.32a1 1 0 00.95-.69l.082-.204z" />
+                </svg>
+                <div className="text-sm text-[#664E00]" style={{ fontFamily: 'Poppins' }}>
+                  Bookings must be made at least <span className="font-semibold">{leadDays} day{leadDays > 1 ? 's' : ''}</span> in advance (based on current local time).
+                </div>
+              </div>
+              <button
+                onClick={() => setShowLeadNotice(false)}
+                aria-label="Dismiss lead time notice"
+                className="text-sm text-gray-500 hover:text-gray-700"
+              >
+                ✕
+              </button>
+            </div>
+          </div>
+        )}
 
-          {showCountryDropdown && (
-            <div className="absolute z-50 top-full left-0 mt-1 w-64 max-h-48 overflow-y-auto bg-white border border-gray-300 rounded-lg shadow-lg">
-              {countries.map(c => (
-                <div
-                  key={c.code}
-                  className="flex items-center gap-3 px-3 py-3 hover:bg-gray-50 cursor-pointer"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setCountryCode(c.code);
-                    setShowCountryDropdown(false);
-                    const digits = maxDigits ? rawDigits.slice(0, maxDigits) : rawDigits;
-                    const formatted = formatPhoneNumber(digits, c.code);
-                    const combined = formatted ? `${c.code} ${formatted}` : '';
-                    if (combined !== value) setValue(combined);
-                  }}
-                  style={{ fontFamily: 'Poppins' }}
-                >
-                  <span className="text-lg">{c.flag}</span>
-                  <div className="text-sm">
-                    <div style={{ fontFamily: 'Poppins', fontWeight: 500 }}>{c.name}</div>
-                    <div className="text-xs text-gray-500">{c.code}</div>
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className="lg:col-span-2 space-y-4">
+            {/* Stay Duration */}
+            <div className="border border-[#E6F5F4] rounded-lg p-4 bg-white shadow-sm">
+              <div className="flex items-center gap-3 mb-3">
+                <svg className="w-5 h-5 text-[#0B5858]" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                  <rect x="3" y="4" width="18" height="18" rx="2" strokeWidth="1.2" />
+                  <path d="M16 2v4M8 2v4" strokeWidth="1.2" />
+                </svg>
+                <h3 className="font-semibold text-gray-800" style={{ fontFamily: 'Poppins' }}>Stay Duration</h3>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="text-sm text-gray-600 mb-2 block" style={{ fontFamily: 'Poppins' }}>
+                    Check-in <span className="text-red-500">*</span>
+                  </label>
+                  <div className="flex items-center gap-2">
+                    <div className="flex-1 border border-[#E6F5F4] rounded-md px-3 py-2 flex items-center justify-between bg-[#F8FFFE]">
+                      <input
+                        type="date"
+                        min={minDateStr}
+                        value={formatInputDate(formData.checkInDate)}
+                        onChange={(e) => handleDateChange('checkInDate', e.target.value)}
+                        className="flex-1 text-sm outline-none bg-transparent"
+                        style={{ fontFamily: 'Poppins' }}
+                      />
+                      <div className="w-px h-6 bg-[#E0F0EE] mx-3" />
+                      <input
+                        type="time"
+                        value={formData.checkInTime || ''}
+                        onChange={(e) => handleTimeChange('checkInTime', e.target.value)}
+                        className="w-28 text-sm outline-none bg-transparent"
+                        style={{ fontFamily: 'Poppins' }}
+                      />
+                    </div>
                   </div>
                 </div>
-              ))}
-            </div>
-          )}
-        </div>
 
-        <div className="h-7 w-px bg-gray-200 mx-2" />
-
-        <input
-          id={id}
-          type="text"
-          value={formatPhoneNumber(rawDigits, countryCode)}
-          onChange={(e) => {
-            const digits = e.target.value.replace(/\D/g, '');
-            const limited = typeof maxDigits === 'number' ? digits.slice(0, maxDigits) : digits;
-            setRawDigits(limited);
-            const formatted = formatPhoneNumber(limited, countryCode);
-            const combined = formatted ? `${countryCode} ${formatted}` : '';
-            if (combined !== value) setValue(combined);
-          }}
-          onFocus={() => setIsFocused(true)}
-          onBlur={() => setTimeout(() => setIsFocused(false), 100)}
-          placeholder={labelActive ? '' : 'Enter phone number'}
-          className="flex-1 py-3 pl-2 pr-4 focus:outline-none"
-          inputMode="tel"
-          style={{ fontFamily: 'Poppins' }}
-          aria-label="Phone number"
-        />
-      </div>
-    </div>
-  );
-};
-
-const ClientInfoStep: React.FC<ClientInfoStepProps> = ({ formData, onUpdate, onUpdateField, onNext, onBack, onCancel }) => {
-  const updateField = (k: keyof BookingFormData, v: any) => {
-    if (typeof onUpdateField === 'function') {
-      try {
-        onUpdateField(k, v);
-      } catch {
-        onUpdate({ [k]: v });
-      }
-    } else {
-      onUpdate({ [k]: v });
-    }
-  };
-
-  const sanitizeName = (input: string) => {
-    const cleaned = input.replace(/[^\p{L}\s'-]/gu, '');
-    return collapseSpacesTrim(cleaned);
-  };
-
-  const sanitizeGeneric = (input: string) => {
-    const cleaned = input.replace(/[^\p{L}\p{N}\s\.'-]/gu, '');
-    return collapseSpacesTrim(cleaned);
-  };
-
-  const isValidEmail = (email: string) => {
-    if (!email) return false;
-    const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    return re.test(email.trim());
-  };
-
-  const dob = formData.dateOfBirth ?? '';
-  const handleDobChange = (ymd: string) => updateField('dateOfBirth', ymd);
-
-  const age = useMemo<number | null>(() => {
-    if (!dob || !/^\d{4}-\d{2}-\d{2}$/.test(dob)) return null;
-    const [y, m, d] = dob.split('-').map((s) => parseInt(s, 10));
-    if (!Number.isFinite(y) || !Number.isFinite(m) || !Number.isFinite(d)) return null;
-    const birth = new Date(y, m - 1, d);
-    if (Number.isNaN(birth.getTime())) return null;
-    const today = new Date();
-    let computedAge = today.getFullYear() - birth.getFullYear();
-    const thisYearBirthday = new Date(today.getFullYear(), birth.getMonth(), birth.getDate());
-    if (today < thisYearBirthday) computedAge--;
-    return computedAge;
-  }, [dob]);
-
-  const isUnder18 = age !== null && age < 18;
-
-  const [under18NotifDismissed, setUnder18NotifDismissed] = useState(false);
-  useEffect(() => {
-    setUnder18NotifDismissed(false);
-  }, [dob]);
-
-  const emailInvalid = (formData.email ?? '').trim().length > 0 && !isValidEmail(formData.email ?? '');
-
-  const isFormValid = useMemo(() => {
-    return !!(
-      (formData.firstName ?? '').trim() &&
-      (formData.lastName ?? '').trim() &&
-      (formData.email ?? '').trim() &&
-      (formData.preferredContactNumber ?? '').trim() &&
-      (formData.gender ?? '').trim() &&
-      (dob ? age !== null && age >= 18 : true)
-    );
-  }, [formData, dob, age]);
-
-  return (
-    <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6" style={{ fontFamily: 'Poppins' }}>
-      <h2 className="text-2xl font-bold text-[#0B5858] mb-1">Client Information</h2>
-      <p className="text-sm text-gray-500 mb-4">Please fill in your client details to continue</p>
-
-      {isUnder18 && !under18NotifDismissed && (
-        <div className="mb-4 p-3 rounded-md bg-red-50 border border-red-200 flex items-start justify-between" role="alert">
-          <div className="flex items-center gap-3">
-            <svg className="w-5 h-5 text-red-600" viewBox="0 0 20 20" fill="currentColor" aria-hidden>
-              <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.68-1.36 3.445 0l5.518 9.814c.75 1.334-.213 2.987-1.722 2.987H4.462c-1.51 0-2.472-1.653-1.722-2.987L8.257 3.1zM11 14a1 1 0 10-2 0 1 1 0 002 0zm-1-9a1 1 0 00-.993.883L9 6v4a1 1 0 001.993.117L11 10V6a1 1 0 00-1-1z" clipRule="evenodd" />
-            </svg>
-            <div className="text-sm">
-              <div className="font-medium text-red-800">Booking not allowed</div>
-              <div className="text-xs text-red-700">Client must be at least 18 years old to book.</div>
-            </div>
-          </div>
-
-          <button type="button" onClick={() => setUnder18NotifDismissed(true)} aria-label="Dismiss notification" className="text-red-600 hover:text-red-800 p-1" style={{ fontFamily: 'Poppins' }}>
-            ✕
-          </button>
-        </div>
-      )}
-
-      <div className="space-y-6">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <FloatingInput
-            id="firstName"
-            label="First Name *"
-            value={formData.firstName ?? ''}
-            setValue={(v) => updateField('firstName', v)}
-            preventLeadingSpace
-            sanitizeOnBlur={(v) => (v === '' ? '' : sanitizeName(v))}
-          />
-          <FloatingInput
-            id="lastName"
-            label="Last Name *"
-            value={formData.lastName ?? ''}
-            setValue={(v) => updateField('lastName', v)}
-            preventLeadingSpace
-            sanitizeOnBlur={(v) => (v === '' ? '' : sanitizeName(v))}
-          />
-          <div>
-            <FloatingInput
-              id="email"
-              label="Email *"
-              type="email"
-              value={formData.email ?? ''}
-              setValue={(v) => updateField('email', v)}
-              preventLeadingSpace
-              sanitizeOnBlur={(v) => v.replace(/\s+/g, '')}
-            />
-            {emailInvalid && (
-              <div className="mt-1 text-xs text-yellow-700" style={{ fontFamily: 'Poppins' }}>
-                Please enter a valid email (e.g., name@gmail.com). This is a notification only.
+                <div>
+                  <label className="text-sm text-gray-600 mb-2 block" style={{ fontFamily: 'Poppins' }}>
+                    Check-out <span className="text-red-500">*</span>
+                  </label>
+                  <div className="flex items-center gap-2">
+                    <div className="flex-1 border border-[#E6F5F4] rounded-md px-3 py-2 flex items-center justify-between bg-[#F8FFFE]">
+                      <input
+                        type="date"
+                        min={minDateStr}
+                        value={formatInputDate(formData.checkOutDate)}
+                        onChange={(e) => handleDateChange('checkOutDate', e.target.value)}
+                        className="flex-1 text-sm outline-none bg-transparent"
+                        style={{ fontFamily: 'Poppins' }}
+                      />
+                      <div className="w-px h-6 bg-[#E0F0EE] mx-3" />
+                      <input
+                        type="time"
+                        value={formData.checkOutTime || ''}
+                        onChange={(e) => handleTimeChange('checkOutTime', e.target.value)}
+                        className="w-28 text-sm outline-none bg-transparent"
+                        style={{ fontFamily: 'Poppins' }}
+                      />
+                    </div>
+                  </div>
+                </div>
               </div>
-            )}
-          </div>
-        </div>
+            </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-stretch">
-          <FloatingInput
-            id="nickname"
-            label="Nickname"
-            value={formData.nickname ?? ''}
-            setValue={(v) => updateField('nickname', v)}
-            preventLeadingSpace
-            sanitizeOnBlur={(v) => (v === '' ? '' : sanitizeGeneric(v))}
-          />
+            {/* Guests */}
+            <div className="border border-[#E6F5F4] rounded-lg p-4 bg-white shadow-sm">
+              <div className="flex items-center gap-3 mb-3">
+                <svg className="w-5 h-5 text-[#0B5858]" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                  <path d="M12 12a4 4 0 100-8 4 4 0 000 8z" strokeWidth="1.2" />
+                  <path d="M3 20a9 9 0 0118 0" strokeWidth="1.2" />
+                </svg>
+                <h3 className="font-semibold text-gray-800" style={{ fontFamily: 'Poppins' }}>Guests</h3>
+              </div>
 
-          <div className="flex flex-col">
-            <FloatingDateParts id="dateOfBirth" label="Date of Birth" valueYMD={dob} onChange={handleDobChange} allowFuture={false} />
-            <div className="mt-2 text-sm">
-              {dob && age === null && <div className="text-yellow-700" style={{ fontFamily: 'Poppins' }}>Please provide a valid date.</div>}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
+                <div>
+                  <label className="text-sm text-gray-600 mb-3 flex items-center gap-2" style={{ fontFamily: 'Poppins' }}>
+                    <span>Number of Guests</span>
+                    <span className="relative inline-block group">
+                      <button
+                        type="button"
+                        aria-describedby="primary-guests-tooltip"
+                        className="w-5 h-5 rounded-full border border-[#E6F5F4] bg-white text-[#0B5858] text-xs flex items-center justify-center"
+                        aria-label="Primary guests info"
+                      >
+                        ?
+                      </button>
+                      <div
+                        role="tooltip"
+                        id="primary-guests-tooltip"
+                        className="pointer-events-none absolute left-1/2 -translate-x-1/2 -top-10 z-10 hidden group-hover:block group-focus:block w-56 bg-white border border-[#E6F5F4] rounded-md px-3 py-2 text-xs text-gray-700 shadow"
+                        style={{ fontFamily: 'Poppins' }}
+                      >
+                        Primary guests are included in the base rate.
+                      </div>
+                    </span>
+                  </label>
+
+                  <div className="flex items-center gap-3">
+                    <button
+                      onClick={() => decrementGuest('numberOfGuests')}
+                      className="w-8 h-8 rounded-md border border-[#0B5858] text-[#0B5858] text-base flex items-center justify-center bg-white hover:bg-[#f1fefa]"
+                      aria-label="Decrease guests"
+                    >
+                      −
+                    </button>
+
+                    <div className="flex-1 bg-[#F8FFFE] border border-[#E6F5F4] rounded-lg px-6 py-3 flex items-center justify-center min-h-[44px]">
+                      <span className="text-lg font-semibold text-[#0B5858]" style={{ fontFamily: 'Poppins' }}>
+                        {currentPrimaryGuests}
+                      </span>
+                    </div>
+
+                    <button
+                      onClick={() => incrementGuest('numberOfGuests')}
+                      className={`w-8 h-8 rounded-md border border-[#0B5858] text-[#0B5858] text-base flex items-center justify-center bg-white hover:bg-[#f1fefa] ${reachedPrimaryMax ? 'opacity-50 cursor-not-allowed' : ''}`}
+                      aria-label="Increase guests"
+                      disabled={reachedPrimaryMax}
+                      title={reachedPrimaryMax ? `Maximum ${baseGuests} primary guest(s). Add extra guests instead.` : 'Add guest'}
+                    >
+                      +
+                    </button>
+                  </div>
+
+                  <p className="text-xs text-gray-400 mt-3" style={{ fontFamily: 'Poppins' }}>
+                    Base rate covers up to <span className="font-medium">{baseGuests}</span> guest{baseGuests > 1 ? 's' : ''}
+                  </p>
+                </div>
+
+                <div>
+                  <label className="text-sm text-gray-600 mb-3 flex items-center gap-2" style={{ fontFamily: 'Poppins' }}>
+                    <span>Extra Guests</span>
+                    <span className="relative inline-block group">
+                      <button
+                        type="button"
+                        aria-describedby="extra-guests-tooltip"
+                        className="w-5 h-5 rounded-full border border-[#E6F5F4] bg-white text-[#0B5858] text-xs flex items-center justify-center"
+                        aria-label="Extra guests info"
+                      >
+                        ?
+                      </button>
+                      <div
+                        role="tooltip"
+                        id="extra-guests-tooltip"
+                        className="pointer-events-none absolute left-1/2 -translate-x-1/2 -top-14 z-10 hidden group-hover:block group-focus:block w-72 bg-white border border-[#E6F5F4] rounded-md px-3 py-2 text-xs text-gray-700 shadow"
+                        style={{ fontFamily: 'Poppins' }}
+                      >
+                        Additional fees apply for extra guests: <span className="font-medium">₱{extraGuestFeePerPerson}</span> per extra guest, per night. Clicking "+" here will first fill primary guest slots up to the base allowance, then start adding extra guests.
+                      </div>
+                    </span>
+                  </label>
+
+                  <div className="flex items-center gap-3">
+                    <button
+                      onClick={() => decrementGuest('extraGuests')}
+                      className="w-8 h-8 rounded-md border border-[#0B5858] text-[#0B5858] text-base flex items-center justify-center bg-white hover:bg-[#f1fefa]"
+                      aria-label="Decrease extra guests"
+                    >
+                      −
+                    </button>
+
+                    <div className="flex-1 bg-[#F8FFFE] border border-[#E6F5F4] rounded-lg px-6 py-3 flex items-center justify-center min-h-[44px]">
+                      <span className="text-lg font-semibold text-[#0B5858]" style={{ fontFamily: 'Poppins' }}>
+                        {extraGuests}
+                      </span>
+                    </div>
+
+                    <button
+                      onClick={() => incrementGuest('extraGuests')}
+                      className="w-8 h-8 rounded-md border border-[#0B5858] text-[#0B5858] text-base flex items-center justify-center bg-white hover:bg-[#f1fefa]"
+                      aria-label="Increase extra guests"
+                      title={currentPrimaryGuests < baseGuests ? `Will add to primary guests until reaching ${baseGuests}` : 'Add extra guest'}
+                    >
+                      +
+                    </button>
+                  </div>
+
+                  <p className="text-xs text-gray-400 mt-3" style={{ fontFamily: 'Poppins' }}>
+                    Extra guests incur additional fees (₱{extraGuestFeePerPerson} / guest / night)
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Calendar */}
+            <div className="border border-[#E6F5F4] rounded-lg p-6 bg-white shadow-sm">
+              <div className="mb-3">
+                <h3 className="font-semibold text-gray-800" style={{ fontFamily: 'Poppins' }}>
+                  Select Dates
+                </h3>
+              </div>
+
+              <div className="border rounded-md p-6">
+                <div className="flex items-center justify-between mb-6">
+                  <button onClick={prevMonth} aria-label="Previous month" className="p-2 rounded hover:bg-gray-50">
+                    <svg className="w-4 h-4 text-gray-600" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                      <path fillRule="evenodd" d="M12.707 15.707a1 1 0 01-1.414 0L6.586 11l4.707-4.707a1 1 0 011.414 1.414L9.414 11l3.293 3.293a1 1 0 010 1.414z" clipRule="evenodd" />
+                    </svg>
+                  </button>
+
+                  <div className="text-base font-semibold text-gray-800" style={{ fontFamily: 'Poppins' }}>
+                    {new Date(calendarYear, calendarMonth).toLocaleString('en-US', { month: 'long', year: 'numeric' })}
+                  </div>
+
+                  <button onClick={nextMonth} aria-label="Next month" className="p-2 rounded hover:bg-gray-50">
+                    <svg className="w-4 h-4 text-gray-600" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                      <path fillRule="evenodd" d="M7.293 4.293a1 1 0 011.414 0L13.414 9l-4.707 4.707a1 1 0 01-1.414-1.414L10.586 9 7.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+                    </svg>
+                  </button>
+                </div>
+
+                <div className="grid grid-cols-7 gap-6 text-xs text-center mb-4">
+                  {WEEK_DAYS.map(d => (
+                    <div key={d} className="text-gray-500 font-medium py-1" style={{ fontFamily: 'Poppins' }}>
+                      {d}
+                    </div>
+                  ))}
+                </div>
+
+                <div className="grid grid-cols-7 gap-4 text-sm justify-items-center">
+                  {days.map((cell, i) => {
+                    if (!cell) return <div key={`empty-${i}`} className="w-12 h-12" />;
+
+                    const base = 'w-12 h-12 flex items-center justify-center text-sm select-none';
+                    const startOrEnd = cell.isStart || cell.isEnd;
+                    const bgClass = startOrEnd
+                      ? 'bg-[#0B5858] text-white'
+                      : cell.isSelected
+                        ? 'bg-[#DFF6F5] text-[#0B7A76]'
+                        : 'text-gray-700 hover:bg-[#EAF9F8]';
+                    const roundedClass = startOrEnd ? 'rounded-lg' : (cell.isSelected ? 'rounded-md' : 'rounded-none');
+                    const disabledClass = cell.isDisabled ? 'text-gray-300 opacity-60 cursor-not-allowed hover:bg-transparent' : 'cursor-pointer';
+                    const interactiveProps = cell.isDisabled ? {} : { onClick: () => onCalendarClick(cell) };
+
+                    return (
+                      <div
+                        key={`day-${cell.date.getTime()}`}
+                        {...interactiveProps}
+                        className={`${base} ${bgClass} ${roundedClass} ${disabledClass}`}
+                        title={cell.date.toDateString()}
+                        style={{ fontFamily: 'Poppins' }}
+                      >
+                        {cell.day}
+                      </div>
+                    );
+                  })}
+                </div>
+
+                <div className="mt-6">
+                  <div className="mx-auto w-full bg-[#EAF9F8] rounded-xl py-4 px-6 text-center">
+                    <div className="text-xs text-gray-600" style={{ fontFamily: 'Poppins' }}>Selected Range</div>
+                    <div className="text-sm font-semibold text-[#0B5858]" style={{ fontFamily: 'Poppins' }}>
+                      {formattedRange ?? '—'}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Actions */}
+            <div className="flex justify-end space-x-4 mt-2">
+              <button
+                onClick={onCancel}
+                className="px-6 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors text-sm"
+                style={{ fontFamily: 'Poppins' }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={onNext}
+                disabled={!isFormValid()}
+                className="px-6 py-2 bg-[#0B5858] text-white rounded-lg hover:bg-[#0a4a4a] transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm"
+                style={{ fontFamily: 'Poppins' }}
+              >
+                Next
+              </button>
             </div>
           </div>
 
-          <FloatingInput
-            id="referredBy"
-            label="Referred by"
-            value={formData.referredBy ?? ''}
-            setValue={(v) => updateField('referredBy', v)}
-            preventLeadingSpace
-            sanitizeOnBlur={(v) => (v === '' ? '' : sanitizeGeneric(v))}
-          />
-        </div>
+          {/* Sidebar summary */}
+          <aside className="lg:col-span-1">
+            <div className="lg:sticky lg:top-28 lg:self-start lg:mt-6 space-y-4">
+              <div className="border border-[#E6F5F4] rounded-lg p-4 bg-white shadow-sm">
+                <h4 className="text-sm font-semibold text-gray-800 mb-3" style={{ fontFamily: 'Poppins' }}>Booking Summary</h4>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-          <div>
-            <label className="block text-sm text-gray-700 mb-3">Gender *</label>
-            <div className="flex space-x-3">
-              {[
-                { value: 'male', label: 'Male' },
-                { value: 'female', label: 'Female' },
-                { value: 'other', label: 'Other' }
-              ].map((option) => (
-                <button key={option.value} onClick={() => updateField('gender', option.value)} className={`px-4 py-2 rounded-full border transition-colors ${(formData.gender === option.value) ? 'border-[#0B5858] bg-[#0B5858] text-white' : 'border-gray-300 text-gray-700 hover:border-gray-400'}`} style={{ fontFamily: 'Poppins' }}>
-                  {option.label}
+                <div className="flex items-center justify-between text-sm text-gray-600 mb-2">
+                  <div>Price / night</div>
+                  <div className="font-semibold text-gray-800" style={{ fontFamily: 'Poppins' }}>{formatCurrency(pricePerNight)}</div>
+                </div>
+
+                <div className="flex items-center justify-between text-sm text-gray-600 mb-2">
+                  <div>Nights</div>
+                  <div className="font-semibold text-gray-800" style={{ fontFamily: 'Poppins' }}>{nights}</div>
+                </div>
+
+                <div className="flex items-center justify-between text-sm text-gray-600 mb-2">
+                  <div>Extra guests</div>
+                  <div className="font-semibold text-gray-800" style={{ fontFamily: 'Poppins' }}>{extraGuests}</div>
+                </div>
+
+                <div className="border-t border-[#E6F5F4] mt-3 pt-3">
+                  <div className="flex items-center justify-between text-sm text-gray-600 mb-1">
+                    <div>Subtotal</div>
+                    <div className="font-semibold text-gray-800">{formatCurrency(subtotal)}</div>
+                  </div>
+
+                  <div className="flex items-center justify-between text-sm text-gray-600 mb-3">
+                    <div>Extra guest fees</div>
+                    <div className="font-semibold text-gray-800">{formatCurrency(extraGuestFees)}</div>
+                  </div>
+
+                  <div className="flex items-center justify-between text-sm font-semibold text-[#0B5858]">
+                    <div>Total</div>
+                    <div>{formatCurrency(total)}</div>
+                  </div>
+                </div>
+
+                <div className="mt-4 text-xs text-gray-500">
+                  <div>• Price shown is an estimate. Final total calculated at checkout.</div>
+                  <div className="mt-2">• Free cancellation up to 48 hours before check-in.</div>
+                </div>
+              </div>
+
+              <div className="border border-[#E6F5F4] rounded-lg p-4 bg-white shadow-sm">
+                <h4 className="text-sm font-semibold text-gray-800 mb-2" style={{ fontFamily: 'Poppins' }}>Need help?</h4>
+                <p className="text-sm text-gray-600 mb-3" style={{ fontFamily: 'Poppins' }}>
+                  If you have questions about availability or special requests, contact us and we'll assist.
+                </p>
+                <button
+                  className="w-full px-4 py-2 bg-[#E8F8F7] text-[#0B5858] rounded-md text-sm font-medium"
+                  style={{ fontFamily: 'Poppins' }}
+                  onClick={() => alert('Contact support (placeholder)')}
+                >
+                  Contact Support
                 </button>
-              ))}
+              </div>
             </div>
-          </div>
-
-          <div>
-            <PhoneInput
-              id="preferredContactNumber"
-              label="Preferred Contact Number"
-              value={formData.preferredContactNumber ?? ''}
-              setValue={(v) => updateField('preferredContactNumber', v)}
-              maxDigits={formData.contactType === 'mobile' ? 10 : undefined}
-            />
-
-            <div className="flex space-x-4 mt-3">
-              {[
-                { value: 'home', label: 'Home' },
-                { value: 'mobile', label: 'Mobile' },
-                { value: 'work', label: 'Work' }
-              ].map((option) => (
-                <label key={option.value} className="flex items-center">
-                  <input type="radio" name="contactType" value={option.value} checked={formData.contactType === option.value} onChange={() => updateField('contactType', option.value)} className="w-4 h-4 text-[#0B5858] border-gray-300 focus:ring-[#0B5858]" />
-                  <span className="ml-2 text-sm text-gray-700">{option.label}</span>
-                </label>
-              ))}
-            </div>
-          </div>
+          </aside>
         </div>
-      </div>
-
-      <div className="flex justify-end space-x-4 mt-8 pt-6 border-t border-gray-200">
-        <button onClick={onCancel} className="px-6 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors" style={{ fontFamily: 'Poppins' }}>Cancel</button>
-        <button onClick={onBack} className="px-6 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors" style={{ fontFamily: 'Poppins' }}>Back</button>
-        <button onClick={onNext} disabled={!isFormValid || isUnder18} className="px-6 py-2 bg-[#0B5858] text-white rounded-lg hover:bg-[#0a4a4a] transition-colors disabled:opacity-50 disabled:cursor-not-allowed" style={{ fontFamily: 'Poppins' }}>Next</button>
       </div>
     </div>
   );
 };
 
-export default ClientInfoStep;
+export default StayDetailsStep;

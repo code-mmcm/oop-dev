@@ -104,8 +104,9 @@ const BookingForm: React.FC<BookingFormProps> = ({ onCancel, onComplete }) => {
             formData={formData}
             onUpdate={updateFormData}
             onNext={nextStep}
-            onCancel={onCancel}
-          />
+            onCancel={onCancel} onBack={function (): void {
+              throw new Error('Function not implemented.');
+            } }          />
         );
       case 1:
         return (

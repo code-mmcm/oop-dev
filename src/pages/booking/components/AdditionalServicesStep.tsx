@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, } from 'react';
 import type { BookingFormData, AdditionalService } from '../../../types/booking';
 
 interface AdditionalServicesStepProps {
