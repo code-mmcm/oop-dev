@@ -81,11 +81,6 @@ const ManageUnits: React.FC = () => {
     return `${totalGuests} guest${totalGuests !== 1 ? 's' : ''}`;
   };
 
-  // Helper function to format date
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-CA'); // YYYY-MM-DD format
-  };
-
   // Helper function to handle text hover for tooltips
   const handleTextHover = (event: React.MouseEvent, text: string) => {
     const element = event.currentTarget as HTMLElement;
