@@ -2,7 +2,6 @@ import React, { useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { logger } from '../../lib/logger';
-import Dropdown from '../../components/Dropdown';
 
 // Floating input extracted to top-level to keep component identity stable across renders
 const FloatingInput: React.FC<{
@@ -82,7 +81,6 @@ const FloatingInput: React.FC<{
         style={{
           fontFamily: 'Poppins', 
           fontWeight: 400,
-          fontSize: '16px',
           '--tw-ring-color': '#549F74',
         } as React.CSSProperties}
       />
@@ -126,6 +124,9 @@ const SignUp: React.FC = () => {
   const [error, setError] = useState('');
   const [countryCode, setCountryCode] = useState('+63');
   const [isFocused, setIsFocused] = useState(false);
+  const [showCountryDropdown, setShowCountryDropdown] = useState(false);
+  const [showMonthDropdown, setShowMonthDropdown] = useState(false);
+  const [showGenderDropdown, setShowGenderDropdown] = useState(false);
 
   // Country data with formatting patterns
   const countries = [
@@ -202,6 +203,31 @@ const SignUp: React.FC = () => {
       setPhone(formatted);
     }
   }, [countryCode]);
+
+
+  // Close dropdown when clicking outside
+  React.useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as Element;
+      if (showCountryDropdown && !target.closest('.country-dropdown')) {
+        setShowCountryDropdown(false);
+      }
+      if (showMonthDropdown && !target.closest('.month-dropdown')) {
+        setShowMonthDropdown(false);
+      }
+      if (showGenderDropdown && !target.closest('.gender-dropdown')) {
+        setShowGenderDropdown(false);
+      }
+    };
+
+    if (showCountryDropdown || showMonthDropdown || showGenderDropdown) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [showCountryDropdown, showMonthDropdown, showGenderDropdown]);
 
   // Computed flags for validation control
   const isStep1Valid = useMemo(() => {
@@ -310,11 +336,9 @@ const SignUp: React.FC = () => {
     <div className="min-h-screen flex relative" style={{backgroundColor: '#0B5858'}}>
       {/* Background design image - full page */}
       <div 
-        className="fixed inset-0 bg-center bg-no-repeat z-0"
+        className="fixed inset-0 bg-cover bg-center bg-no-repeat z-0"
         style={{
-          backgroundImage: "url('./bg.svg')",
-          backgroundSize: "120% auto", // Scale the SVG to 120% width to make it bigger
-          opacity: 0.3 // Lower opacity to make the background more subtle
+          backgroundImage: "url('./bg.svg')"
         }}
       />
 
@@ -322,22 +346,22 @@ const SignUp: React.FC = () => {
       <div className="flex-1 relative overflow-hidden z-10">
         <div className="relative z-10 p-12 h-full flex flex-col">
           {/* Logo */}
-          <div className="pt-8 mb-16 ml-2">
-            <Link to="/" className="block cursor-pointer">
+          <div className="pt-8 mb-16 ml-13">
+            <Link to="/" className="block">
               <img src="/logo.svg" alt="kelsey's homestay" className="h-24 w-auto hover:opacity-80 transition-opacity" />
             </Link>
           </div>
 
           {/* Greeting */}
-          <div className="mb-6 mt-16 ml-5">
-            <h1 className="text-white text-8xl mb-2" style={{fontFamily: 'Poppins', fontWeight: 400}}>
+          <div className="mb-6 ml-16 mt-16">
+            <h1 className="text-white text-6xl mb-2" style={{fontFamily: 'Poppins', fontWeight: 400}}>
               Hello,<br />
               <span className="text-yellow-400" style={{fontFamily: 'Poppins', fontWeight: 600}}>welcome!</span>
             </h1>
           </div>
 
           {/* Tagline */}
-          <div className="ml-5">
+          <div className="ml-16">
             <p className="text-white text-3xl" style={{fontFamily: 'Poppins', fontWeight: 400}}>
               A welcoming stay, the Kelsey's way
             </p>
@@ -347,7 +371,7 @@ const SignUp: React.FC = () => {
 
       {/* Right Section - Sign Up Form */}
       <div className="flex-1 flex items-center justify-center p-12 relative z-10">
-        <div className="w-full max-w-2xl">
+        <div className="w-full max-w-lg">
           <div className="bg-white rounded-3xl shadow-xl p-10">
             {/* Title */}
             <h2 className="text-black text-center text-3xl mb-2 animate-fade-in" style={{fontFamily: 'Poppins', fontWeight: 700}}>
@@ -437,72 +461,163 @@ const SignUp: React.FC = () => {
                   <FloatingInput id="lastName" label="Last Name" value={lastName} setValue={setLastName} />
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-[18px]">
-                  {/* Birth Date - using unified Dropdown for Month */}
-                  <div className="grid grid-cols-3 gap-2">
-                    <Dropdown
-                      label={birthMonth || 'MM'}
-                      options={[
-                        { value: '01', label: '01' },
-                        { value: '02', label: '02' },
-                        { value: '03', label: '03' },
-                        { value: '04', label: '04' },
-                        { value: '05', label: '05' },
-                        { value: '06', label: '06' },
-                        { value: '07', label: '07' },
-                        { value: '08', label: '08' },
-                        { value: '09', label: '09' },
-                        { value: '10', label: '10' },
-                        { value: '11', label: '11' },
-                        { value: '12', label: '12' }
-                      ]}
-                      onSelect={(value) => setBirthMonth(value)}
-                      placeholder="MM"
-                    />
-                    <input
-                      id="birthDay"
-                      value={birthDay}
-                      onChange={(e) => setBirthDay(e.target.value.replace(/\D/g, '').slice(0, 2))}
-                      inputMode="numeric"
-                      maxLength={2}
-                      placeholder="DD"
-                      autoComplete="off"
-                      className="w-full py-3 px-4 text-left border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:border-transparent transition-all duration-300 hover:border-gray-400 hover:shadow-md"
-                      style={{
-                        fontFamily: 'Poppins', 
-                        fontWeight: 400,
-                        fontSize: '16px',
-                        '--tw-ring-color': '#549F74',
-                      } as React.CSSProperties}
-                    />
-                    <input
-                      id="birthYear"
-                      value={birthYear}
-                      onChange={(e) => setBirthYear(e.target.value.replace(/\D/g, '').slice(0, 4))}
-                      inputMode="numeric"
-                      maxLength={4}
-                      placeholder="YYYY"
-                      autoComplete="off"
-                      className="w-full py-3 px-4 text-left border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:border-transparent transition-all duration-300 hover:border-gray-400 hover:shadow-md"
-                      style={{
-                        fontFamily: 'Poppins', 
-                        fontWeight: 400,
-                        fontSize: '16px',
-                        '--tw-ring-color': '#549F74',
-                      } as React.CSSProperties}
-                    />
+                  {/* Birth Date unified container: MM | DD | YYYY */}
+                  <div 
+                    className="relative border border-gray-300 rounded-xl hover:border-gray-400 hover:shadow-md transition-all duration-300 focus-within:ring-2"
+                    style={{ 
+                      borderColor: 'rgb(209 213 219)', // gray-300
+                      '--tw-ring-color': '#549F74',
+                    } as React.CSSProperties}
+                    onFocus={(e) => {
+                      e.currentTarget.style.borderColor = 'transparent';
+                      e.currentTarget.style.boxShadow = '0 0 0 2px #549F74';
+                    }}
+                    onBlur={(e) => {
+                      e.currentTarget.style.borderColor = 'rgb(209 213 219)'; // gray-300
+                      e.currentTarget.style.boxShadow = '';
+                    }}
+                  >
+                    <div className="grid items-center px-1" style={{ gridTemplateColumns: '41.6667% 25% 41.6667%' }}>
+                      {/* Month dropdown */}
+                      <div className="relative month-dropdown">
+                        <div 
+                          className="flex items-center justify-between py-3 pl-4 pr-3 cursor-pointer rounded-l-xl"
+                          onClick={() => setShowMonthDropdown(!showMonthDropdown)}
+                        >
+                          <span className={`${birthMonth ? 'text-black' : 'text-gray-500'}`} style={{fontFamily: 'Poppins', fontWeight: 400}}>
+                            {birthMonth || 'MM'}
+                          </span>
+                          <img src="/dropdown_icon.svg" alt="dropdown" className="h-5 w-5 opacity-90" />
+                        </div>
+                        
+                        {/* Month Dropdown Options */}
+                        {showMonthDropdown && (
+                          <div className="absolute top-full left-0 bg-white border border-gray-300 rounded-lg shadow-lg z-50 w-full max-h-48 overflow-y-auto">
+                            {[
+                              { value: '01', label: '01' },
+                              { value: '02', label: '02' },
+                              { value: '03', label: '03' },
+                              { value: '04', label: '04' },
+                              { value: '05', label: '05' },
+                              { value: '06', label: '06' },
+                              { value: '07', label: '07' },
+                              { value: '08', label: '08' },
+                              { value: '09', label: '09' },
+                              { value: '10', label: '10' },
+                              { value: '11', label: '11' },
+                              { value: '12', label: '12' }
+                            ].map((month) => (
+                              <div
+                                key={month.value}
+                                className="flex items-center py-3 px-4 hover:bg-gray-50 cursor-pointer"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setBirthMonth(month.value);
+                                  setShowMonthDropdown(false);
+                                }}
+                              >
+                                <span className="text-sm" style={{fontFamily: 'Poppins', fontWeight: 400}}>
+                                  {month.label}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                      {/* Separator after MM (moved slightly right) */}
+                      <div className="absolute top-1/2 -translate-y-1/2 h-7 w-px bg-gray-300" style={{ left: '44%' }} />
+                      {/* Day input */}
+                      <div>
+                        <input
+                          id="birthDay"
+                          value={birthDay}
+                          onChange={(e) => setBirthDay(e.target.value.replace(/\D/g, '').slice(0, 2))}
+                          inputMode="numeric"
+                          maxLength={2}
+                          placeholder="DD"
+                          autoComplete="off"
+                          className="w-full py-3 pl-4 pr-2 text-left focus:outline-none"
+                          style={{fontFamily: 'Poppins', fontWeight: 400}}
+                        />
+                      </div>
+                      {/* Separator after DD (5/12 + 3/12 = 8/12 = 66.6667%) */}
+                      <div className="absolute top-1/2 -translate-y-1/2 h-7 w-px bg-gray-300" style={{ left: '66.6667%' }} />
+                      {/* Year input */}
+                      <div>
+                        <input
+                          id="birthYear"
+                          value={birthYear}
+                          onChange={(e) => setBirthYear(e.target.value.replace(/\D/g, '').slice(0, 4))}
+                          inputMode="numeric"
+                          maxLength={4}
+                          placeholder="YYYY"
+                          autoComplete="off"
+                          className="w-full py-3 pl-4 pr-4 text-left rounded-r-xl focus:outline-none"
+                          style={{fontFamily: 'Poppins', fontWeight: 400}}
+                        />
+                      </div>
+                    </div>
                   </div>
-                  {/* Gender Dropdown - using unified Dropdown component */}
-                  <Dropdown
-                    label={gender}
-                    options={[
-                      { value: 'Male', label: 'Male' },
-                      { value: 'Female', label: 'Female' },
-                      { value: 'Non-binary', label: 'Non-binary' },
-                      { value: 'Prefer not to say', label: 'Prefer not to say' }
-                    ]}
-                    onSelect={(value) => setGender(value)}
-                    placeholder="Gender"
-                  />
+                  <div className="relative">
+                    <label htmlFor="gender" className={`absolute left-4 transition-all duration-200 pointer-events-none ${gender ? '-top-2 text-xs bg-white px-1 rounded' : 'top-1/2 -translate-y-1/2 text-gray-500'}`} style={{
+                      fontFamily: 'Poppins',
+                      color: gender ? '#0B5858' : undefined
+                    }}>Gender</label>
+                    <div 
+                      className="flex border border-gray-300 rounded-xl hover:border-gray-400 hover:shadow-md transition-all duration-300 focus-within:ring-2"
+                      style={{ 
+                        '--tw-ring-color': '#549F74',
+                        borderColor: 'rgb(209 213 219)', // gray-300
+                      } as React.CSSProperties}
+                      onFocus={(e) => {
+                        e.currentTarget.style.borderColor = 'transparent';
+                        e.currentTarget.style.boxShadow = '0 0 0 2px #549F74';
+                      }}
+                      onBlur={(e) => {
+                        e.currentTarget.style.borderColor = 'rgb(209 213 219)'; // gray-300
+                        e.currentTarget.style.boxShadow = '';
+                      }}
+                    >
+                      {/* Gender Selector - Custom Dropdown */}
+                      <div className="relative gender-dropdown w-full">
+                        <div 
+                          className="flex items-center justify-between py-3 pl-4 pr-3 cursor-pointer rounded-xl"
+                          onClick={() => setShowGenderDropdown(!showGenderDropdown)}
+                        >
+                          <span className={`${gender ? 'text-black' : 'text-gray-500'}`} style={{fontFamily: 'Poppins', fontWeight: 400}}>
+                            {gender || ''}
+                          </span>
+                          <img src="/dropdown_icon.svg" alt="dropdown" className="h-5 w-5 opacity-90" />
+                        </div>
+                        
+                        {/* Gender Dropdown Options */}
+                        {showGenderDropdown && (
+                          <div className="absolute top-full left-0 bg-white border border-gray-300 rounded-lg shadow-lg z-50 w-full max-h-48 overflow-y-auto">
+                            {[
+                              { value: 'Male', label: 'Male' },
+                              { value: 'Female', label: 'Female' },
+                              { value: 'Non-binary', label: 'Non-binary' },
+                              { value: 'Prefer not to say', label: 'Prefer not to say' }
+                            ].map((genderOption) => (
+                              <div
+                                key={genderOption.value}
+                                className="flex items-center py-3 px-4 hover:bg-gray-50 cursor-pointer"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setGender(genderOption.value);
+                                  setShowGenderDropdown(false);
+                                }}
+                              >
+                                <span className="text-sm" style={{fontFamily: 'Poppins', fontWeight: 400}}>
+                                  {genderOption.label}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-[18px]">
                   <FloatingInput id="street" label="Street" value={street} setValue={setStreet} />
@@ -525,23 +640,58 @@ const SignUp: React.FC = () => {
                 <form onSubmit={handleSubmit} className="space-y-5 animate-fade-in">
                 <FloatingInput id="email" label="Email" type="email" value={email} setValue={setEmail} />
                 {/* Phone Number with Country Code */}
-                <div className="grid grid-cols-12 gap-2">
-                  {/* Country Code Dropdown */}
-                  <div className="col-span-3">
-                    <Dropdown
-                      label={countryCode}
-                      options={countries.map(country => ({
-                        value: country.code,
-                        label: `${country.name} ${country.code}`,
-                        icon: country.flag
-                      }))}
-                      onSelect={(value) => setCountryCode(value)}
-                      placeholder="+63"
-                      menuWidth="256px"
-                    />
-                  </div>
-                  {/* Phone Number Input */}
-                  <div className="col-span-9">
+                <div className="relative">
+                  <div 
+                    className="flex border border-gray-300 rounded-xl hover:border-gray-400 hover:shadow-md transition-all duration-300 focus-within:ring-2"
+                    style={{ 
+                      '--tw-ring-color': '#549F74',
+                      borderColor: 'rgb(209 213 219)', // gray-300
+                    } as React.CSSProperties}
+                    onFocus={(e) => {
+                      e.currentTarget.style.borderColor = 'transparent';
+                      e.currentTarget.style.boxShadow = '0 0 0 2px #549F74';
+                    }}
+                    onBlur={(e) => {
+                      e.currentTarget.style.borderColor = 'rgb(209 213 219)'; // gray-300
+                      e.currentTarget.style.boxShadow = '';
+                    }}
+                  >
+                    {/* Country Code Selector - Custom Dropdown */}
+                    <div className="relative border-r border-gray-300 rounded-l-xl country-dropdown">
+                      <div 
+                        className="flex items-center justify-between py-3 pl-4 pr-3 cursor-pointer rounded-l-xl"
+                        onClick={() => setShowCountryDropdown(!showCountryDropdown)}
+                        style={{minWidth: '80px'}}
+                      >
+                        <span className="text-gray-700" style={{fontFamily: 'Poppins', fontWeight: 400}}>
+                          {countryCode}
+                        </span>
+                        <img src="/dropdown_icon.svg" alt="dropdown" className="h-5 w-5 opacity-90" />
+                      </div>
+                      
+                      {/* Dropdown Options */}
+                      {showCountryDropdown && (
+                        <div className="absolute top-full left-0 bg-white border border-gray-300 rounded-lg shadow-lg z-50 w-64 max-h-48 overflow-y-auto">
+                          {countries.map((country) => (
+                            <div
+                              key={country.code}
+                              className="flex items-center py-3 px-4 hover:bg-gray-50 cursor-pointer whitespace-nowrap"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setCountryCode(country.code);
+                                setShowCountryDropdown(false);
+                              }}
+                            >
+                              <span className="mr-3 text-lg">{country.flag}</span>
+                              <span className="text-sm" style={{fontFamily: 'Poppins', fontWeight: 400}}>
+                                {country.name} {country.code}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                    {/* Phone Number Input */}
                     <input
                       id="phone"
                       type="tel"
@@ -551,12 +701,8 @@ const SignUp: React.FC = () => {
                         setPhone(formatted);
                       }}
                       placeholder="Enter phone number"
-                      className="w-full py-3 px-4 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:border-transparent transition-all duration-300 hover:border-gray-400 hover:shadow-md"
-                      style={{
-                        fontFamily: 'Poppins', 
-                        fontWeight: 400,
-                        '--tw-ring-color': '#549F74',
-                      } as React.CSSProperties}
+                      className="flex-1 py-3 pl-4 pr-4 rounded-r-xl focus:outline-none"
+                      style={{fontFamily: 'Poppins', fontWeight: 400}}
                     />
                   </div>
                 </div>

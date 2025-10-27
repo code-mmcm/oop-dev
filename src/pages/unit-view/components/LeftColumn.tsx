@@ -1,8 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import type { Listing } from '../../../types/listing';
-import { MapContainer, TileLayer, Marker } from 'react-leaflet';
-import 'leaflet/dist/leaflet.css';
-import L from 'leaflet';
 
 interface LeftColumnProps {
   listing: Listing | null;
@@ -12,7 +9,6 @@ interface LeftColumnProps {
   onShareClick?: () => void;
 }
 
-// ...existing code...
 const LeftColumn: React.FC<LeftColumnProps> = ({
   listing,
   isLoading,
@@ -30,31 +26,15 @@ const LeftColumn: React.FC<LeftColumnProps> = ({
   // Description expansion state (inlined from DescriptionSection)
   const [showFullDescription, setShowFullDescription] = useState(false);
 
-  // --- moved / merged listing-tabs/map setup into LeftColumn ---
-  // safe browser-only leaflet icon setup
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-
-    L.Icon.Default.mergeOptions({
-      iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon-2x.png',
-      iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon.png',
-      shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png',
-    });
-  }, []);
-
   const amenities = listing?.amenities || [];
   const latitude = listing?.latitude;
   const longitude = listing?.longitude;
 
   const isClient = typeof window !== 'undefined';
   const hasCoords = latitude != null && longitude != null;
-  const selectedPosition: [number, number] | null = hasCoords ? [latitude as number, longitude as number] : null;
-  const fallback: [number, number] = [14.5995, 120.9842];
 
-  // default to Location tab when listing has coordinates
-  const [activeTab, setActiveTab] = useState<'amenities' | 'management' | 'location'>(
-    hasCoords ? 'location' : 'amenities'
-  );
+  // default to Amenities tab
+  const [activeTab, setActiveTab] = useState<'amenities' | 'management' | 'location'>('amenities');
 
 
   const allImages = listing ? [listing.main_image_url || '/avida.jpg', ...(listing.image_urls || [])] : ['/avida.jpg'];
@@ -245,34 +225,34 @@ const LeftColumn: React.FC<LeftColumnProps> = ({
       {/* Other left column parts (kept as component calls) */}
       {/* Inlined TitleLocation (originally ./left/TitleLocation.tsx) */}
       <div className={`mb-6 ${listing.image_urls && listing.image_urls.length > 0 ? 'mt-5' : 'mt-8'}`}>
-        <h1 className="text-3xl font-bold mb-3" style={{fontFamily: 'Poppins', fontWeight: 700}}>{listing.title}</h1>
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2 text-gray-600">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <h1 className="text-2xl md:text-3xl font-bold mb-3" style={{fontFamily: 'Poppins', fontWeight: 700}}>{listing.title}</h1>
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between">
+          <div className="flex items-start gap-2 text-gray-600 mb-2 md:mb-0 md:flex-1 md:min-w-0">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="mt-2 flex-shrink-0" style={{paddingTop: '1px'}}>
               <path d="M21 10c0 7-9 13-9 13S3 17 3 10a9 9 0 1 1 18 0z"></path>
               <circle cx="12" cy="10" r="3"></circle>
             </svg>
-            <span className="text-base" style={{fontFamily: 'Poppins'}}>{listing.location}</span>
+            <span className="text-sm md:text-base flex-1 break-words" style={{fontFamily: 'Poppins'}}>{listing.location}</span>
           </div>
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2 md:gap-4 flex-shrink-0">
             <button 
               onClick={() => onShareClick && onShareClick()}
-              className="text-gray-400 hover:text-gray-600 transition-colors"
+              className="text-gray-400 hover:text-gray-600 transition-colors p-1 md:p-0"
               title="Share this property"
             >
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <svg className="w-4 h-4 md:w-5 md:h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"></path>
                 <polyline points="16,6 12,2 8,6"></polyline>
                 <line x1="12" y1="2" x2="12" y2="15"></line>
               </svg>
             </button>
-            <button className="text-gray-400 hover:text-gray-600">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <button className="text-gray-400 hover:text-gray-600 p-1 md:p-0">
+              <svg className="w-4 h-4 md:w-5 md:h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"></path>
               </svg>
             </button>
-            <button className="text-gray-400 hover:text-gray-600">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <button className="text-gray-400 hover:text-gray-600 p-1 md:p-0">
+              <svg className="w-4 h-4 md:w-5 md:h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <circle cx="12" cy="12" r="1"></circle>
                 <circle cx="19" cy="12" r="1"></circle>
                 <circle cx="5" cy="12" r="1"></circle>
@@ -326,12 +306,12 @@ const LeftColumn: React.FC<LeftColumnProps> = ({
       </div>
 
       <div className="mt-15">
-        <div className="inline-grid grid-flow-col auto-cols-auto items-center gap-x-6">
+        <div className="inline-grid grid-flow-col auto-cols-auto items-center gap-x-4 md:gap-x-6">
           <div className="flex items-center">
             <button
               type="button"
               onClick={() => setActiveTab('amenities')}
-              className="text-lg text-black"
+              className={`text-sm md:text-lg transition-colors ${activeTab === 'amenities' ? 'text-teal-700' : 'text-black'}`}
               style={{ fontFamily: 'Poppins', fontWeight: 600 }}
               aria-controls="amenities-grid"
               aria-pressed={activeTab === 'amenities'}
@@ -344,7 +324,7 @@ const LeftColumn: React.FC<LeftColumnProps> = ({
             <button
               type="button"
               onClick={() => setActiveTab('management')}
-              className="text-lg text-black"
+              className={`text-sm md:text-lg transition-colors ${activeTab === 'management' ? 'text-teal-700' : 'text-black'}`}
               style={{ fontFamily: 'Poppins', fontWeight: 600 }}
               aria-controls="management-section"
               aria-pressed={activeTab === 'management'}
@@ -357,7 +337,7 @@ const LeftColumn: React.FC<LeftColumnProps> = ({
             <button
               type="button"
               onClick={() => setActiveTab('location')}
-              className="text-lg text-black"
+              className={`text-sm md:text-lg transition-colors ${activeTab === 'location' ? 'text-teal-700' : 'text-black'}`}
               style={{ fontFamily: 'Poppins', fontWeight: 600 }}
               aria-controls="MapSection"
               aria-pressed={activeTab === 'location'}
@@ -390,29 +370,40 @@ const LeftColumn: React.FC<LeftColumnProps> = ({
 
       {activeTab === 'location' && (
         <div id="MapSection" className="mt-4">
-          <div className="w-full h-67 border border-gray-200 rounded-lg overflow-hidden relative z-0 mt-2">
-            {isClient ? (
-              <MapContainer
-                center={selectedPosition || fallback}
-                zoom={selectedPosition ? 15 : 13}
-                style={{ height: '100%', width: '100%' }}
-                key={selectedPosition ? 'selected' : 'default'}
-                zoomControl={false}
-                dragging={false}
-                doubleClickZoom={false}
-                scrollWheelZoom={false}
-                touchZoom={false}
-                boxZoom={false}
-                keyboard={false}
-              >
-                <TileLayer
-                  attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-                  url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-                />
-                {selectedPosition && <Marker position={selectedPosition} />}
-              </MapContainer>
-            ) : null}
+          <div className="w-full h-64 md:h-67 border border-gray-200 rounded-lg overflow-hidden relative z-0 mt-2">
+            {isClient && hasCoords ? (
+              <iframe
+                title="Property location map"
+                width="100%"
+                height="100%"
+                style={{ border: 0 }}
+                loading="lazy"
+                allowFullScreen
+                referrerPolicy="no-referrer-when-downgrade"
+                src={`https://www.google.com/maps?q=${encodeURIComponent(`${listing.latitude},${listing.longitude}`)}&output=embed`}
+              ></iframe>
+            ) : (
+              <div className="flex items-center justify-center h-full text-gray-500">
+                <p className="text-sm" style={{fontFamily: 'Poppins'}}>Location not available</p>
+              </div>
+            )}
           </div>
+          {listing.latitude && listing.longitude && (
+            <div className="mt-3">
+              <a
+                href={`https://www.google.com/maps/search/?api=1&query=${listing.latitude},${listing.longitude}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-2 text-teal-700 hover:text-teal-800 transition-colors"
+                style={{fontFamily: 'Poppins', fontWeight: 600}}
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                </svg>
+                View in Google Maps
+              </a>
+            </div>
+          )}
         </div>
       )}
     </div>

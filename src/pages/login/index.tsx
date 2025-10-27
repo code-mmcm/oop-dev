@@ -36,11 +36,9 @@ const Login: React.FC = () => {
     <div className="min-h-screen flex flex-col lg:flex-row relative" style={{backgroundColor: '#0B5858'}}>
       {/* Background design image - full page */}
       <div 
-        className="fixed inset-0 bg-center bg-no-repeat z-0"
+        className="fixed inset-0 bg-cover bg-center bg-no-repeat z-0"
         style={{
-          backgroundImage: "url('./bg.svg')",
-          backgroundSize: "120% auto", // Scale the SVG to 120% width to make it bigger
-          opacity: 0.3 // Lower opacity to make the background more subtle
+          backgroundImage: "url('./bg.svg')"
         }}
       />
       
@@ -50,22 +48,22 @@ const Login: React.FC = () => {
         {/* Content */}
         <div className="relative z-10 p-12 h-full flex flex-col">
           {/* Logo */}
-          <div className="pt-8 mb-16 ml-2">
-            <Link to="/" className="block cursor-pointer">
+          <div className="pt-8 mb-16 ml-13">
+            <Link to="/" className="block">
               <img src="/logo.svg" alt="kelsey's homestay" className="h-24 w-auto hover:opacity-80 transition-opacity" />
             </Link>
           </div>
           
           {/* Greeting */}
-          <div className="mb-6 mt-16 ml-5">
-            <h1 className="text-white text-8xl mb-2" style={{fontFamily: 'Poppins', fontWeight: 400}}>
+          <div className="mb-6 ml-16 mt-16">
+            <h1 className="text-white text-6xl mb-2" style={{fontFamily: 'Poppins', fontWeight: 400}}>
               Hello,<br />
               <span className="text-yellow-400" style={{fontFamily: 'Poppins', fontWeight: 600}}>welcome!</span>
             </h1>
           </div>
           
           {/* Tagline */}
-          <div className="ml-5">
+          <div className="ml-16">
             <p className="text-white text-3xl" style={{fontFamily: 'Poppins', fontWeight: 400}}>
               A welcoming stay, the Kelsey's way
             </p>
@@ -75,10 +73,10 @@ const Login: React.FC = () => {
       
       {/* Right Section - Login Form */}
       <div className="flex-1 flex flex-col lg:items-center lg:justify-center p-4 sm:p-6 md:p-8 lg:p-12 relative z-10">
-        <div className="w-full max-w-2xl flex-1 flex flex-col justify-center">
+        <div className="w-full max-w-lg flex-1 flex flex-col justify-center">
           {/* Mobile Logo - Center */}
           <div className="lg:hidden pb-4 flex justify-center">
-            <Link to="/" className="block cursor-pointer">
+            <Link to="/" className="block">
               <img src="/logo.png" alt="kelsey's homestay" className="h-20 sm:h-24 w-auto hover:opacity-80 transition-opacity" />
             </Link>
           </div>
