@@ -185,6 +185,14 @@ const Navbar: React.FC = () => {
                             </Link>
                           </>
                         )}
+                        <Link
+                          to="/booking"
+                          onClick={() => setIsDropdownOpen(false)}
+                          className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors cursor-pointer"
+                          style={{fontFamily: 'Poppins'}}
+                        >
+                          My Bookings
+                        </Link>
                         <a
                           href="#"
                           className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors cursor-pointer"
@@ -350,6 +358,16 @@ const Navbar: React.FC = () => {
                       </Link>
                     </>
                   )}
+                  
+                  {/* My Bookings */}
+                  <Link
+                    to="/booking"
+                    onClick={() => setIsMobileMenuOpen(false)}
+                    className="block px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 rounded-md transition-colors text-left cursor-pointer"
+                    style={{fontFamily: 'Poppins'}}
+                  >
+                    My Bookings
+                  </Link>
                   
                   {/* Other Menu Items */}
                   <a

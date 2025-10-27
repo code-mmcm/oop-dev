@@ -1,12 +1,29 @@
 export interface Booking {
   id: string;
   listing_id: string;
-  user_id: string;
   check_in_date: string;
   check_out_date: string;
+  nights?: number;
+  num_guests?: number;
+  extra_guests?: number;
+  unit_charge?: string;
+  base_guest_included?: number;
+  extra_guest_fee?: number;
+  amenities_charge?: number;
+  service_charge?: number;
+  discount?: number;
+  subtotal?: number;
   total_amount: number;
+  currency?: string;
   status: BookingStatus;
-  transaction_number: string;
+  assigned_agent: string;
+  landmark?: string;
+  parking_info?: string;
+  notes?: string;
+  important_info?: any;
+  add_ons?: any;
+  request_description?: string;
+  transaction_number?: string;
   created_at: string;
   updated_at: string;
   listing?: {
@@ -14,15 +31,38 @@ export interface Booking {
     title: string;
     location: string;
     main_image_url?: string;
+    property_type?: string;
+    latitude?: number;
+    longitude?: number;
+  };
+  agent?: {
+    id: string;
+    fullname: string;
+    email: string;
+    contact_number?: number;
   };
   user?: {
     id: string;
     fullname: string;
     email: string;
   };
+  client?: {
+    first_name: string;
+    last_name: string;
+    email?: string;
+    contact_number?: number;
+  };
 }
 
 export type BookingStatus = 'pending' | 'confirmed' | 'ongoing' | 'completed' | 'cancelled' | 'declined';
+
+export interface BookingAvailability {
+  id: string;
+  listing_id: string;
+  check_in_date: string;
+  check_out_date: string;
+  status: BookingStatus;
+}
 
 export interface BookingCard {
   id: string;
@@ -53,7 +93,12 @@ export interface BookingFormData {
   depositorName: any;
   bankAccountNumber: any;
   bankName: any;
-  // Stay Details
+  // Listing and Stay Details
+  listingId?: string;
+  pricePerNight?: number;
+  priceUnit?: string;
+  extraGuestFeePerPerson?: number;
+  baseGuests?: number;
   checkInDate: string;
   checkInTime: string;
   checkOutDate: string;

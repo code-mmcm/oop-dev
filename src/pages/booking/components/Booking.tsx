@@ -1,18 +1,32 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import Navbar from '../../../components/Navbar';
 import Footer from '../../../components/Footer';
 import { BookingService } from '../../../services/bookingService';
 import type { Booking, BookingStatus } from '../../../types/booking';
+import { useAuth } from '../../../contexts/AuthContext';
 
 const BookingComponent: React.FC = () => {
+  const { user, isAdmin } = useAuth();
+  const navigate = useNavigate();
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [filteredBookings, setFilteredBookings] = useState<Booking[]>([]);
   const [activeTab, setActiveTab] = useState<BookingStatus | 'all'>('all');
   const [isLoading, setIsLoading] = useState(true);
   const [toggleStates, setToggleStates] = useState<Record<string, boolean>>({});
+  const [lastUserId, setLastUserId] = useState<string | null>(null);
+  
   useEffect(() => {
-    loadBookings();
-  }, []);
+    // Only reload if the user ID has changed
+    if (user && user.id !== lastUserId) {
+      loadBookings();
+      setLastUserId(user.id);
+    } else if (!user && lastUserId) {
+      // User logged out, clear bookings
+      setBookings([]);
+      setLastUserId(null);
+    }
+  }, [user, lastUserId]);
 
   useEffect(() => {
     filterBookings();
@@ -21,11 +35,22 @@ const BookingComponent: React.FC = () => {
   const loadBookings = async () => {
     try {
       setIsLoading(true);
-      // For now, using mock data. Replace with actual API call when backend is ready
-      const mockBookings = BookingService.getMockBookings();
-      setBookings(mockBookings);
+      
+      if (!user) {
+        setBookings([]);
+        return;
+      }
+
+      // Fetch bookings from Supabase
+      // If admin, get all bookings; otherwise get user-specific bookings
+      const fetchedBookings = isAdmin
+        ? await BookingService.getAllBookings()
+        : await BookingService.getUserBookings(user.id);
+      
+      setBookings(fetchedBookings);
     } catch (error) {
       console.error('Error loading bookings:', error);
+      setBookings([]);
     } finally {
       setIsLoading(false);
     }
@@ -202,7 +227,7 @@ const BookingComponent: React.FC = () => {
                             <path fillRule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clipRule="evenodd" />
                           </svg>
                           <span className="text-sm" style={{fontFamily: 'Poppins'}}>
-                            Booked for Client - {booking.user?.fullname}
+                            Booked by Agent - {booking.agent?.fullname || 'N/A'}
                           </span>
                         </div>
                         
@@ -211,7 +236,7 @@ const BookingComponent: React.FC = () => {
                             <path fillRule="evenodd" d="M4 4a2 2 0 00-2 2v8a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2H4zm2 6a1 1 0 011-1h6a1 1 0 110 2H7a1 1 0 01-1-1zm1 3a1 1 0 100 2h6a1 1 0 100-2H7z" clipRule="evenodd" />
                           </svg>
                           <span className="text-sm" style={{fontFamily: 'Poppins'}}>
-                            Transaction No. #{booking.transaction_number}
+                            Transaction No. #{booking.transaction_number || 'N/A'}
                           </span>
                         </div>
                       </div>
@@ -234,7 +259,11 @@ const BookingComponent: React.FC = () => {
                         </p>
                       </div>
                       
-                      <button className="bg-[#0B5858] text-white px-6 py-2 rounded-lg font-medium hover:bg-[#0a4a4a] transition-colors cursor-pointer" style={{fontFamily: 'Poppins'}}>
+                      <button 
+                        onClick={() => navigate(`/booking-details/${booking.id}`)}
+                        className="bg-[#0B5858] text-white px-6 py-2 rounded-lg font-medium hover:bg-[#0a4a4a] transition-colors cursor-pointer" 
+                        style={{fontFamily: 'Poppins'}}
+                      >
                         View
                       </button>
                     </div>

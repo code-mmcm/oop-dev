@@ -58,7 +58,7 @@ function App() {
           <Route path="/manageusers" element={<ManageUsers />} />
           <Route path="/updates" element={<Updates />} />
           <Route path="/calendar" element={<Calendar />} />
-          <Route path="/booking-details" element={<BookingDetails />} />
+          <Route path="/booking-details/:id" element={<BookingDetails />} />
           <Route path="/listings" element={<Listings />} />
         </Routes>
       </Router>
