@@ -48,7 +48,7 @@ const Navbar: React.FC = () => {
   }, []);
 
   return (
-    <nav className="fixed top-0 left-0 right-0 bg-white z-50 shadow-sm">
+    <nav className="fixed top-0 left-0 right-0 bg-white z-[100] shadow-sm">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center h-14 sm:h-16 relative">
           {/* Left side - Logo */}
@@ -88,10 +88,10 @@ const Navbar: React.FC = () => {
                 HOME
               </Link>
               <Link
-                to="/booking"
+                to="/listings"
                 className="text-black font-sans font-medium uppercase text-sm hover:text-teal-900 transition-colors px-4 py-2 mx-1"
               >
-                BOOKING
+                LISTINGS
               </Link>
               <Link
                 to="/calendar"
@@ -251,11 +251,11 @@ const Navbar: React.FC = () => {
                 HOME
               </Link>
               <Link
-                to="/booking"
+                to="/listings"
                 onClick={() => setIsMobileMenuOpen(false)}
                 className="block px-3 py-2 text-black font-sans font-medium uppercase text-sm hover:text-gray-600 hover:bg-gray-50 rounded-md transition-colors text-left cursor-pointer"
               >
-                BOOKING
+                LISTINGS
               </Link>
               <Link
                 to="/calendar"
