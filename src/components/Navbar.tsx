@@ -53,7 +53,7 @@ const Navbar: React.FC = () => {
         <div className="flex items-center h-14 sm:h-16 relative">
           {/* Left side - Logo */}
           <div className="flex-shrink-0">
-            <Link to="/" className="block">
+            <Link to="/" className="block cursor-pointer">
               <img 
                 src="/logo-black.png" 
                 alt="Logo" 
@@ -66,7 +66,7 @@ const Navbar: React.FC = () => {
           <div className="md:hidden ml-auto">
             <button
               onClick={toggleMobileMenu}
-              className="text-gray-600 hover:text-gray-900 focus:outline-none focus:text-gray-900 p-2"
+              className="text-gray-600 hover:text-gray-900 focus:outline-none focus:text-gray-900 p-2 cursor-pointer"
             >
               <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 {isMobileMenuOpen ? (
@@ -110,7 +110,7 @@ const Navbar: React.FC = () => {
                   {/* Profile Picture Button */}
                   <button
                     onClick={toggleDropdown}
-                    className="w-10 h-10 rounded-full bg-gray-300 flex items-center justify-center hover:bg-gray-400 transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-10 h-10 rounded-full bg-gray-300 flex items-center justify-center hover:bg-gray-400 transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
                   >
                     <svg className="w-6 h-6 text-gray-600" fill="currentColor" viewBox="0 0 20 20">
                       <path fillRule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clipRule="evenodd" />
@@ -124,7 +124,7 @@ const Navbar: React.FC = () => {
                       <Link
                         to="/profile"
                         onClick={() => setIsDropdownOpen(false)}
-                        className="block px-4 py-3 border-b border-gray-100 hover:bg-gray-50 transition-colors"
+                        className="block px-4 py-3 border-b border-gray-100 hover:bg-gray-50 transition-colors cursor-pointer"
                       >
                         <div className="flex items-center space-x-3">
                           <div className="w-8 h-8 rounded-full bg-gray-300 flex items-center justify-center">
@@ -176,7 +176,7 @@ const Navbar: React.FC = () => {
                             <Link
                               to="/admin"
                               onClick={() => setIsDropdownOpen(false)}
-                              className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors"
+                              className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors cursor-pointer"
                               style={{fontFamily: 'Poppins'}}
                             >
                               <div className="flex items-center">
@@ -187,14 +187,14 @@ const Navbar: React.FC = () => {
                         )}
                         <a
                           href="#"
-                          className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors"
+                          className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors cursor-pointer"
                           style={{fontFamily: 'Poppins'}}
                         >
                           Settings
                         </a>
                         <a
                           href="#"
-                          className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors"
+                          className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors cursor-pointer"
                           style={{fontFamily: 'Poppins'}}
                         >
                           Help & Support
@@ -202,7 +202,7 @@ const Navbar: React.FC = () => {
                         <button
                           onClick={handleLogout}
                           disabled={isLoggingOut}
-                          className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
+                          className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer flex items-center"
                           style={{fontFamily: 'Poppins'}}
                         >
                           {isLoggingOut ? (
@@ -222,13 +222,13 @@ const Navbar: React.FC = () => {
                 <>
                   <Link
                     to="/login"
-                    className="text-black font-sans font-medium uppercase text-sm hover:text-gray-600 transition-colors"
+                    className="text-black font-sans font-medium uppercase text-sm hover:text-gray-600 transition-colors cursor-pointer"
                   >
                     LOGIN
                   </Link>
                   <Link
                     to="/signup"
-                    className="text-white px-4 py-2 rounded-lg font-sans font-medium uppercase text-sm transition-colors hover:opacity-90"
+                    className="text-white px-4 py-2 rounded-lg font-sans font-medium uppercase text-sm transition-colors hover:opacity-90 cursor-pointer"
                     style={{backgroundColor: '#0B5858'}}
                   >
                     SIGNUP
@@ -246,21 +246,21 @@ const Navbar: React.FC = () => {
               <Link
                 to="/"
                 onClick={() => setIsMobileMenuOpen(false)}
-                className="block px-3 py-2 text-black font-sans font-medium uppercase text-sm hover:text-gray-600 hover:bg-gray-50 rounded-md transition-colors text-left"
+                className="block px-3 py-2 text-black font-sans font-medium uppercase text-sm hover:text-gray-600 hover:bg-gray-50 rounded-md transition-colors text-left cursor-pointer"
               >
                 HOME
               </Link>
               <Link
                 to="/booking"
                 onClick={() => setIsMobileMenuOpen(false)}
-                className="block px-3 py-2 text-black font-sans font-medium uppercase text-sm hover:text-gray-600 hover:bg-gray-50 rounded-md transition-colors text-left"
+                className="block px-3 py-2 text-black font-sans font-medium uppercase text-sm hover:text-gray-600 hover:bg-gray-50 rounded-md transition-colors text-left cursor-pointer"
               >
                 BOOKING
               </Link>
               <Link
                 to="/calendar"
                 onClick={() => setIsMobileMenuOpen(false)}
-                className="block px-3 py-2 text-black font-sans font-medium uppercase text-sm hover:text-gray-600 hover:bg-gray-50 rounded-md transition-colors text-left"
+                className="block px-3 py-2 text-black font-sans font-medium uppercase text-sm hover:text-gray-600 hover:bg-gray-50 rounded-md transition-colors text-left cursor-pointer"
               >
                 CALENDAR
               </Link>
@@ -275,7 +275,7 @@ const Navbar: React.FC = () => {
                   <Link
                     to="/profile"
                     onClick={() => setIsMobileMenuOpen(false)}
-                    className="block px-3 py-2 text-gray-700 hover:bg-gray-50 rounded-md transition-colors text-left"
+                    className="block px-3 py-2 text-gray-700 hover:bg-gray-50 rounded-md transition-colors text-left cursor-pointer"
                     style={{fontFamily: 'Poppins'}}
                   >
                     <div className="flex items-center space-x-3">
@@ -327,7 +327,7 @@ const Navbar: React.FC = () => {
                       <Link
                         to="/admin"
                         onClick={() => setIsMobileMenuOpen(false)}
-                        className="block px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 rounded-md transition-colors text-left"
+                        className="block px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 rounded-md transition-colors text-left cursor-pointer"
                         style={{fontFamily: 'Poppins'}}
                       >
                         Admin Panel
@@ -335,7 +335,7 @@ const Navbar: React.FC = () => {
                       <Link
                         to="/manage"
                         onClick={() => setIsMobileMenuOpen(false)}
-                        className="block px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 rounded-md transition-colors text-left"
+                        className="block px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 rounded-md transition-colors text-left cursor-pointer"
                         style={{fontFamily: 'Poppins'}}
                       >
                         Manage Units
@@ -343,7 +343,7 @@ const Navbar: React.FC = () => {
                       <Link
                         to="/manageusers"
                         onClick={() => setIsMobileMenuOpen(false)}
-                        className="block px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 rounded-md transition-colors text-left"
+                        className="block px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 rounded-md transition-colors text-left cursor-pointer"
                         style={{fontFamily: 'Poppins'}}
                       >
                         Manage Users
@@ -355,7 +355,7 @@ const Navbar: React.FC = () => {
                   <a
                     href="#"
                     onClick={() => setIsMobileMenuOpen(false)}
-                    className="block px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 rounded-md transition-colors text-left"
+                    className="block px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 rounded-md transition-colors text-left cursor-pointer"
                     style={{fontFamily: 'Poppins'}}
                   >
                     Settings
@@ -363,7 +363,7 @@ const Navbar: React.FC = () => {
                   <a
                     href="#"
                     onClick={() => setIsMobileMenuOpen(false)}
-                    className="block px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 rounded-md transition-colors text-left"
+                    className="block px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 rounded-md transition-colors text-left cursor-pointer"
                     style={{fontFamily: 'Poppins'}}
                   >
                     Help & Support
@@ -376,7 +376,7 @@ const Navbar: React.FC = () => {
                       setIsMobileMenuOpen(false);
                     }}
                     disabled={isLoggingOut}
-                    className="block w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="block w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
                     style={{fontFamily: 'Poppins'}}
                   >
                     {isLoggingOut ? (
@@ -394,14 +394,14 @@ const Navbar: React.FC = () => {
                   <Link
                     to="/login"
                     onClick={() => setIsMobileMenuOpen(false)}
-                    className="block px-3 py-2 text-black font-sans font-medium uppercase text-sm hover:text-gray-600 hover:bg-gray-50 rounded-md transition-colors"
+                    className="block px-3 py-2 text-black font-sans font-medium uppercase text-sm hover:text-gray-600 hover:bg-gray-50 rounded-md transition-colors cursor-pointer"
                   >
                     LOGIN
                   </Link>
                   <Link
                     to="/login"
                     onClick={() => setIsMobileMenuOpen(false)}
-                    className="block px-3 py-2 text-white font-sans font-medium uppercase text-sm transition-colors hover:opacity-90 rounded-md"
+                    className="block px-3 py-2 text-white font-sans font-medium uppercase text-sm transition-colors hover:opacity-90 rounded-md cursor-pointer"
                     style={{backgroundColor: '#0B5858'}}
                   >
                     SIGNUP

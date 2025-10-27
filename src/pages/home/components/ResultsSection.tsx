@@ -1,6 +1,7 @@
 import React from 'react';
 import type { ListingView } from '../../../types/listing';
 import Listings from './Listings';
+import Dropdown from '../../../components/Dropdown';
 
 interface ResultsSectionProps {
   apartments: ListingView[];
@@ -35,26 +36,20 @@ const ResultsSection: React.FC<ResultsSectionProps> = ({
             All listings
           </h2>
           
-          {/* Recently added dropdown */}
-          <div className="relative animate-fade-in-right self-start sm:self-auto" style={{animationDelay: '2.0s', animationDuration: '400ms'}}>
-            <select
-              value={sortBy}
-              onChange={(e) => {
-                setSortBy(e.target.value);
+          {/* Sort dropdown using unified Dropdown component */}
+          <div className="animate-fade-in-right self-start sm:self-auto" style={{animationDelay: '1.6s'}}>
+            <Dropdown
+              label={sortBy}
+              options={[
+                { value: 'Recently added', label: 'Recently added' },
+                { value: 'Price: Low to High', label: 'Price: Low to High' },
+                { value: 'Price: High to Low', label: 'Price: High to Low' }
+              ]}
+              onSelect={(value) => {
+                setSortBy(value);
                 onSearch();
               }}
-              className="appearance-none bg-white border-none text-white px-4 sm:px-6 py-2 sm:py-3 rounded-lg font-poppins text-sm cursor-pointer focus:outline-none transition-all duration-300 hover:scale-105"
-              style={{backgroundColor: '#0B5858', fontFamily: 'Poppins', fontWeight: 600}}
-            >
-              <option value="Recently added">Recently added</option>
-              <option value="Price: Low to High">Price: Low to High</option>
-              <option value="Price: High to Low">Price: High to Low</option>
-            </select>
-            <div className="absolute inset-y-0 right-0 flex items-center pr-2 sm:pr-3 pointer-events-none">
-              <svg className="w-3 h-3 sm:w-4 sm:h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-              </svg>
-            </div>
+            />
           </div>
         </div>
 

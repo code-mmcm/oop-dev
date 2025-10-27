@@ -300,7 +300,7 @@ const AdminPanel: React.FC = React.memo(() => {
             <div className="flex gap-3">
               <button
                 onClick={() => navigate('/manageusers')}
-                className="bg-[#0B5858] text-white px-6 py-3 rounded-lg hover:bg-[#0a4a4a] transition-all duration-200 flex items-center shadow-lg hover:shadow-xl"
+                className="bg-[#0B5858] text-white px-6 py-3 rounded-lg hover:bg-[#0a4a4a] transition-all duration-200 flex items-center shadow-lg hover:shadow-xl cursor-pointer"
                 style={{fontFamily: 'Poppins'}}
               >
                 <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -310,7 +310,7 @@ const AdminPanel: React.FC = React.memo(() => {
               </button>
               <button
                 onClick={() => navigate('/manage')}
-                className="bg-gradient-to-br from-gray-600 to-gray-700 text-white px-6 py-3 rounded-lg hover:from-gray-700 hover:to-gray-800 transition-all duration-200 flex items-center shadow-lg hover:shadow-xl"
+                className="bg-gradient-to-br from-gray-600 to-gray-700 text-white px-6 py-3 rounded-lg hover:from-gray-700 hover:to-gray-800 transition-all duration-200 flex items-center shadow-lg hover:shadow-xl cursor-pointer"
                 style={{fontFamily: 'Poppins'}}
               >
                 <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -472,7 +472,7 @@ const AdminPanel: React.FC = React.memo(() => {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
             <button
               onClick={() => navigate('/manageusers')}
-              className="group relative bg-gradient-to-br from-[#0B5858] to-[#0a4a4a] rounded-2xl p-8 hover:shadow-2xl transition-all duration-500 hover:scale-105 overflow-hidden"
+              className="group relative bg-gradient-to-br from-[#0B5858] to-[#0a4a4a] rounded-2xl p-8 hover:shadow-2xl transition-all duration-500 hover:scale-105 overflow-hidden cursor-pointer"
             >
               <div className="absolute inset-0 bg-gradient-to-br from-white/10 to-transparent group-hover:from-white/20 transition-all duration-300"></div>
               <div className="relative z-10 text-center">
@@ -495,7 +495,7 @@ const AdminPanel: React.FC = React.memo(() => {
 
             <button
               onClick={() => navigate('/booking')}
-              className="group relative bg-gradient-to-br from-yellow-400 to-yellow-500 rounded-2xl p-8 hover:shadow-2xl transition-all duration-500 hover:scale-105 overflow-hidden"
+              className="group relative bg-gradient-to-br from-yellow-400 to-yellow-500 rounded-2xl p-8 hover:shadow-2xl transition-all duration-500 hover:scale-105 overflow-hidden cursor-pointer"
             >
               <div className="absolute inset-0 bg-gradient-to-br from-white/20 to-transparent group-hover:from-white/30 transition-all duration-300"></div>
               <div className="relative z-10 text-center">
@@ -518,7 +518,7 @@ const AdminPanel: React.FC = React.memo(() => {
 
             <button
               onClick={() => navigate('/manage')}
-              className="group relative bg-gradient-to-br from-gray-600 to-gray-700 rounded-2xl p-8 hover:shadow-2xl transition-all duration-500 hover:scale-105 overflow-hidden"
+              className="group relative bg-gradient-to-br from-gray-600 to-gray-700 rounded-2xl p-8 hover:shadow-2xl transition-all duration-500 hover:scale-105 overflow-hidden cursor-pointer"
             >
               <div className="absolute inset-0 bg-gradient-to-br from-white/10 to-transparent group-hover:from-white/20 transition-all duration-300"></div>
               <div className="relative z-10 text-center">

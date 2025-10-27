@@ -91,7 +91,7 @@ const Hero: React.FC<HeroProps> = ({
                 />
                 <button
                   onClick={() => setIsLocationDropdownOpen(!isLocationDropdownOpen)}
-                  className="absolute right-2 sm:right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                  className="absolute right-2 sm:right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 cursor-pointer"
                 >
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
@@ -107,7 +107,7 @@ const Hero: React.FC<HeroProps> = ({
                       <button
                         key={index}
                         onClick={() => handleLocationSelect(location)}
-                        className="w-full text-left px-4 py-3 hover:bg-gray-100 transition-colors"
+                        className="w-full text-left px-4 py-3 hover:bg-gray-100 transition-colors cursor-pointer"
                         style={{fontFamily: 'Poppins', fontWeight: 400}}
                       >
                         {location}
@@ -135,7 +135,7 @@ const Hero: React.FC<HeroProps> = ({
               <div className="relative">
                 <button
                   onClick={() => setIsPriceDropdownOpen(!isPriceDropdownOpen)}
-                  className="w-full px-3 sm:px-4 py-2 border-none focus:outline-none font-poppins font-medium appearance-none bg-transparent text-gray-700 text-left flex items-center justify-between"
+                  className="w-full px-3 sm:px-4 py-2 border-none focus:outline-none font-poppins font-medium appearance-none bg-transparent text-gray-700 text-left flex items-center justify-between cursor-pointer"
                 >
                   <span className="text-sm sm:text-base">₱{priceRange.min.toLocaleString()} - ₱{priceRange.max.toLocaleString()}</span>
                   <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -188,14 +188,14 @@ const Hero: React.FC<HeroProps> = ({
                           setPriceRange({ min: 0, max: 10000 });
                           setIsPriceDropdownOpen(false);
                         }}
-                        className="px-3 py-1 text-sm border border-gray-300 rounded hover:bg-gray-100"
+                        className="px-3 py-1 text-sm border border-gray-300 rounded hover:bg-gray-100 cursor-pointer"
                         style={{fontFamily: 'Poppins', fontWeight: 400}}
                       >
                         Reset
                       </button>
                       <button
                         onClick={() => setIsPriceDropdownOpen(false)}
-                        className="px-3 py-1 text-sm bg-blue-500 text-white rounded hover:bg-blue-600"
+                        className="px-3 py-1 text-sm bg-blue-500 text-white rounded hover:bg-blue-600 cursor-pointer"
                         style={{fontFamily: 'Poppins', fontWeight: 400}}
                       >
                         Apply
@@ -215,7 +215,7 @@ const Hero: React.FC<HeroProps> = ({
             <div className="flex-shrink-0 w-full sm:w-auto self-stretch sm:self-auto flex justify-center sm:pr-3 sm:pl-3">
               <button 
                 onClick={onSearch}
-                className="text-white px-6 sm:px-8 py-3 rounded-lg font-poppins transition-all duration-300 flex items-center justify-center gap-2 hover:opacity-90 hover:scale-105 active:scale-95 w-full sm:w-auto h-full sm:h-auto" 
+                className="text-white px-6 sm:px-8 py-3 rounded-lg font-poppins transition-all duration-300 flex items-center justify-center gap-2 hover:opacity-90 hover:scale-105 active:scale-95 w-full sm:w-auto h-full sm:h-auto cursor-pointer" 
                 style={{backgroundColor: '#0B5858', fontFamily: 'Poppins', fontWeight: 400}}
               >
                 <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">

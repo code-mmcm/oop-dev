@@ -157,8 +157,16 @@ const ProfileCard: React.FC = () => {
             <h2 className="text-2xl font-bold text-red-800 mb-2" style={{ fontFamily: 'Poppins' }}>
               Error Loading Profile
             </h2>
-            <p className="text-red-600 mb-4" style={{ fontFamily: 'Poppins' }}>{error}</p>
-            <button onClick={() => window.location.reload()} className="px-6 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors" style={{ fontFamily: 'Poppins' }}>Try Again</button>
+            <p className="text-red-600 mb-4" style={{fontFamily: 'Poppins'}}>
+              {error}
+            </p>
+            <button 
+              onClick={() => window.location.reload()}
+              className="px-6 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors cursor-pointer"
+              style={{fontFamily: 'Poppins'}}
+            >
+              Try Again
+            </button>
           </div>
         ) : !profile ? (
           <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-8 text-center">
@@ -189,7 +197,6 @@ const ProfileCard: React.FC = () => {
                       onMostRecent={handleMostRecent}
                     />
                   </div>
-
                   <div className="space-y-4">
                     <ContactInfoCard
                       profile={profile}

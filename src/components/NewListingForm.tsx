@@ -6,6 +6,7 @@ import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import ImageUpload from './ImageUpload';
 import ImageGallery from './ImageGallery';
+import Dropdown from './Dropdown';
 import type { UploadedImage } from '../services/imageService';
 
 // Fix for default markers in react-leaflet
@@ -33,6 +34,7 @@ const NewListingForm: React.FC<NewListingFormProps> = ({ onSuccess, onCancel }) 
   const [amenityInput, setAmenityInput] = useState('');
   
   const [formData, setFormData] = useState({
+    unit_id: '',
     title: '',
     description: '',
     price: '',
@@ -311,6 +313,13 @@ const NewListingForm: React.FC<NewListingFormProps> = ({ onSuccess, onCancel }) 
     }
   };
 
+  const prevStep = () => {
+    if (currentStep > 1) {
+      setCurrentStep(prev => prev - 1);
+      setError(null);
+    }
+  };
+
 
   // Form validation
   const isFormValid = () => {
@@ -331,7 +340,7 @@ const NewListingForm: React.FC<NewListingFormProps> = ({ onSuccess, onCancel }) 
 
     try {
       // Validate required fields
-      if (!formData.title || !formData.city || !formData.price) {
+      if (!formData.unit_id || !formData.title || !formData.city || !formData.price) {
         throw new Error('Please fill in all required fields');
       }
 
@@ -339,6 +348,7 @@ const NewListingForm: React.FC<NewListingFormProps> = ({ onSuccess, onCancel }) 
       const allImageUrls = uploadedImages.map(img => img.url);
 
       const listingData: Omit<Listing, 'id' | 'created_at' | 'updated_at'> = {
+        unit_id: formData.unit_id,
         title: formData.title,
         description: formData.description || undefined,
         price: parseFloat(formData.price),
@@ -418,8 +428,27 @@ const NewListingForm: React.FC<NewListingFormProps> = ({ onSuccess, onCancel }) 
       {/* Basic Information Section */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2" style={{fontFamily: 'Poppins'}}>
-            Title *
+          <label className="block text-sm font-semibold mb-2" style={{fontFamily: 'Poppins', color: '#0B5858'}}>
+            Unit ID <span style={{color: '#B84C4C'}}>*</span>
+          </label>
+          <input
+            type="text"
+            name="unit_id"
+            value={formData.unit_id}
+            onChange={handleInputChange}
+            required
+            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-offset-2 focus:border-transparent transition-all duration-200"
+            style={{
+              fontFamily: 'Poppins',
+              '--tw-ring-color': '#549F74'
+            } as React.CSSProperties & { '--tw-ring-color': string }}
+            placeholder="e.g., Floor 2, Room 201"
+          />
+        </div>
+
+        <div>
+          <label className="block text-sm font-semibold mb-2" style={{fontFamily: 'Poppins', color: '#0B5858'}}>
+            Title <span style={{color: '#B84C4C'}}>*</span>
           </label>
           <input
             type="text"
@@ -427,34 +456,33 @@ const NewListingForm: React.FC<NewListingFormProps> = ({ onSuccess, onCancel }) 
             value={formData.title}
             onChange={handleInputChange}
             required
-            className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0B5858]"
-            style={{fontFamily: 'Poppins'}}
+            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-offset-2 focus:border-transparent transition-all duration-200"
+            style={{
+              fontFamily: 'Poppins',
+              '--tw-ring-color': '#549F74'
+            } as React.CSSProperties & { '--tw-ring-color': string }}
             placeholder="Enter property title"
           />
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2" style={{fontFamily: 'Poppins'}}>
+          <label className="block text-sm font-semibold mb-2" style={{fontFamily: 'Poppins', color: '#0B5858'}}>
             Property Type
           </label>
-          <select
-            name="property_type"
-            value={formData.property_type}
-            onChange={handleInputChange}
-            className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0B5858]"
-            style={{fontFamily: 'Poppins'}}
-          >
-            {propertyTypes.map(type => (
-              <option key={type} value={type}>
-                {type.charAt(0).toUpperCase() + type.slice(1)}
-              </option>
-            ))}
-          </select>
+          <Dropdown
+            label={formData.property_type.charAt(0).toUpperCase() + formData.property_type.slice(1)}
+            options={propertyTypes.map(type => ({
+              value: type,
+              label: type.charAt(0).toUpperCase() + type.slice(1)
+            }))}
+            onSelect={(value) => setFormData(prev => ({ ...prev, property_type: value }))}
+            placeholder="Select property type"
+          />
         </div>
       </div>
 
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2" style={{fontFamily: 'Poppins'}}>
+        <label className="block text-sm font-semibold mb-2" style={{fontFamily: 'Poppins', color: '#0B5858'}}>
           Description
         </label>
         <textarea
@@ -462,8 +490,11 @@ const NewListingForm: React.FC<NewListingFormProps> = ({ onSuccess, onCancel }) 
           value={formData.description}
           onChange={handleInputChange}
           rows={4}
-          className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0B5858]"
-          style={{fontFamily: 'Poppins'}}
+          className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-offset-2 focus:border-transparent transition-all duration-200"
+          style={{
+            fontFamily: 'Poppins',
+            '--tw-ring-color': '#549F74'
+          } as React.CSSProperties & { '--tw-ring-color': string }}
           placeholder="Describe your property..."
         />
       </div>
@@ -471,8 +502,8 @@ const NewListingForm: React.FC<NewListingFormProps> = ({ onSuccess, onCancel }) 
       {/* Location & Pricing Section */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2" style={{fontFamily: 'Poppins'}}>
-            City *
+          <label className="block text-sm font-semibold mb-2" style={{fontFamily: 'Poppins', color: '#0B5858'}}>
+            City <span style={{color: '#B84C4C'}}>*</span>
           </label>
           <input
             type="text"
@@ -480,14 +511,17 @@ const NewListingForm: React.FC<NewListingFormProps> = ({ onSuccess, onCancel }) 
             value={formData.city}
             onChange={handleInputChange}
             required
-            className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0B5858]"
-            style={{fontFamily: 'Poppins'}}
+            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-offset-2 focus:border-transparent transition-all duration-200"
+            style={{
+              fontFamily: 'Poppins',
+              '--tw-ring-color': '#549F74'
+            } as React.CSSProperties & { '--tw-ring-color': string }}
             placeholder="Enter city name"
           />
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2" style={{fontFamily: 'Poppins'}}>
+          <label className="block text-sm font-semibold mb-2" style={{fontFamily: 'Poppins', color: '#0B5858'}}>
             Country
           </label>
           <input
@@ -495,8 +529,11 @@ const NewListingForm: React.FC<NewListingFormProps> = ({ onSuccess, onCancel }) 
             name="country"
             value={formData.country}
             onChange={handleInputChange}
-            className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0B5858]"
-            style={{fontFamily: 'Poppins'}}
+            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-offset-2 focus:border-transparent transition-all duration-200"
+            style={{
+              fontFamily: 'Poppins',
+              '--tw-ring-color': '#549F74'
+            } as React.CSSProperties & { '--tw-ring-color': string }}
             placeholder="Enter country"
           />
         </div>
@@ -504,8 +541,8 @@ const NewListingForm: React.FC<NewListingFormProps> = ({ onSuccess, onCancel }) 
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2" style={{fontFamily: 'Poppins'}}>
-            Price *
+          <label className="block text-sm font-semibold mb-2" style={{fontFamily: 'Poppins', color: '#0B5858'}}>
+            Price <span style={{color: '#B84C4C'}}>*</span>
           </label>
           <input
             type="number"
@@ -515,46 +552,41 @@ const NewListingForm: React.FC<NewListingFormProps> = ({ onSuccess, onCancel }) 
             required
             min="0"
             step="0.01"
-            className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0B5858]"
-            style={{fontFamily: 'Poppins'}}
+            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-offset-2 focus:border-transparent transition-all duration-200"
+            style={{
+              fontFamily: 'Poppins',
+              '--tw-ring-color': '#549F74'
+            } as React.CSSProperties & { '--tw-ring-color': string }}
             placeholder="0.00"
           />
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2" style={{fontFamily: 'Poppins'}}>
+          <label className="block text-sm font-semibold mb-2" style={{fontFamily: 'Poppins', color: '#0B5858'}}>
             Price Unit
           </label>
-          <select
-            name="price_unit"
-            value={formData.price_unit}
-            onChange={handleInputChange}
-            className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0B5858]"
-            style={{fontFamily: 'Poppins'}}
-          >
-            {priceUnits.map(unit => (
-              <option key={unit.value} value={unit.value}>
-                {unit.label}
-              </option>
-            ))}
-          </select>
+          <Dropdown
+            label={priceUnits.find(unit => unit.value === formData.price_unit)?.label || 'Per Day'}
+            options={priceUnits}
+            onSelect={(value) => setFormData(prev => ({ ...prev, price_unit: value }))}
+            placeholder="Select price unit"
+          />
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2" style={{fontFamily: 'Poppins'}}>
+          <label className="block text-sm font-semibold mb-2" style={{fontFamily: 'Poppins', color: '#0B5858'}}>
             Currency
           </label>
-          <select
-            name="currency"
-            value={formData.currency}
-            onChange={handleInputChange}
-            className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0B5858]"
-            style={{fontFamily: 'Poppins'}}
-          >
-            <option value="PHP">PHP</option>
-            <option value="USD">USD</option>
-            <option value="EUR">EUR</option>
-          </select>
+          <Dropdown
+            label={formData.currency}
+            options={[
+              { value: 'PHP', label: 'PHP' },
+              { value: 'USD', label: 'USD' },
+              { value: 'EUR', label: 'EUR' }
+            ]}
+            onSelect={(value) => setFormData(prev => ({ ...prev, currency: value }))}
+            placeholder="Select currency"
+          />
         </div>
       </div>
     </div>
@@ -565,7 +597,7 @@ const NewListingForm: React.FC<NewListingFormProps> = ({ onSuccess, onCancel }) 
     <div className="space-y-6">
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2" style={{fontFamily: 'Poppins'}}>
+          <label className="block text-sm font-semibold mb-2" style={{fontFamily: 'Poppins', color: '#0B5858'}}>
             Bedrooms
           </label>
           <input
@@ -574,14 +606,17 @@ const NewListingForm: React.FC<NewListingFormProps> = ({ onSuccess, onCancel }) 
             value={formData.bedrooms}
             onChange={handleInputChange}
             min="0"
-            className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0B5858]"
-            style={{fontFamily: 'Poppins'}}
+            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-offset-2 focus:border-transparent transition-all duration-200"
+            style={{
+              fontFamily: 'Poppins',
+              '--tw-ring-color': '#549F74'
+            } as React.CSSProperties & { '--tw-ring-color': string }}
             placeholder="0"
           />
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2" style={{fontFamily: 'Poppins'}}>
+          <label className="block text-sm font-semibold mb-2" style={{fontFamily: 'Poppins', color: '#0B5858'}}>
             Bathrooms
           </label>
           <input
@@ -590,14 +625,17 @@ const NewListingForm: React.FC<NewListingFormProps> = ({ onSuccess, onCancel }) 
             value={formData.bathrooms}
             onChange={handleInputChange}
             min="0"
-            className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0B5858]"
-            style={{fontFamily: 'Poppins'}}
+            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-offset-2 focus:border-transparent transition-all duration-200"
+            style={{
+              fontFamily: 'Poppins',
+              '--tw-ring-color': '#549F74'
+            } as React.CSSProperties & { '--tw-ring-color': string }}
             placeholder="0"
           />
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2" style={{fontFamily: 'Poppins'}}>
+          <label className="block text-sm font-semibold mb-2" style={{fontFamily: 'Poppins', color: '#0B5858'}}>
             Square Feet
           </label>
           <input
@@ -606,8 +644,11 @@ const NewListingForm: React.FC<NewListingFormProps> = ({ onSuccess, onCancel }) 
             value={formData.square_feet}
             onChange={handleInputChange}
             min="0"
-            className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0B5858]"
-            style={{fontFamily: 'Poppins'}}
+            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-offset-2 focus:border-transparent transition-all duration-200"
+            style={{
+              fontFamily: 'Poppins',
+              '--tw-ring-color': '#549F74'
+            } as React.CSSProperties & { '--tw-ring-color': string }}
             placeholder="0"
           />
         </div>
@@ -619,7 +660,7 @@ const NewListingForm: React.FC<NewListingFormProps> = ({ onSuccess, onCancel }) 
         </h3>
         
         <div className="mb-4">
-          <label className="block text-sm font-medium text-gray-700 mb-2" style={{fontFamily: 'Poppins'}}>
+          <label className="block text-sm font-semibold mb-2" style={{fontFamily: 'Poppins', color: '#0B5858'}}>
             Add Amenities (Press Enter to add)
           </label>
           <div className="flex gap-2">
@@ -629,8 +670,11 @@ const NewListingForm: React.FC<NewListingFormProps> = ({ onSuccess, onCancel }) 
               onChange={(e) => setAmenityInput(e.target.value)}
               onKeyPress={handleAmenityKeyPress}
               placeholder="Type amenity and press Enter..."
-              className="flex-1 px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-              style={{fontFamily: 'Poppins'}}
+              className="flex-1 px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-offset-2 focus:border-transparent transition-all duration-200"
+              style={{
+                fontFamily: 'Poppins',
+                '--tw-ring-color': '#549F74'
+              } as React.CSSProperties & { '--tw-ring-color': string }}
             />
             <button
               type="button"
@@ -665,7 +709,7 @@ const NewListingForm: React.FC<NewListingFormProps> = ({ onSuccess, onCancel }) 
         )}
 
         <div>
-          <p className="text-sm text-gray-600 mb-2" style={{fontFamily: 'Poppins'}}>
+          <p className="text-sm font-semibold mb-2" style={{fontFamily: 'Poppins', color: '#0B5858'}}>
             Common amenities (click to add):
           </p>
           <div className="flex flex-wrap gap-2">
@@ -699,10 +743,10 @@ const NewListingForm: React.FC<NewListingFormProps> = ({ onSuccess, onCancel }) 
   );
 
   const renderImagesStep = () => (
-    <div className="space-y-8">
+    <div className="space-y-10">
       {/* Upload Section */}
       <div>
-        <h3 className="text-lg font-semibold text-gray-900 mb-4" style={{fontFamily: 'Poppins'}}>
+        <h3 className="text-lg font-semibold text-gray-900 mb-6" style={{fontFamily: 'Poppins'}}>
           Upload Property Images
         </h3>
         <ImageUpload
@@ -714,7 +758,7 @@ const NewListingForm: React.FC<NewListingFormProps> = ({ onSuccess, onCancel }) 
 
       {/* Image Gallery Section */}
       {uploadedImages.length > 0 && (
-        <div>
+        <div className="space-y-6">
           <ImageGallery
             images={uploadedImages}
             selectedImageId={selectedMainImageId}
@@ -727,11 +771,11 @@ const NewListingForm: React.FC<NewListingFormProps> = ({ onSuccess, onCancel }) 
 
       {/* Image Summary */}
       {uploadedImages.length > 0 && (
-        <div className="bg-gray-50 rounded-lg p-4">
-          <h4 className="text-sm font-medium text-gray-900 mb-2" style={{fontFamily: 'Poppins'}}>
+        <div className="bg-gray-50 rounded-lg p-6">
+          <h4 className="text-sm font-medium text-gray-900 mb-4" style={{fontFamily: 'Poppins'}}>
             Image Summary
           </h4>
-          <div className="text-sm text-gray-600 space-y-1" style={{fontFamily: 'Poppins'}}>
+          <div className="text-sm text-gray-600 space-y-2" style={{fontFamily: 'Poppins'}}>
             <p>• Main image: {selectedMainImageId ? 'Selected' : 'Not selected'}</p>
             <p>• Additional images: {uploadedImages.filter(img => img.id !== selectedMainImageId).length}</p>
             <p>• Total uploaded: {uploadedImages.length}</p>
@@ -743,14 +787,14 @@ const NewListingForm: React.FC<NewListingFormProps> = ({ onSuccess, onCancel }) 
 
   const renderLocationMapStep = () => (
     <div className="space-y-6">
-      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-        <p className="text-blue-800 text-sm" style={{fontFamily: 'Poppins'}}>
+      <div className="border border-green-800 rounded-lg p-4">
+        <p className="text-green-800 text-sm" style={{fontFamily: 'Poppins'}}>
           Search for a city or location, then click on the map to set the exact property location. Coordinates will be displayed after selection.
         </p>
       </div>
 
       <div className="relative search-container">
-        <label className="block text-sm font-medium text-gray-700 mb-2" style={{fontFamily: 'Poppins'}}>
+        <label className="block text-sm font-semibold mb-2" style={{fontFamily: 'Poppins', color: '#0B5858'}}>
           Search Location
         </label>
         <div className="relative">
@@ -759,8 +803,11 @@ const NewListingForm: React.FC<NewListingFormProps> = ({ onSuccess, onCancel }) 
             value={searchQuery}
             onChange={handleSearchChange}
             placeholder="Enter city, address, or landmark..."
-            className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 pr-10"
-            style={{fontFamily: 'Poppins'}}
+            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-offset-2 focus:border-transparent transition-all duration-200 pr-10"
+            style={{
+              fontFamily: 'Poppins',
+              '--tw-ring-color': '#549F74'
+            } as React.CSSProperties & { '--tw-ring-color': string }}
           />
           {isSearching && (
             <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
@@ -790,9 +837,41 @@ const NewListingForm: React.FC<NewListingFormProps> = ({ onSuccess, onCancel }) 
         )}
       </div>
 
-      <div className="w-full h-96 border border-gray-200 rounded-lg overflow-hidden relative z-0">
-        <MapContainer
-          center={selectedPosition || [14.5995, 120.9842]}
+        <div className="w-full h-96 border border-gray-200 rounded-lg overflow-hidden relative z-0">
+          <style>{`
+            .leaflet-control-zoom a {
+              background-color: white !important;
+              color: #0B5858 !important;
+              border: 1px solid #e5e7eb !important;
+              width: 40px !important;
+              height: 40px !important;
+              line-height: 40px !important;
+              font-size: 24px !important;
+              font-weight: bold !important;
+              text-decoration: none !important;
+              display: flex !important;
+              align-items: center !important;
+              justify-content: center !important;
+              transition: all 0.2s ease !important;
+            }
+            
+            .leaflet-control-zoom a:hover {
+              background-color: #f9fafb !important;
+              color: #0B5858 !important;
+              border-color: #0B5858 !important;
+            }
+            
+            .leaflet-control-zoom {
+              border: none !important;
+              box-shadow: 0 2px 8px rgba(0,0,0,0.15) !important;
+            }
+            
+            .leaflet-control-zoom-in {
+              border-bottom: 1px solid #e5e7eb !important;
+            }
+          `}</style>
+          <MapContainer
+            center={selectedPosition || [14.5995, 120.9842]}
           zoom={selectedPosition ? 15 : 13}
           style={{ height: '100%', width: '100%' }}
           key={selectedPosition ? 'selected' : 'default'}
@@ -809,7 +888,7 @@ const NewListingForm: React.FC<NewListingFormProps> = ({ onSuccess, onCancel }) 
       </div>
 
       {showCoordinates && formData.latitude && formData.longitude && (
-        <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+        <div className="border border-green-800 rounded-lg p-4">
           <p className="text-green-800 text-sm" style={{fontFamily: 'Poppins'}}>
             ✓ Location set successfully! The coordinates have been captured from the map.
           </p>
@@ -818,43 +897,74 @@ const NewListingForm: React.FC<NewListingFormProps> = ({ onSuccess, onCancel }) 
     </div>
   );
 
-  return (
-    <div className="min-h-screen bg-gray-50 py-4">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+    return (
+      <div className="min-h-screen bg-gray-50 py-6 sm:py-8">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Header */}
         <div className="mb-8">
-          {/* Progress Indicator */}
-          <div className="flex items-center justify-center space-x-4 mb-8 animate-fade-in">
+          {/* Enhanced Progress Indicator */}
+          <div className="flex items-center justify-center space-x-6 mb-12 animate-fade-in">
             {steps.map((step, index) => (
               <div key={step.id} className="flex items-center">
-                <div className="flex flex-col items-center">
-                  <div className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-medium transition-all duration-500 ease-in-out transform hover:scale-110 ${
-                    step.id === currentStep
-                      ? 'bg-[#0B5858] text-white animate-pulse'
-                      : step.id < currentStep
-                      ? 'bg-[#0B5858] text-white'
-                      : 'bg-gray-300 text-gray-600 hover:bg-gray-400'
-                  }`}
-                  style={{fontFamily: 'Poppins'}}
-                  >
-                    {step.id === currentStep ? (
-                      <div className="w-4 h-4 bg-white rounded-full"></div>
-                    ) : (
-                      step.id
+                <div className="flex flex-col items-center relative">
+                  {/* Step Circle with Enhanced Design */}
+                  <div className="relative">
+                    {/* Outer Ring for Current Step */}
+                    {step.id === currentStep && (
+                      <div className="absolute -inset-2 rounded-full bg-gradient-to-r from-[#0B5858] to-[#558B8B] animate-pulse opacity-30"></div>
+                    )}
+                    
+                    {/* Main Circle */}
+                    <div className={`relative w-14 h-14 rounded-full flex items-center justify-center text-lg font-bold transition-all duration-500 ease-in-out transform hover:scale-110 shadow-lg ${
+                      step.id === currentStep
+                        ? 'bg-gradient-to-br from-[#0B5858] to-[#558B8B] text-white shadow-[#0B5858]/30'
+                        : step.id < currentStep
+                        ? 'bg-gradient-to-br from-[#0B5858] to-[#558B8B] text-white shadow-[#0B5858]/20'
+                        : 'bg-white text-[#558B8B] border-2 border-[#558B8B] shadow-gray-200 hover:shadow-[#558B8B]/20'
+                    }`}
+                    style={{fontFamily: 'Poppins'}}
+                    >
+                      {step.id < currentStep ? (
+                        <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 20 20">
+                          <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                        </svg>
+                      ) : (
+                        <span className="font-bold">{step.id}</span>
+                      )}
+                    </div>
+                    
+                    {/* Progress Ring for Current Step */}
+                    {step.id === currentStep && (
+                      <div className="absolute inset-0 rounded-full border-2 border-white/20"></div>
                     )}
                   </div>
-                  <span className={`text-xs mt-2 font-medium ${
-                    step.id <= currentStep ? 'text-gray-800' : 'text-gray-500'
-                  }`}
-                  style={{fontFamily: 'Poppins'}}
-                  >
-                    {step.title}
-                  </span>
+                  
+                  {/* Step Label with Enhanced Styling */}
+                  <div className="mt-4 text-center">
+                    <span className={`text-sm font-semibold transition-colors duration-300 ${
+                      step.id === currentStep 
+                        ? 'text-[#0B5858]' 
+                        : step.id < currentStep 
+                        ? 'text-[#0B5858]' 
+                        : 'text-gray-500'
+                    }`}
+                    style={{fontFamily: 'Poppins'}}
+                    >
+                      {step.title}
+                    </span>
+                  </div>
                 </div>
+                
+                {/* Enhanced Connecting Line */}
                 {index < steps.length - 1 && (
-                  <div className={`w-16 h-0.5 mx-2 transition-all duration-500 ease-in-out ${
-                    step.id < currentStep ? 'bg-[#0B5858]' : 'bg-gray-300'
-                  }`} />
+                  <div className="relative mx-6">
+                    <div className="w-20 h-0.5 bg-gray-200 rounded-full"></div>
+                    <div className={`absolute top-0 left-0 h-0.5 rounded-full transition-all duration-700 ease-out ${
+                      step.id < currentStep 
+                        ? 'w-full bg-[#F1C40F]' 
+                        : 'w-0 bg-[#F1C40F]'
+                    }`}></div>
+                  </div>
                 )}
               </div>
             ))}
@@ -862,8 +972,8 @@ const NewListingForm: React.FC<NewListingFormProps> = ({ onSuccess, onCancel }) 
         </div>
 
         {/* Main White Card */}
-        <div className="bg-white rounded-xl shadow-lg overflow-hidden animate-fade-in-up">
-          <div className="p-4">
+        <div className="bg-white rounded-xl shadow-lg overflow-hidden animate-fade-in-up mx-4 sm:mx-6 lg:mx-8">
+          <div className="p-6 sm:p-8 lg:p-10">
 
             {/* Error Message */}
             {error && (
@@ -875,20 +985,31 @@ const NewListingForm: React.FC<NewListingFormProps> = ({ onSuccess, onCancel }) 
             {/* Form Content */}
             <form onSubmit={handleSubmit} className="space-y-8">
               {/* Full Width Form */}
-              <div className="space-y-6">
+              <div className="space-y-8">
                 {renderStepContent()}
               </div>
 
               {/* Navigation Buttons */}
-              <div className="flex justify-end space-x-4 pt-6 border-t border-gray-200">
-                <button
-                  type="button"
-                  onClick={onCancel}
-                  className="px-6 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-all duration-300 ease-in-out transform hover:scale-105 hover:shadow-md"
-                  style={{fontFamily: 'Poppins'}}
-                >
-                  Cancel
-                </button>
+              <div className="flex justify-end space-x-4 pt-8 border-t border-gray-200 mt-8">
+                {currentStep > 1 ? (
+                  <button
+                    type="button"
+                    onClick={prevStep}
+                    className="px-6 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-all duration-300 ease-in-out transform hover:scale-105 hover:shadow-md"
+                    style={{fontFamily: 'Poppins'}}
+                  >
+                    Back
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={onCancel}
+                    className="px-6 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-all duration-300 ease-in-out transform hover:scale-105 hover:shadow-md"
+                    style={{fontFamily: 'Poppins'}}
+                  >
+                    Cancel
+                  </button>
+                )}
                 
                 {currentStep < totalSteps ? (
                   <button

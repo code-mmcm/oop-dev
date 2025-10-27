@@ -1,4 +1,5 @@
 import React from 'react';
+import Dropdown from '../../../components/Dropdown';
 
 interface FiltersProps {
   searchLocation: string;
@@ -104,18 +105,20 @@ const Filters: React.FC<FiltersProps> = ({
         </div>
       </div>
 
-      {/* Sort */}
+      {/* Sort using unified Dropdown component */}
       <div className="flex items-center gap-2">
         <span className="text-sm text-gray-600">Sort by:</span>
-        <select
-          value={sortBy}
-          onChange={(e) => setSortBy(e.target.value)}
-          className="px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
-        >
-          <option value="Recently added">Recently added</option>
-          <option value="Price: Low to High">Price: Low to High</option>
-          <option value="Price: High to Low">Price: High to Low</option>
-        </select>
+        <div className="min-w-[180px]">
+          <Dropdown
+            label={sortBy}
+            options={[
+              { value: 'Recently added', label: 'Recently added' },
+              { value: 'Price: Low to High', label: 'Price: Low to High' },
+              { value: 'Price: High to Low', label: 'Price: High to Low' }
+            ]}
+            onSelect={(value) => setSortBy(value)}
+          />
+        </div>
       </div>
     </div>
   );
