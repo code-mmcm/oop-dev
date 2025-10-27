@@ -1,15 +1,12 @@
 import React from 'react';
+import { Link } from 'react-router-dom';
 import type { ListingView } from '../../../types/listing';
 import Listings from './Listings';
-import Dropdown from '../../../components/Dropdown';
 
 interface ResultsSectionProps {
   apartments: ListingView[];
   isLoading: boolean;
-  sortBy: string;
-  setSortBy: (sort: string) => void;
   onApartmentClick: (apartmentId: string) => void;
-  onSearch: () => void;
 }
 
 /**
@@ -19,10 +16,7 @@ interface ResultsSectionProps {
 const ResultsSection: React.FC<ResultsSectionProps> = ({
   apartments,
   isLoading,
-  sortBy,
-  setSortBy,
-  onApartmentClick,
-  onSearch
+  onApartmentClick
 }) => {
   return (
     <div className="bg-white py-1 -mt-48 sm:-mt-52 md:-mt-56 animate-fade-in" style={{animationDelay: '1.6s', animationDuration: '400ms'}}>
@@ -33,24 +27,9 @@ const ResultsSection: React.FC<ResultsSectionProps> = ({
             className="text-2xl sm:text-3xl font-bold text-black animate-fade-in-left"
             style={{fontFamily: 'Poppins', fontWeight: 700, animationDelay: '1.8s', animationDuration: '400ms'}}
           >
-            All listings
+            Featured listings
           </h2>
           
-          {/* Sort dropdown using unified Dropdown component */}
-          <div className="animate-fade-in-right self-start sm:self-auto" style={{animationDelay: '1.6s'}}>
-            <Dropdown
-              label={sortBy}
-              options={[
-                { value: 'Recently added', label: 'Recently added' },
-                { value: 'Price: Low to High', label: 'Price: Low to High' },
-                { value: 'Price: High to Low', label: 'Price: High to Low' }
-              ]}
-              onSelect={(value) => {
-                setSortBy(value);
-                onSearch();
-              }}
-            />
-          </div>
         </div>
 
         {/* Listings Grid */}
@@ -63,13 +42,22 @@ const ResultsSection: React.FC<ResultsSectionProps> = ({
 
         {/* See More Section */}
         <div className="flex items-center justify-center mt-8 sm:mt-12 mb-12 sm:mb-16">
-          <div className="flex items-center w-full">
-            <div className="flex-1 h-px bg-gray-300"></div>
-            <span className="px-3 sm:px-4 text-gray-600 text-xs sm:text-sm font-poppins" style={{fontFamily: 'Poppins'}}>
-              See more
-            </span>
-            <div className="flex-1 h-px bg-gray-300"></div>
-          </div>
+          <Link 
+            to="/listings"
+            className="group relative inline-flex items-center gap-2 px-8 py-3 text-[#0B5858] font-medium border-2 border-[#0B5858] rounded-lg hover:bg-[#0B5858] hover:text-white transition-all duration-300 overflow-hidden"
+            style={{fontFamily: 'Poppins', fontWeight: 600}}
+          >
+            <span className="relative z-10">View All Listings</span>
+            <svg 
+              className="w-5 h-5 relative z-10 transition-transform duration-300 group-hover:translate-x-1" 
+              fill="none" 
+              stroke="currentColor" 
+              viewBox="0 0 24 24"
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
+            </svg>
+            <div className="absolute inset-0 bg-[#0B5858] transform scale-x-0 group-hover:scale-x-100 transition-transform duration-300 origin-left"></div>
+          </Link>
         </div>
       </div>
     </div>

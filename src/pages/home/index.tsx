@@ -11,7 +11,6 @@ import ResultsSection from './components/ResultsSection';
 const HomePage: React.FC = () => {
   const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(true);
-  const [sortBy, setSortBy] = useState('Recently added');
   const [apartments, setApartments] = useState<ListingView[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [searchLocation, setSearchLocation] = useState('');
@@ -25,8 +24,9 @@ const HomePage: React.FC = () => {
     const fetchListings = async () => {
       try {
         setError(null);
-        const listings = await ListingService.getRecentlyAddedListings();
-        setApartments(listings);
+        // Fetch featured listings and limit to 3
+        const listings = await ListingService.getFeaturedListings();
+        setApartments(listings.slice(0, 3));
         
         // Extract unique locations for dropdown
         const locations = [...new Set(listings.map(listing => listing.city).filter((city): city is string => Boolean(city)))];
@@ -70,30 +70,8 @@ const HomePage: React.FC = () => {
   //   }
   // };
 
-  
-  const filteredApartments = apartments.filter(apartment => {
-    const matchesLocation = !searchLocation || 
-      apartment.city?.toLowerCase().includes(searchLocation.toLowerCase());
-    const matchesPrice = apartment.price >= priceRange.min && apartment.price <= priceRange.max;
-    return matchesLocation && matchesPrice;
-  });
-
-  /**
-   * Sort apartments based on selected criteria
-   * JSDoc: Sorts listings by price, date, or other criteria
-   */
-  const sortedApartments = [...filteredApartments].sort((a, b) => {
-    switch (sortBy) {
-      case 'Price: Low to High':
-        return (a.price || 0) - (b.price || 0);
-      case 'Price: High to Low':
-        return (b.price || 0) - (a.price || 0);
-      case 'Recently added':
-        return new Date(b.created_at || '').getTime() - new Date(a.created_at || '').getTime();
-      default:
-        return 0;
-    }
-  });
+  // Featured listings should always show the 3 featured listings without filtering
+  // No filtering needed - just show the 3 featured listings as is
 
   const handleListingClick = (listingId: string) => {
     navigate(`/unit/${listingId}`);
@@ -104,53 +82,16 @@ const HomePage: React.FC = () => {
     }
   };
 
-  // Search and filter functions
-  const handleSearch = async () => {
-    setIsLoading(true);
-    try {
-      setError(null);
-      let filteredListings: ListingView[] = [];
-      
-      // Get listings based on sort preference
-      if (sortBy === 'Recently added') {
-        if (searchLocation) {
-          filteredListings = await ListingService.searchListingsByCity(searchLocation);
-        } else {
-          filteredListings = await ListingService.getRecentlyAddedListings();
-        }
-      } else {
-        if (searchLocation) {
-          filteredListings = await ListingService.searchListingsByCity(searchLocation);
-        } else {
-          filteredListings = await ListingService.getListings();
-        }
-      }
-      
-      // Apply price range filter
-      filteredListings = filteredListings.filter(listing => 
-        listing.price >= priceRange.min && listing.price <= priceRange.max
-      );
-      
-      // Apply additional sorting if not recently added
-      if (sortBy !== 'Recently added') {
-        switch (sortBy) {
-          case 'Price: Low to High':
-            filteredListings.sort((a, b) => a.price - b.price);
-            break;
-          case 'Price: High to Low':
-            filteredListings.sort((a, b) => b.price - a.price);
-            break;
-        }
-      }
-      
-      setApartments(filteredListings);
-    } catch (err) {
-      console.error('Error searching listings:', err);
-      setError('Failed to search listings. Please try again later.');
-    } finally {
-      setIsLoading(false);
-    }
-  };
+  // Search and filter functions - Navigate to all listings page with search params
+  const handleSearch = () => {
+    // Navigate to all listings page with search parameters
+    const params = new URLSearchParams();
+    if (searchLocation) params.append('location', searchLocation);
+    if (priceRange.min > 0) params.append('minPrice', priceRange.min.toString());
+    if (priceRange.max < 10000) params.append('maxPrice', priceRange.max.toString());
+    
+    navigate(`/listings?${params.toString()}`);
+  };  
 
   const handleLocationSelect = (location: string) => {
     setSearchLocation(location);
@@ -204,12 +145,9 @@ const HomePage: React.FC = () => {
 
       {/* Results Section */}
       <ResultsSection
-        apartments={sortedApartments}
+        apartments={apartments}
         isLoading={isLoading}
-        sortBy={sortBy}
-        setSortBy={setSortBy}
         onApartmentClick={handleListingClick}
-        onSearch={handleSearch}
       />
 
       <Footer />

@@ -215,4 +215,62 @@ export class ListingService {
 
     return data || [];
   }
+
+  // Search listings by name/title
+  static async searchListingsByName(searchQuery: string): Promise<ListingView[]> {
+    const { data, error } = await supabase
+      .from('listings_view')
+      .select('*')
+      .ilike('title', `%${searchQuery}%`)
+      .order('is_featured', { ascending: false })
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.error('Error searching listings by name:', error);
+      throw error;
+    }
+
+    return data || [];
+  }
+
+  // Search listings with multiple criteria
+  static async searchListings(searchParams: {
+    name?: string;
+    city?: string;
+    minPrice?: number;
+    maxPrice?: number;
+  }): Promise<ListingView[]> {
+    let query = supabase
+      .from('listings_view')
+      .select('*');
+
+    if (searchParams.name) {
+      query = query.ilike('title', `%${searchParams.name}%`);
+    }
+
+    if (searchParams.city) {
+      query = query.ilike('city', `%${searchParams.city}%`);
+    }
+
+    if (searchParams.minPrice !== undefined) {
+      query = query.gte('price', searchParams.minPrice);
+    }
+
+    if (searchParams.maxPrice !== undefined) {
+      query = query.lte('price', searchParams.maxPrice);
+    }
+
+    query = query
+      .order('is_featured', { ascending: false })
+      .order('created_at', { ascending: false });
+
+    const { data, error } = await query;
+
+    if (error) {
+      console.error('Error searching listings:', error);
+      throw error;
+    }
+
+    return data || [];
+  }
 }

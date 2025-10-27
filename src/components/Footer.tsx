@@ -2,7 +2,8 @@ import React from 'react';
 
 const Footer: React.FC = () => {
   return (
-    <footer className="bg-[#0B5858] text-white py-8 sm:py-10 md:py-12 px-4 sm:px-6 lg:px-8 animate-fade-in-up">
+    <footer className="bg-[#0B5858] text-white py-8 sm:py-10 md:py-12 px-4 sm:px-6 lg:px-8 animate-fade-in-up relative z-10"
+      style={{position: 'relative', zIndex: 10}}>
       <div className="max-w-7xl mx-auto">
         {/* Top section of footer */}
         <div className="flex flex-col md:flex-row justify-between items-center md:items-start mb-6 sm:mb-8">

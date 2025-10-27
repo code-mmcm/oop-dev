@@ -14,6 +14,7 @@ import UnitView from "./pages/unit-view";
 import Updates from "./pages/updates";
 import Calendar from "./pages/calendar";
 import BookingDetails from "./pages/booking-details";
+import Listings from "./pages/listings";
 
 // Global Lenis instance
 let globalLenis: Lenis | null = null;
@@ -58,6 +59,7 @@ function App() {
           <Route path="/updates" element={<Updates />} />
           <Route path="/calendar" element={<Calendar />} />
           <Route path="/booking-details" element={<BookingDetails />} />
+          <Route path="/listings" element={<Listings />} />
         </Routes>
       </Router>
     </AuthProvider>
