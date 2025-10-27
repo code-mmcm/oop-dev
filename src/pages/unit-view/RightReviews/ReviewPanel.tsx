@@ -13,10 +13,32 @@ interface ReviewPanelProps {
     isLoading: boolean; // added optional loading prop
 }
 
+const defaultReviews: Review[] = [
+    {
+        id: 'r1',
+        author: 'Alyssa Argoncillo',
+        rating: 5,
+        text:
+            'The unit was clean and well-maintained. The host was very responsive and helpful throughout our stay. Highly recommend!'
+    },
+    {
+        id: 'r2',
+        author: 'John Doe',
+        rating: 4,
+        text: 'Good place overall. A few small issues but would stay again.'
+    },
+    {
+        id: 'r3',
+        author: 'Jane Smith',
+        rating: 5,
+        text: 'Excellent location and great host — 10/10.'
+    }
+];
+
 const ReviewPanel: React.FC<ReviewPanelProps> = ({ reviews, isLoading = false }) => {
-    // If parent passed an explicit empty array or reviews is undefined, show the empty state.
-    const hasExplicitNoReviews = !reviews || (Array.isArray(reviews) && reviews.length === 0);
-    const items = reviews && reviews.length > 0 ? reviews : [];
+    // If parent passed an explicit empty array, show the empty state.
+    const hasExplicitNoReviews = Array.isArray(reviews) && reviews.length === 0;
+    const items = hasExplicitNoReviews ? [] : reviews && reviews.length > 0 ? reviews : defaultReviews;
     const [index, setIndex] = useState(0);
     const current = items.length > 0 ? items[index] : undefined;
 
@@ -74,20 +96,10 @@ const ReviewPanel: React.FC<ReviewPanelProps> = ({ reviews, isLoading = false })
 
             <div className="mt-3">
                 {hasExplicitNoReviews ? (
-                    <div className="py-8 text-center">
-                        <div className="flex flex-col items-center justify-center">
-                            <div className="mb-4 p-4 bg-gray-50 rounded-full">
-                                <svg className="w-12 h-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-                                </svg>
-                            </div>
-                            <p className="text-lg font-semibold text-gray-700 mb-2" style={{ fontFamily: 'Poppins', fontWeight: 600 }}>
-                                No reviews yet
-                            </p>
-                            <p className="text-sm text-gray-500" style={{ fontFamily: 'Poppins' }}>
-                                Be the first to share your experience
-                            </p>
-                        </div>
+                    <div className="py-6">
+                        <p className="text-lg font-semibold text-gray-700" style={{ fontFamily: 'Poppins', fontWeight: 400 }}>
+                            No reviews yet.
+                        </p>
                     </div>
                 ) : (
                     <>
