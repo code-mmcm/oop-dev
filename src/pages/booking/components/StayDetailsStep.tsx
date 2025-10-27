@@ -1,8 +1,10 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import type { BookingFormData } from '../../../types/booking';
+import type { BookingFormData, BookingAvailability } from '../../../types/booking';
+import { BookingService } from '../../../services/bookingService';
 
 interface StayDetailsStepProps {
   formData: BookingFormData;
+  listingId?: string;
   onUpdate: (data: Partial<BookingFormData>) => void;
   onNext: () => void;
   onCancel: () => void;
@@ -24,7 +26,7 @@ const WEEK_DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
  * - Kept existing calendar/guest UX but tightened useEffect deps and validation.
  */
 
-const StayDetailsStep: React.FC<StayDetailsStepProps> = ({ formData, onUpdate, onNext, onCancel }) => {
+const StayDetailsStep: React.FC<StayDetailsStepProps> = ({ formData, listingId, onUpdate, onNext, onCancel }) => {
   // Helpers for date-only (local) handling
   const parseYMD = (s?: string): Date | null => {
     if (!s) return null;
@@ -44,6 +46,9 @@ const StayDetailsStep: React.FC<StayDetailsStepProps> = ({ formData, onUpdate, o
 
   // Dismissible lead notice
   const [showLeadNotice, setShowLeadNotice] = useState<boolean>(true);
+  
+  // State for existing bookings
+  const [existingBookings, setExistingBookings] = useState<BookingAvailability[]>([]);
 
   // Local selectedDates mirror formData for calendar interactions (date-only)
   const initialStart = toDateOnly(parseYMD(formData.checkInDate));
@@ -57,6 +62,26 @@ const StayDetailsStep: React.FC<StayDetailsStepProps> = ({ formData, onUpdate, o
   const initialDate = selectedDates.start ?? minAllowedDate ?? toDateOnly(new Date()) ?? new Date();
   const [calendarMonth, setCalendarMonth] = useState<number>(initialDate.getMonth());
   const [calendarYear, setCalendarYear] = useState<number>(initialDate.getFullYear());
+
+  // Fetch existing bookings for the listing
+  useEffect(() => {
+    const fetchBookings = async () => {
+      if (!listingId) {
+        setExistingBookings([]);
+        return;
+      }
+
+      try {
+        const bookings = await BookingService.getBookingsForListing(listingId);
+        setExistingBookings(bookings);
+      } catch (error) {
+        console.error('Error fetching existing bookings:', error);
+        setExistingBookings([]);
+      }
+    };
+
+    fetchBookings();
+  }, [listingId]);
 
   // Sync incoming formData into selectedDates and validate against minAllowedDate
   useEffect(() => {
@@ -122,7 +147,7 @@ const StayDetailsStep: React.FC<StayDetailsStepProps> = ({ formData, onUpdate, o
   };
 
   // Guest logic (baseGuests from formData or fallback)
-  const baseGuests: number = (formData as any).baseGuests ?? 2;
+  const baseGuests: number = formData.baseGuests ?? 2;
 
   const handleGuestChange = (field: 'numberOfGuests' | 'extraGuests', value: number) => {
     if (field === 'numberOfGuests') {
@@ -171,6 +196,27 @@ const StayDetailsStep: React.FC<StayDetailsStepProps> = ({ formData, onUpdate, o
   const firstDayOfMonth = (y: number, m: number) => new Date(y, m, 1);
   const lastDayOfMonth = (y: number, m: number) => new Date(y, m + 1, 0);
 
+  // Check if a date is booked
+  const isDateBooked = (date: Date): boolean => {
+    if (!existingBookings.length) return false;
+
+    const checkDate = toDateOnly(date);
+    if (!checkDate) return false;
+
+    return existingBookings.some((booking) => {
+      const bookingStart = toDateOnly(parseYMD(booking.check_in_date));
+      const bookingEnd = toDateOnly(parseYMD(booking.check_out_date));
+      
+      if (!bookingStart || !bookingEnd) return false;
+
+      // Date is booked if it falls within any booking range
+      return (
+        (checkDate.getTime() >= bookingStart.getTime() && 
+         checkDate.getTime() < bookingEnd.getTime())
+      );
+    });
+  };
+
   const generateCalendarDays = () => {
     const first = firstDayOfMonth(calendarYear, calendarMonth);
     const last = lastDayOfMonth(calendarYear, calendarMonth);
@@ -196,7 +242,9 @@ const StayDetailsStep: React.FC<StayDetailsStepProps> = ({ formData, onUpdate, o
 
     for (let d = 1; d <= daysInMonth; d++) {
       const date = new Date(calendarYear, calendarMonth, d);
-      const isDisabled = minAllowedDate ? date.getTime() < minAllowedDate.getTime() : false;
+      const isBeforeMinDate = minAllowedDate ? date.getTime() < minAllowedDate.getTime() : false;
+      const isBooked = isDateBooked(date);
+      const isDisabled = isBeforeMinDate || isBooked;
       const isSelected = !!(startOnly && endOnly && date >= startOnly && date <= endOnly);
       const isStart = !!(startOnly && date.getTime() === startOnly.getTime());
       const isEnd = !!(endOnly && date.getTime() === endOnly.getTime());
@@ -214,7 +262,9 @@ const StayDetailsStep: React.FC<StayDetailsStepProps> = ({ formData, onUpdate, o
     selectedDates.start,
     selectedDates.end,
     // minAllowedDate affects isDisabled flags in calendar rendering
-    minAllowedDate
+    minAllowedDate,
+    // existingBookings affects isDisabled flags (booked dates)
+    existingBookings.length
   ]);
 
   const onCalendarClick = (dayData: { day: number; date: Date; isDisabled?: boolean } | null) => {
@@ -561,13 +611,18 @@ const StayDetailsStep: React.FC<StayDetailsStepProps> = ({ formData, onUpdate, o
 
                     const base = 'w-12 h-12 flex items-center justify-center text-sm select-none';
                     const startOrEnd = cell.isStart || cell.isEnd;
+                    const isBooked = isDateBooked(cell.date);
+                    
+                    // Red text for booked dates, normal styling for others
                     const bgClass = startOrEnd
                       ? 'bg-[#0B5858] text-white'
                       : cell.isSelected
                         ? 'bg-[#DFF6F5] text-[#0B7A76]'
-                        : 'text-gray-700 hover:bg-[#EAF9F8]';
+                        : isBooked
+                          ? 'text-red-500'
+                          : 'text-gray-700 hover:bg-[#EAF9F8]';
                     const roundedClass = startOrEnd ? 'rounded-lg' : (cell.isSelected ? 'rounded-md' : 'rounded-none');
-                    const disabledClass = cell.isDisabled ? 'text-gray-300 opacity-60 cursor-not-allowed hover:bg-transparent' : 'cursor-pointer';
+                    const disabledClass = cell.isDisabled ? 'opacity-60 cursor-not-allowed hover:bg-transparent' : 'cursor-pointer';
                     const interactiveProps = cell.isDisabled ? {} : { onClick: () => onCalendarClick(cell) };
 
                     return (

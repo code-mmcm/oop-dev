@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Navbar from '../../components/Navbar';
 import Footer from '../../components/Footer';
@@ -20,6 +20,8 @@ const ProfileCard: React.FC = () => {
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const lastUserIdRef = useRef<string | null>(null);
+  const hasFetchedProfile = useRef(false);
 
   const [isLargeScreen, setIsLargeScreen] = useState<boolean>(() =>
     typeof window !== 'undefined' ? window.innerWidth >= 1024 : false
@@ -68,7 +70,12 @@ const ProfileCard: React.FC = () => {
       }
     };
 
-    if (!authLoading) {
+    // Only fetch if we haven't fetched yet or if the user has changed
+    if (!authLoading && (!hasFetchedProfile.current || lastUserIdRef.current !== user?.id)) {
+      hasFetchedProfile.current = true;
+      if (user) {
+        lastUserIdRef.current = user.id;
+      }
       fetchProfile();
     }
   }, [user, authLoading]);

@@ -1,5 +1,9 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import type { BookingFormData, BookingSummary, AdditionalService } from '../../../types/booking';
+import { ListingService } from '../../../services/listingService';
+import { useAuth } from '../../../contexts/AuthContext';
+import type { Listing } from '../../../types/listing';
+import { supabase } from '../../../lib/supabase';
 
 interface ConfirmationStepProps {
   formData: BookingFormData;
@@ -103,6 +107,28 @@ const ConfirmationStep: React.FC<ConfirmationStepProps> = ({
   const [isProcessing, setIsProcessing] = useState(false);
   const [status, setStatus] = useState<'idle' | 'processing' | 'success' | 'error'>('idle');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  
+  // Get current user for assigned agent
+  const { user, userProfile } = useAuth();
+  
+  // State for listing data
+  const [listing, setListing] = useState<Listing | null>(null);
+  
+  // Fetch listing data if listingId is available
+  useEffect(() => {
+    const fetchListing = async () => {
+      if (!formData.listingId) return;
+      
+      try {
+        const listingData = await ListingService.getListingById(formData.listingId);
+        setListing(listingData);
+      } catch (error) {
+        console.error('Error fetching listing:', error);
+      }
+    };
+    
+    fetchListing();
+  }, [formData.listingId]);
 
   // defensive helpers
   const services: AdditionalService[] = Array.isArray(formData.additionalServices)
@@ -127,34 +153,36 @@ const ConfirmationStep: React.FC<ConfirmationStepProps> = ({
   const extraGuests = formData.extraGuests ?? 0;
   const totalGuests = primaryGuests + extraGuests;
 
-  // extra-guest rate: default to 250 PHP per extra guest, per night (consistent with other component)
-  const extraGuestRate = formData.extraGuestRate ?? 250; // PHP 250 per extra guest per night
+  // Use listing price from formData instead of hardcoded value
+  const pricePerNight = formData.pricePerNight ?? 2000;
+  const extraGuestFeePerPerson = formData.extraGuestFeePerPerson ?? 250;
+  const baseGuests = formData.baseGuests ?? 2;
 
   const extraGuestChargeTotal = useMemo(() => {
     if (!extraGuests || extraGuests <= 0 || nights <= 0) return 0;
     // per-night fee (extraGuests × rate × nights)
-    return extraGuests * extraGuestRate * nights;
-  }, [extraGuests, extraGuestRate, nights]);
+    return extraGuests * extraGuestFeePerPerson * nights;
+  }, [extraGuests, extraGuestFeePerPerson, nights]);
 
   // Calculate summary charges
   const summary = useMemo<BookingSummary>(() => {
-    const unitCharge = 2000.0; // Base unit charge per night (example)
+    const unitCharge = pricePerNight;
     const amenitiesCharge = services.reduce((total, service) => total + (service.quantity * service.charge), 0);
-    const serviceCharge = 100.0; // Fixed service charge (example)
+    const serviceCharge = 100.0; // Fixed service charge
     const discount = 0.0; // No discount for now
     const totalCharges = (unitCharge * Math.max(1, nights)) + amenitiesCharge + extraGuestChargeTotal + serviceCharge - discount;
 
     return {
       nights,
       extraGuests,
-      baseGuests: 2, // Default base guests
+      baseGuests,
       unitCharge,
       amenitiesCharge,
       serviceCharge,
       discount,
       totalCharges
     };
-  }, [services, nights, extraGuestChargeTotal, extraGuests]);
+  }, [services, nights, extraGuestChargeTotal, extraGuests, pricePerNight, baseGuests]);
 
   const safeString = (v?: string) => (v ? v : '—');
 
@@ -180,14 +208,14 @@ const ConfirmationStep: React.FC<ConfirmationStepProps> = ({
     return `BK-${String(Date.now()).slice(-6)}`;
   }, [formData.bookingReference]);
 
-  // Location details (structured)
+  // Location details (structured) - use listing data if available
   const location = {
-    address:
-      formData.locationAddress ||
-      'Bajada, J.P. Laurel Ave, Poblacion District, Davao City, 8000 Davao del Sur',
+    address: listing?.location || formData.locationAddress || 'Bajada, J.P. Laurel Ave, Poblacion District, Davao City, 8000 Davao del Sur',
     landmark: formData.locationLandmark || 'Near SM Lanang Premier / Abreeza Mall',
     parking: formData.locationParking || 'On-site parking available (paid)',
-    coords: formData.locationCoords || '7.0764, 125.6132',
+    coords: listing?.latitude && listing?.longitude 
+      ? `${listing.latitude}, ${listing.longitude}` 
+      : formData.locationCoords || '7.0764, 125.6132',
     checkInInstructions: formData.checkInInstructions || 'Meet at the lobby. Photo ID required on check-in.',
     additionalNotes: formData.locationNotes || ''
   };
@@ -215,9 +243,10 @@ const ConfirmationStep: React.FC<ConfirmationStepProps> = ({
   const notesTruncated = useMemo(() => countWords(rawNotes) > MAX_NOTES_WORDS, [rawNotes]);
 
   // --- Design tweak: compact, well-aligned property header layout ---
-  const propertyType = formData.propertyType || 'Condominium';
-  const propertyTitle = formData.propertyTitle || 'Kelsey Deluxe Condominium';
-  const propertyLocationShort = formData.propertyLocationShort || 'Bajada, J.P. Laurel Ave, Poblacion District, Davao City, 8000 Davao del Sur';
+  const propertyType = listing?.property_type || formData.propertyType || 'Condominium';
+  const propertyTitle = listing?.title || formData.propertyTitle || 'Kelsey Deluxe Condominium';
+  const propertyLocationShort = listing?.location || formData.propertyLocationShort || 'Bajada, J.P. Laurel Ave, Poblacion District, Davao City, 8000 Davao del Sur';
+  const propertyImage = listing?.main_image_url || formData.propertyImage || '/heroimage.png';
 
   // Payment display helpers: show details based on formData.paymentMethod
   const paymentMethodLabel = (method?: string) => {
@@ -242,18 +271,102 @@ const ConfirmationStep: React.FC<ConfirmationStepProps> = ({
     setErrorMessage(null);
 
     try {
-      const result = onConfirm();
-      // if onConfirm returns a Promise, await it
-      if (result && typeof (result as Promise<void>).then === 'function') {
-        await result;
+      // Save booking to Supabase
+      if (!user) {
+        throw new Error('User must be logged in to create a booking');
       }
+
+      if (!formData.listingId) {
+        throw new Error('Listing ID is required');
+      }
+
+      // Create the booking record
+      // assigned_agent is the current logged-in user (the agent creating the booking)
+      // Note: There is NO user_id field in the booking table - only assigned_agent
+      const bookingData = {
+        listing_id: formData.listingId,
+        check_in_date: formData.checkInDate,
+        check_out_date: formData.checkOutDate,
+        nights: nights,
+        num_guests: primaryGuests,
+        extra_guests: extraGuests,
+        unit_charge: pricePerNight.toString(),
+        base_guest_included: baseGuests,
+        extra_guest_fee: extraGuestFeePerPerson,
+        amenities_charge: summary.amenitiesCharge,
+        service_charge: summary.serviceCharge,
+        discount: summary.discount,
+        subtotal: summary.unitCharge * nights,
+        total_amount: summary.totalCharges,
+        currency: 'PHP',
+        status: 'pending',
+        assigned_agent: user.id, // Current logged-in user is the assigned agent
+        landmark: formData.locationLandmark,
+        parking_info: formData.locationParking,
+        notes: formData.requestDescription,
+        important_info: {},
+        add_ons: formData.additionalServices,
+        request_description: formData.requestDescription
+      };
+
+      console.log('Creating booking with:', {
+        assignedAgentId: user.id,
+        assignedAgentEmail: user.email,
+        assignedAgentName: userProfile?.fullname || 'N/A',
+        listingId: formData.listingId
+      });
+
+      // Insert booking into Supabase
+      const { data: booking, error: bookingError } = await supabase
+        .from('booking')
+        .insert([bookingData])
+        .select()
+        .single();
+
+      if (bookingError) {
+        console.error('Booking creation error:', bookingError);
+        throw new Error(`Failed to create booking: ${bookingError.message}`);
+      }
+
+      console.log('Booking created successfully:', {
+        bookingId: booking?.id,
+        userId: booking?.user_id,
+        listingId: booking?.listing_id
+      });
+
+      // Create client_details record if we have the info
+      if (formData.firstName && formData.lastName) {
+        const clientDetailsData = {
+          booking_id: booking.id,
+          first_name: formData.firstName,
+          last_name: formData.lastName,
+          nickname: formData.nickname || null,
+          email: formData.email || null,
+          contact_number: formData.preferredContactNumber ? parseFloat(formData.preferredContactNumber.replace(/\D/g, '')) : null,
+          gender: formData.gender || null,
+          birth_date: formData.dateOfBirth || null,
+          preferred_contact: formData.contactType || null,
+          referred_by: formData.referredBy || null
+        };
+
+        const { error: clientError } = await supabase
+          .from('client_details')
+          .insert([clientDetailsData]);
+
+        if (clientError) {
+          console.error('Error creating client details:', clientError);
+          // Don't throw - booking was created successfully
+        }
+      }
+
       setStatus('success');
 
-      // keep success visible briefly then close modal
+      // Keep the processing modal open to show success state
+      // Redirect after showing success - don't call onConfirm as it closes the form
       setTimeout(() => {
-        setIsProcessing(false);
-        setStatus('idle');
-      }, 1500);
+        // Redirect to booking details page after showing success
+        window.location.href = `/booking-details/${booking.id}`;
+      }, 2000);
     } catch (err: any) {
       setStatus('error');
       setErrorMessage(err?.message || 'An error occurred while confirming your booking.');
@@ -303,7 +416,7 @@ const ConfirmationStep: React.FC<ConfirmationStepProps> = ({
             <div className="flex items-center gap-4 border border-gray-200 rounded-lg p-4">
               <div className="w-36 h-24 flex-shrink-0 overflow-hidden rounded-md">
                 <img
-                  src="/heroimage.png"
+                  src={propertyImage}
                   alt={propertyTitle}
                   className="w-full h-full object-cover"
                 />
@@ -371,7 +484,7 @@ const ConfirmationStep: React.FC<ConfirmationStepProps> = ({
                 {extraGuestChargeTotal > 0 && (
                   <div className="flex justify-between">
                     <span>
-                      Extra guest charges ({extraGuests} × {formatCurrency(extraGuestRate)} × {nights} night{nights !== 1 ? 's' : ''})
+                      Extra guest charges ({extraGuests} × {formatCurrency(extraGuestFeePerPerson)} × {nights} night{nights !== 1 ? 's' : ''})
                     </span>
                     <span>{formatCurrency(extraGuestChargeTotal)}</span>
                   </div>
@@ -616,24 +729,29 @@ const ConfirmationStep: React.FC<ConfirmationStepProps> = ({
                 </div>
               </div>
 
-              {/* Assigned Agent (unchanged) */}
+              {/* Assigned Agent - use logged-in user */}
               <div className="border border-gray-200 rounded-lg p-4">
                 <h5 className="text-sm font-semibold mb-3" style={{ fontFamily: 'Poppins' }}>Assigned Agent</h5>
                 <div className="flex items-start gap-3">
                   <div className="w-10 h-10 rounded-full bg-[#E8F8F7] text-[#0B5858] flex items-center justify-center font-semibold" style={{ fontFamily: 'Poppins' }}>
                     {(() => {
-                      const name = formData.assignedAgentName || 'Alyssa Angarcillo';
+                      // Use logged-in user's name, fallback to formData or default
+                      const name = userProfile?.fullname || formData.assignedAgentName || user?.email || 'Agent';
                       const parts = name.split(' ').filter(Boolean);
-                      const initials = parts.length >= 2 ? (parts[0][0] + parts[1][0]) : (parts[0] ? parts[0].slice(0,2) : 'AA');
+                      const initials = parts.length >= 2 ? (parts[0][0] + parts[1][0]) : (parts[0] ? parts[0].slice(0,2) : 'AG');
                       return initials.toUpperCase();
                     })()}
                   </div>
 
                   <div className="flex-1 text-sm" style={{ fontFamily: 'Poppins' }}>
-                    <div className="font-medium break-words" style={{ wordBreak: 'break-word' }}>{formData.assignedAgentName || 'Alyssa Angarcillo'}</div>
+                    <div className="font-medium break-words" style={{ wordBreak: 'break-word' }}>
+                      {userProfile?.fullname || formData.assignedAgentName || user?.email || 'Agent'}
+                    </div>
                     <div className="text-xs text-gray-500 mt-1">{formData.assignedAgentRole || 'Booking Agent'}</div>
-                    {formData.assignedAgentContact && (
-                      <div className="text-xs text-gray-500 mt-1 break-words" style={{ wordBreak: 'break-word' }}>{formData.assignedAgentContact}</div>
+                    {(userProfile?.contact_number || formData.assignedAgentContact) && (
+                      <div className="text-xs text-gray-500 mt-1 break-words" style={{ wordBreak: 'break-word' }}>
+                        {userProfile?.contact_number || formData.assignedAgentContact}
+                      </div>
                     )}
                   </div>
                 </div>
@@ -931,18 +1049,20 @@ const ConfirmationStep: React.FC<ConfirmationStepProps> = ({
                     Retry
                   </button>
                 </>
+              ) : status === 'success' ? (
+                <div className="text-sm text-gray-500" style={{ fontFamily: 'Poppins' }}>
+                  Redirecting...
+                </div>
               ) : (
                 <button
                   onClick={() => {
-                    // if still processing do nothing; if success hide modal
-                    if (status === 'processing') return;
                     setIsProcessing(false);
                     setStatus('idle');
                   }}
                   className="px-4 py-2 bg-[#0B5858] text-white rounded text-sm"
                   style={{ fontFamily: 'Poppins' }}
                 >
-                  {status === 'processing' ? 'Processing...' : 'Close'}
+                  Close
                 </button>
               )}
             </div>

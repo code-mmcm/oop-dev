@@ -91,7 +91,7 @@ const AdminPanel: React.FC = React.memo(() => {
 
       // Fetch total bookings
       const { count: bookingCount, error: bookingError } = await supabase
-        .from('bookings')
+        .from('booking')
         .select('*', { count: 'exact', head: true });
 
       // Fetch total listings
@@ -192,7 +192,7 @@ const AdminPanel: React.FC = React.memo(() => {
         dayEnd.setHours(23, 59, 59, 999); // End of day
         
         const { count: bookingCount, error } = await supabase
-          .from('bookings')
+          .from('booking')
           .select('*', { count: 'exact', head: true })
           .gte('created_at', dayStart.toISOString())
           .lte('created_at', dayEnd.toISOString());
@@ -224,6 +224,8 @@ const AdminPanel: React.FC = React.memo(() => {
   }, []);
 
   // Check authentication and admin status
+  const [hasLoaded, setHasLoaded] = useState(false);
+
   useEffect(() => {
     if (!loading) {
       // If user is not authenticated, redirect to parent directory
@@ -238,12 +240,15 @@ const AdminPanel: React.FC = React.memo(() => {
         return;
       }
 
-      // User is admin, proceed with data fetching
-      fetchStats();
-      fetchWeeklyUserData();
-      fetchWeeklyBookingData();
+      // Only fetch data once
+      if (!hasLoaded) {
+        setHasLoaded(true);
+        fetchStats();
+        fetchWeeklyUserData();
+        fetchWeeklyBookingData();
+      }
     }
-  }, [loading, user, isAdmin, navigate, fetchStats, fetchWeeklyUserData, fetchWeeklyBookingData]);
+  }, [loading, user, isAdmin, navigate, hasLoaded]);
 
 
   if (loading) {

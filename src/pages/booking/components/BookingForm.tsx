@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import type { BookingFormData, BookingStep } from '../../../types/booking';
 import StayDetailsStep from './StayDetailsStep';
 import ClientInfoStep from './ClientInfoStep';
@@ -7,17 +7,27 @@ import PaymentInfoStep from './PaymentInfoStep';
 import ConfirmationStep from './ConfirmationStep';
 
 interface BookingFormProps {
+  listingId?: string;
+  pricePerNight?: number;
+  priceUnit?: string;
+  extraGuestFeePerPerson?: number;
+  baseGuests?: number;
   onCancel: () => void;
   onComplete: (formData: BookingFormData) => void;
 }
 
-const BookingForm: React.FC<BookingFormProps> = ({ onCancel, onComplete }) => {
+const BookingForm: React.FC<BookingFormProps> = ({ listingId, pricePerNight, priceUnit, extraGuestFeePerPerson, baseGuests, onCancel, onComplete }) => {
   const [currentStep, setCurrentStep] = useState(0);
 
   // Initial form data filled out with all commonly-referenced fields so child steps
   // can safely read/update them without TS/runtime issues.
   const [formData, setFormData] = useState<BookingFormData>({
-    // Stay Details
+    // Listing and Stay Details
+    listingId: listingId,
+    pricePerNight: pricePerNight,
+    priceUnit: priceUnit,
+    extraGuestFeePerPerson: extraGuestFeePerPerson,
+    baseGuests: baseGuests,
     checkInDate: '',
     checkInTime: '12:00',
     checkOutDate: '',
@@ -80,6 +90,18 @@ const BookingForm: React.FC<BookingFormProps> = ({ onCancel, onComplete }) => {
     setFormData(prev => ({ ...prev, ...data }));
   };
 
+  // Update formData when pricing props change
+  useEffect(() => {
+    setFormData(prev => ({
+      ...prev,
+      listingId,
+      pricePerNight,
+      priceUnit,
+      extraGuestFeePerPerson,
+      baseGuests
+    }));
+  }, [listingId, pricePerNight, priceUnit, extraGuestFeePerPerson, baseGuests]);
+
   const nextStep = () => {
     if (currentStep < steps.length - 1) {
       setCurrentStep(prev => prev + 1);
@@ -102,6 +124,7 @@ const BookingForm: React.FC<BookingFormProps> = ({ onCancel, onComplete }) => {
         return (
           <StayDetailsStep
             formData={formData}
+            listingId={listingId}
             onUpdate={updateFormData}
             onNext={nextStep}
             onCancel={onCancel}

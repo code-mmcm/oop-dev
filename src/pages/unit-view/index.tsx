@@ -175,18 +175,17 @@ const UnitView: React.FC = () => {
 
   const handleCompleteBooking = async (formData: BookingFormData) => {
     try {
-      // Here you would typically save the booking to your backend
+      // Booking is now saved in ConfirmationStep
       console.log('Booking completed for property:', listing?.id, formData);
       
-      // For now, just show success and return to property view
-      alert('Booking completed successfully!');
+      // Show success and return to property view
       setShowBookingForm(false);
       
       // You could also navigate to a confirmation page or booking list
       // navigate('/booking');
     } catch (error) {
       console.error('Error completing booking:', error);
-      alert('Error completing booking. Please try again.');
+      // Error handling is done in ConfirmationStep
     }
   };
 
@@ -332,10 +331,36 @@ const UnitView: React.FC = () => {
 
   // Show booking form if user clicked Reserve
   if (showBookingForm) {
+    // Calculate price per night based on price unit
+    const calculatePricePerNight = () => {
+      if (!listing?.price || !listing?.price_unit) return 2000; // Fallback price
+      
+      const price = listing.price;
+      const unit = listing.price_unit.toLowerCase();
+      
+      switch (unit) {
+        case 'daily':
+          return price;
+        case 'weekly':
+          return Math.round(price / 7);
+        case 'monthly':
+          return Math.round(price / 30);
+        case 'yearly':
+          return Math.round(price / 365);
+        default:
+          return price; // Default to daily if unknown
+      }
+    };
+
     return (
       <div className="min-h-screen bg-gray-50">
         <Navbar />
         <BookingForm
+          listingId={listing?.id}
+          pricePerNight={calculatePricePerNight()}
+          priceUnit={listing?.price_unit || 'daily'}
+          extraGuestFeePerPerson={250} // Default extra guest fee per person
+          baseGuests={2} // Default base guests included
           onCancel={handleCancelBooking}
           onComplete={handleCompleteBooking}
         />

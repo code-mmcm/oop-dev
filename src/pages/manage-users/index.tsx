@@ -39,10 +39,7 @@ const ManageUsers: React.FC = () => {
     }
   }, [loading, roleLoading, user, isAdmin, navigate]);
 
-  // Reset fetch flag when user changes
-  useEffect(() => {
-    hasFetchedUsers.current = false;
-  }, [user]);
+  const lastUserIdRef = useRef<string | null>(null);
 
   useEffect(() => {
     let isMounted = true;
@@ -132,15 +129,17 @@ const ManageUsers: React.FC = () => {
     };
 
     // Only fetch once when component mounts and user is confirmed to be admin
-    if (!loading && !roleLoading && user && isAdmin && !hasFetchedUsers.current) {
+    // Also reload if the current user changes
+    if (!loading && !roleLoading && user && isAdmin && (lastUserIdRef.current !== user.id || !hasFetchedUsers.current)) {
       hasFetchedUsers.current = true;
+      lastUserIdRef.current = user.id;
       fetchUsers();
     }
 
     return () => {
       isMounted = false;
     };
-  }, [loading, roleLoading, user, isAdmin]); // Keep dependencies but add condition to prevent re-fetch
+  }, [loading, roleLoading, user, isAdmin]);
 
   const updateUserRole = async (userId: string, newRole: string) => {
     try {
