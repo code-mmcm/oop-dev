@@ -34,7 +34,6 @@ const NewListingForm: React.FC<NewListingFormProps> = ({ onSuccess, onCancel }) 
   const [amenityInput, setAmenityInput] = useState('');
   
   const [formData, setFormData] = useState({
-    unit_id: '',
     title: '',
     description: '',
     price: '',
@@ -95,13 +94,19 @@ const NewListingForm: React.FC<NewListingFormProps> = ({ onSuccess, onCancel }) 
   ];
 
   const steps = [
-    { id: 1, title: 'Basic Information', description: 'Title, type, description, location and pricing' },
-    { id: 2, title: 'Property Details', description: 'Bedrooms, bathrooms, and amenities' },
-    { id: 3, title: 'Images', description: 'Main image and additional photos' },
-    { id: 4, title: 'Location Map', description: 'Set exact property location on map' }
+    { id: 'basic-info', title: 'Basic Information', completed: false, active: true },
+    { id: 'property-details', title: 'Property Details', completed: false, active: false },
+    { id: 'images', title: 'Images', completed: false, active: false },
+    { id: 'location-map', title: 'Location Map', completed: false, active: false }
   ];
 
-  const totalSteps = steps.length;
+  const getUpdatedSteps = () => {
+    return steps.map((step, index) => ({
+      ...step,
+      completed: index < currentStep - 1,
+      active: index === currentStep - 1
+    }));
+  };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value, type } = e.target;
@@ -307,7 +312,7 @@ const NewListingForm: React.FC<NewListingFormProps> = ({ onSuccess, onCancel }) 
 
   // Navigation functions
   const nextStep = () => {
-    if (currentStep < totalSteps && isStepValid(currentStep)) {
+    if (currentStep < steps.length && isStepValid(currentStep)) {
       setCurrentStep(prev => prev + 1);
       setError(null);
     }
@@ -340,7 +345,7 @@ const NewListingForm: React.FC<NewListingFormProps> = ({ onSuccess, onCancel }) 
 
     try {
       // Validate required fields
-      if (!formData.unit_id || !formData.title || !formData.city || !formData.price) {
+      if (!formData.title || !formData.city || !formData.price) {
         throw new Error('Please fill in all required fields');
       }
 
@@ -348,7 +353,6 @@ const NewListingForm: React.FC<NewListingFormProps> = ({ onSuccess, onCancel }) 
       const allImageUrls = uploadedImages.map(img => img.url);
 
       const listingData: Omit<Listing, 'id' | 'created_at' | 'updated_at'> = {
-        unit_id: formData.unit_id,
         title: formData.title,
         description: formData.description || undefined,
         price: parseFloat(formData.price),
@@ -427,25 +431,6 @@ const NewListingForm: React.FC<NewListingFormProps> = ({ onSuccess, onCancel }) 
     <div className="space-y-6">
       {/* Basic Information Section */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div>
-          <label className="block text-sm font-semibold mb-2" style={{fontFamily: 'Poppins', color: '#0B5858'}}>
-            Unit ID <span style={{color: '#B84C4C'}}>*</span>
-          </label>
-          <input
-            type="text"
-            name="unit_id"
-            value={formData.unit_id}
-            onChange={handleInputChange}
-            required
-            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-offset-2 focus:border-transparent transition-all duration-200"
-            style={{
-              fontFamily: 'Poppins',
-              '--tw-ring-color': '#549F74'
-            } as React.CSSProperties & { '--tw-ring-color': string }}
-            placeholder="e.g., Floor 2, Room 201"
-          />
-        </div>
-
         <div>
           <label className="block text-sm font-semibold mb-2" style={{fontFamily: 'Poppins', color: '#0B5858'}}>
             Title <span style={{color: '#B84C4C'}}>*</span>
@@ -902,73 +887,49 @@ const NewListingForm: React.FC<NewListingFormProps> = ({ onSuccess, onCancel }) 
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Header */}
         <div className="mb-8">
-          {/* Enhanced Progress Indicator */}
-          <div className="flex items-center justify-center space-x-6 mb-12 animate-fade-in">
-            {steps.map((step, index) => (
-              <div key={step.id} className="flex items-center">
-                <div className="flex flex-col items-center relative">
-                  {/* Step Circle with Enhanced Design */}
-                  <div className="relative">
-                    {/* Outer Ring for Current Step */}
-                    {step.id === currentStep && (
-                      <div className="absolute -inset-2 rounded-full bg-gradient-to-r from-[#0B5858] to-[#558B8B] animate-pulse opacity-30"></div>
-                    )}
-                    
-                    {/* Main Circle */}
-                    <div className={`relative w-14 h-14 rounded-full flex items-center justify-center text-lg font-bold transition-all duration-500 ease-in-out transform hover:scale-110 shadow-lg ${
-                      step.id === currentStep
-                        ? 'bg-gradient-to-br from-[#0B5858] to-[#558B8B] text-white shadow-[#0B5858]/30'
-                        : step.id < currentStep
-                        ? 'bg-gradient-to-br from-[#0B5858] to-[#558B8B] text-white shadow-[#0B5858]/20'
-                        : 'bg-white text-[#558B8B] border-2 border-[#558B8B] shadow-gray-200 hover:shadow-[#558B8B]/20'
-                    }`}
-                    style={{fontFamily: 'Poppins'}}
-                    >
-                      {step.id < currentStep ? (
-                        <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 20 20">
-                          <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                        </svg>
-                      ) : (
-                        <span className="font-bold">{step.id}</span>
-                      )}
+            {/* Progress Indicator */}
+            <div className="flex items-center justify-center">
+              <div className="flex items-center space-x-4">
+                {getUpdatedSteps().map((step, index) => (
+                  <React.Fragment key={step.id}>
+                    <div className="flex flex-col items-center">
+                      <div
+                        className={`w-8 h-8 rounded-full flex items-center justify-center ${
+                          step.completed
+                            ? 'bg-[#0B5858] text-white'
+                            : step.active
+                            ? 'bg-white border-2 border-[#0B5858] text-[#0B5858]'
+                            : 'bg-gray-300 text-white'
+                        }`}
+                      >
+                        {step.completed ? (
+                          <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                            <path
+                              fillRule="evenodd"
+                              d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+                              clipRule="evenodd"
+                            />
+                          </svg>
+                        ) : step.active ? (
+                          <div className="w-2 h-2 rounded-full bg-[#0B5858]" />
+                        ) : (
+                          <span className="text-xs font-medium">{index + 1}</span>
+                        )}
+                      </div>
+                      <span
+                        className={`text-xs mt-2 ${step.active ? 'text-[#0B5858] font-medium' : 'text-gray-500'}`}
+                        style={{ fontFamily: 'Poppins' }}
+                      >
+                        {step.title}
+                      </span>
                     </div>
-                    
-                    {/* Progress Ring for Current Step */}
-                    {step.id === currentStep && (
-                      <div className="absolute inset-0 rounded-full border-2 border-white/20"></div>
+                    {index < steps.length - 1 && (
+                      <div className={`w-16 h-0.5 ${step.completed ? 'bg-[#0B5858]' : 'bg-gray-300'}`} />
                     )}
-                  </div>
-                  
-                  {/* Step Label with Enhanced Styling */}
-                  <div className="mt-4 text-center">
-                    <span className={`text-sm font-semibold transition-colors duration-300 ${
-                      step.id === currentStep 
-                        ? 'text-[#0B5858]' 
-                        : step.id < currentStep 
-                        ? 'text-[#0B5858]' 
-                        : 'text-gray-500'
-                    }`}
-                    style={{fontFamily: 'Poppins'}}
-                    >
-                      {step.title}
-                    </span>
-                  </div>
-                </div>
-                
-                {/* Enhanced Connecting Line */}
-                {index < steps.length - 1 && (
-                  <div className="relative mx-6">
-                    <div className="w-20 h-0.5 bg-gray-200 rounded-full"></div>
-                    <div className={`absolute top-0 left-0 h-0.5 rounded-full transition-all duration-700 ease-out ${
-                      step.id < currentStep 
-                        ? 'w-full bg-[#F1C40F]' 
-                        : 'w-0 bg-[#F1C40F]'
-                    }`}></div>
-                  </div>
-                )}
+                  </React.Fragment>
+                ))}
               </div>
-            ))}
-          </div>
+            </div>
         </div>
 
         {/* Main White Card */}
@@ -1011,7 +972,7 @@ const NewListingForm: React.FC<NewListingFormProps> = ({ onSuccess, onCancel }) 
                   </button>
                 )}
                 
-                {currentStep < totalSteps ? (
+                {currentStep < steps.length ? (
                   <button
                     type="button"
                     onClick={nextStep}
