@@ -10,22 +10,8 @@ interface StayDetailsStepProps {
 
 const WEEK_DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
-/**
- * StayDetailsStep
- *
- * Notes / Fixes applied:
- * - The summary (subtotal / extra guest fees / total) is computed from the canonical formData values
- *   (formData.checkInDate, formData.checkOutDate, formData.pricePerNight, formData.extraGuestFeePerPerson),
- *   rather than only the local selectedDates. This prevents stale or out-of-sync totals.
- * - Date math is done with "date-only" local midnight values to avoid timezone shifts.
- * - All derived values (nights, subtotal, fees, total) use useMemo with correct dependency lists so they
- *   update when formData changes.
- * - Defensive guards: price and fee defaults, and extraGuests floored to integers.
- * - Kept existing calendar/guest UX but tightened useEffect deps and validation.
- */
-
 const StayDetailsStep: React.FC<StayDetailsStepProps> = ({ formData, onUpdate, onNext, onCancel }) => {
-  // Helpers for date-only (local) handling
+  // --- Date helpers ---
   const parseYMD = (s?: string): Date | null => {
     if (!s) return null;
     const [y, m, d] = s.split('-').map(Number);
@@ -42,10 +28,10 @@ const StayDetailsStep: React.FC<StayDetailsStepProps> = ({ formData, onUpdate, o
   const leadDays = now.getHours() >= cutoffHour ? 2 : 1;
   const minAllowedDate = toDateOnly(new Date(now.getFullYear(), now.getMonth(), now.getDate() + leadDays));
 
-  // Dismissible lead notice
+  // UI state
   const [showLeadNotice, setShowLeadNotice] = useState<boolean>(true);
 
-  // Local selectedDates mirror formData for calendar interactions (date-only)
+  // mirror formData dates for calendar interactions (date-only)
   const initialStart = toDateOnly(parseYMD(formData.checkInDate));
   const initialEnd = toDateOnly(parseYMD(formData.checkOutDate));
   const [selectedDates, setSelectedDates] = useState<{ start: Date | null; end: Date | null }>({
@@ -53,10 +39,16 @@ const StayDetailsStep: React.FC<StayDetailsStepProps> = ({ formData, onUpdate, o
     end: initialEnd
   });
 
-  // Calendar month/year state (start or minAllowedDate)
   const initialDate = selectedDates.start ?? minAllowedDate ?? toDateOnly(new Date()) ?? new Date();
   const [calendarMonth, setCalendarMonth] = useState<number>(initialDate.getMonth());
   const [calendarYear, setCalendarYear] = useState<number>(initialDate.getFullYear());
+
+  // Modal / picker visibility + which field opened the date modal
+  const [isDateModalOpen, setDateModalOpen] = useState(false);
+  const [dateModalField, setDateModalField] = useState<'checkIn' | 'checkOut' | null>(null);
+
+  const [activeTimeField, setActiveTimeField] = useState<'checkInTime' | 'checkOutTime' | null>(null);
+  const [isTimeSheetOpen, setTimeSheetOpen] = useState(false);
 
   // Sync incoming formData into selectedDates and validate against minAllowedDate
   useEffect(() => {
@@ -64,19 +56,17 @@ const StayDetailsStep: React.FC<StayDetailsStepProps> = ({ formData, onUpdate, o
     const end = toDateOnly(parseYMD(formData.checkOutDate));
 
     if (start && minAllowedDate && start.getTime() < minAllowedDate.getTime()) {
-      // clear invalid start
       onUpdate({ checkInDate: '' });
       setSelectedDates(prev => ({ ...prev, start: null }));
     }
 
     if (end && minAllowedDate && end.getTime() < minAllowedDate.getTime()) {
-      // clear invalid end
       onUpdate({ checkOutDate: '' });
       setSelectedDates(prev => ({ ...prev, end: null }));
     }
 
-    if (start && end && end.getTime() < start.getTime()) {
-      // invalid range -> clear end
+    if (start && end && end.getTime() <= start.getTime()) {
+      // enforce checkout strictly after checkin
       onUpdate({ checkOutDate: '' });
       setSelectedDates(prev => ({ ...prev, end: null }));
     }
@@ -88,42 +78,25 @@ const StayDetailsStep: React.FC<StayDetailsStepProps> = ({ formData, onUpdate, o
     // include minAllowedDate and onUpdate because we call them above
   }, [formData.checkInDate, formData.checkOutDate, minAllowedDate, onUpdate]);
 
-  // Handle direct input changes
-  const handleDateChange = (field: 'checkInDate' | 'checkOutDate', value: string) => {
-    const d = toDateOnly(parseYMD(value));
-    // Prevent selecting earlier than minAllowedDate
-    if (d && minAllowedDate && d.getTime() < minAllowedDate.getTime()) return;
-
-    onUpdate({ [field]: value });
-
-    if (field === 'checkInDate') {
-      setSelectedDates(prev => ({ ...prev, start: d ?? null }));
-      if (d) {
-        setCalendarMonth(d.getMonth());
-        setCalendarYear(d.getFullYear());
-      }
-      // If new check-in is after or equal to existing check-out, clear check-out
-      const currentEnd = toDateOnly(parseYMD(formData.checkOutDate));
-      if (currentEnd && d && currentEnd.getTime() <= d.getTime()) {
-        onUpdate({ checkOutDate: '' });
-        setSelectedDates(prev => ({ ...prev, end: null }));
-      }
-    } else {
-      setSelectedDates(prev => ({ ...prev, end: d ?? null }));
-      if (d) {
-        setCalendarMonth(d.getMonth());
-        setCalendarYear(d.getFullYear());
+  // --- Time combobox & sheet (converted: use the same time sheet on all breakpoints) ---
+  const generateTimeOptions = (incrementMinutes = 30) => {
+    const opts: string[] = [];
+    for (let h = 0; h < 24; h++) {
+      for (let m = 0; m < 60; m += incrementMinutes) {
+        const hh = String(h).padStart(2, '0');
+        const mm = String(m).padStart(2, '0');
+        opts.push(`${hh}:${mm}`);
       }
     }
+    return opts;
   };
-
+  const timeOptions = useMemo(() => generateTimeOptions(30), []);
   const handleTimeChange = (field: 'checkInTime' | 'checkOutTime', value: string) => {
     onUpdate({ [field]: value });
   };
 
-  // Guest logic (baseGuests from formData or fallback)
+  // Guests logic (unchanged)
   const baseGuests: number = (formData as any).baseGuests ?? 2;
-
   const handleGuestChange = (field: 'numberOfGuests' | 'extraGuests', value: number) => {
     if (field === 'numberOfGuests') {
       const clamped = Math.min(Math.max(1, Math.floor(value)), baseGuests);
@@ -133,7 +106,6 @@ const StayDetailsStep: React.FC<StayDetailsStepProps> = ({ formData, onUpdate, o
       onUpdate({ extraGuests: clamped });
     }
   };
-
   const incrementGuest = (field: 'numberOfGuests' | 'extraGuests') => {
     if (field === 'numberOfGuests') {
       const curr = formData.numberOfGuests ?? 1;
@@ -148,7 +120,6 @@ const StayDetailsStep: React.FC<StayDetailsStepProps> = ({ formData, onUpdate, o
       }
     }
   };
-
   const decrementGuest = (field: 'numberOfGuests' | 'extraGuests') => {
     if (field === 'numberOfGuests') {
       const curr = formData.numberOfGuests ?? 1;
@@ -167,7 +138,7 @@ const StayDetailsStep: React.FC<StayDetailsStepProps> = ({ formData, onUpdate, o
       formData.checkOutTime
     );
 
-  // Calendar utilities
+  // --- Calendar generation and logic (unchanged for inline Quick Calendar) ---
   const firstDayOfMonth = (y: number, m: number) => new Date(y, m, 1);
   const lastDayOfMonth = (y: number, m: number) => new Date(y, m + 1, 0);
 
@@ -213,10 +184,10 @@ const StayDetailsStep: React.FC<StayDetailsStepProps> = ({ formData, onUpdate, o
     calendarYear,
     selectedDates.start,
     selectedDates.end,
-    // minAllowedDate affects isDisabled flags in calendar rendering
     minAllowedDate
   ]);
 
+  // The inline quick calendar (unchanged) uses range behavior and existing onCalendarClick
   const onCalendarClick = (dayData: { day: number; date: Date; isDisabled?: boolean } | null) => {
     if (!dayData || dayData.isDisabled) return;
     const clickedDate = toDateOnly(dayData.date)!;
@@ -243,6 +214,39 @@ const StayDetailsStep: React.FC<StayDetailsStepProps> = ({ formData, onUpdate, o
     }
   };
 
+  // New: modal calendar click handler that sets only the field that opened the modal (single-date pick)
+  const onModalCalendarClick = (dayData: { day: number; date: Date; isDisabled?: boolean } | null) => {
+    if (!dayData || dayData.isDisabled || !dateModalField) return;
+    const clickedDate = toDateOnly(dayData.date)!;
+    const dateStr = formatYMD(clickedDate);
+
+    if (dateModalField === 'checkIn') {
+      onUpdate({ checkInDate: dateStr });
+      // keep existing checkOutDate as-is (no auto-clearing here besides validation in effect)
+      setSelectedDates(prev => ({ ...prev, start: clickedDate }));
+
+      // if the chosen check-in is >= current checkout, clear checkout (to keep invariant)
+      const currentEnd = toDateOnly(parseYMD(formData.checkOutDate));
+      if (currentEnd && currentEnd.getTime() <= clickedDate.getTime()) {
+        onUpdate({ checkOutDate: '' });
+        setSelectedDates(prev => ({ ...prev, end: null }));
+      }
+    } else {
+      // If user picks a checkout date via modal, enforce checkout > checkin
+      const currentStart = toDateOnly(parseYMD(formData.checkInDate));
+      if (currentStart && clickedDate.getTime() <= currentStart.getTime()) {
+        // prevent selecting same-day or earlier as checkout — ignore the selection
+        return;
+      }
+      onUpdate({ checkOutDate: dateStr });
+      setSelectedDates(prev => ({ ...prev, end: clickedDate }));
+    }
+
+    // close modal after picking a single date (per your request)
+    setDateModalOpen(false);
+    setDateModalField(null);
+  };
+
   const prevMonth = () => {
     const m = calendarMonth - 1;
     if (m < 0) {
@@ -252,7 +256,6 @@ const StayDetailsStep: React.FC<StayDetailsStepProps> = ({ formData, onUpdate, o
       setCalendarMonth(m);
     }
   };
-
   const nextMonth = () => {
     const m = calendarMonth + 1;
     if (m > 11) {
@@ -263,12 +266,11 @@ const StayDetailsStep: React.FC<StayDetailsStepProps> = ({ formData, onUpdate, o
     }
   };
 
-  // Summary calculations (use canonical formData values so result always reflects saved form data)
+  // Summary calculations
   const pricePerNight = formData.pricePerNight ?? 2000;
   const extraGuestFeePerPerson = formData.extraGuestFeePerPerson ?? 250;
   const extraGuests = Math.max(0, Math.floor(formData.extraGuests ?? 0));
 
-  // compute nights from formData (date-only) to avoid relying on selectedDates which may be mid-edit
   const nights = useMemo(() => {
     const start = toDateOnly(parseYMD(formData.checkInDate));
     const end = toDateOnly(parseYMD(formData.checkOutDate));
@@ -290,35 +292,53 @@ const StayDetailsStep: React.FC<StayDetailsStepProps> = ({ formData, onUpdate, o
       ? `${selectedDates.start.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} - ${selectedDates.end.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`
       : null;
 
-  const formatInputDate = (dateStr?: string) => (dateStr ? dateStr : '');
-  const minDateStr = minAllowedDate ? formatYMD(minAllowedDate) : '';
-
   const currentPrimaryGuests = formData.numberOfGuests ?? 1;
   const reachedPrimaryMax = currentPrimaryGuests >= baseGuests;
 
   const formatCurrency = (v: number) =>
     v.toLocaleString('en-PH', { style: 'currency', currency: 'PHP', minimumFractionDigits: 0 });
 
+  // Accessibility: prevent body scroll when modal/sheets open
+  useEffect(() => {
+    if (isDateModalOpen || isTimeSheetOpen) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+    return () => {
+      document.body.style.overflow = '';
+    };
+  }, [isDateModalOpen, isTimeSheetOpen]);
+
+  const displayDateLabel = (d?: string) => {
+    if (!d) return 'Select date';
+    const parsed = parseYMD(d);
+    if (!parsed) return 'Select date';
+    return parsed.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+  };
+  const displayTimeLabel = (t?: string) => t || 'Select time';
+
+  // ----- Render -----
   return (
-    <div className="p-6">
+    <div className="p-4 sm:p-6">
       <div className="max-w-6xl mx-auto">
-        <div className="mb-6">
-          <h1 className="text-2xl lg:text-3xl font-semibold text-[#0B5858]" style={{ fontFamily: 'Poppins' }}>
+        <div className="mb-4">
+          <h1 className="text-lg sm:text-2xl font-semibold text-[#0B5858]" style={{ fontFamily: 'Poppins' }}>
             Stay Details
           </h1>
-          <p className="text-sm text-gray-500 mt-1" style={{ fontFamily: 'Poppins' }}>
+          <p className="text-xs sm:text-sm text-gray-500 mt-1" style={{ fontFamily: 'Poppins' }}>
             Please fill in your stay details to continue
           </p>
         </div>
 
         {showLeadNotice && (
-          <div className="max-w-6xl mx-auto mb-4">
-            <div className="flex items-start justify-between bg-[#FEF9E6] border border-[#F5EECF] rounded-md px-4 py-3">
-              <div className="flex items-start gap-3">
+          <div className="mb-3">
+            <div className="flex items-start justify-between bg-[#FEF9E6] border border-[#F5EECF] rounded-md px-3 py-2">
+              <div className="flex items-start gap-2">
                 <svg className="w-5 h-5 text-[#A67C00] mt-0.5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
                   <path d="M8.257 3.099c.366-.89 1.603-.89 1.97 0l.908 2.204a1 1 0 00.95.69h2.32c.969 0 1.371 1.24.588 1.81l-1.88 1.364a1 1 0 00-.364 1.118l.718 2.204c.366.89-.755 1.63-1.54 1.06L10 12.347l-1.617 1.202c-.784.57-1.906-.17-1.54-1.06l.718-2.204a1 1 0 00-.364-1.118L5.317 7.803c-.783-.57-.38-1.81.588-1.81h2.32a1 1 0 00.95-.69l.082-.204z" />
                 </svg>
-                <div className="text-sm text-[#664E00]" style={{ fontFamily: 'Poppins' }}>
+                <div className="text-xs sm:text-sm text-[#664E00]" style={{ fontFamily: 'Poppins' }}>
                   Bookings must be made at least <span className="font-semibold">{leadDays} day{leadDays > 1 ? 's' : ''}</span> in advance (based on current local time).
                 </div>
               </div>
@@ -333,86 +353,108 @@ const StayDetailsStep: React.FC<StayDetailsStepProps> = ({ formData, onUpdate, o
           </div>
         )}
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 lg:gap-6">
           <div className="lg:col-span-2 space-y-4">
             {/* Stay Duration */}
-            <div className="border border-[#E6F5F4] rounded-lg p-4 bg-white shadow-sm">
-              <div className="flex items-center gap-3 mb-3">
-                <svg className="w-5 h-5 text-[#0B5858]" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                  <rect x="3" y="4" width="18" height="18" rx="2" strokeWidth="1.2" />
-                  <path d="M16 2v4M8 2v4" strokeWidth="1.2" />
-                </svg>
+            <div className="border border-[#E6F5F4] rounded-lg p-3 sm:p-4 bg-white shadow-sm text-xs sm:text-sm">
+              <div className="flex items-center gap-0 mb-2 justify-start pl-0">
                 <h3 className="font-semibold text-gray-800" style={{ fontFamily: 'Poppins' }}>Stay Duration</h3>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 <div>
-                  <label className="text-sm text-gray-600 mb-2 block" style={{ fontFamily: 'Poppins' }}>
+                  <label className="text-xs sm:text-sm text-gray-600 mb-2 block" style={{ fontFamily: 'Poppins' }}>
                     Check-in <span className="text-red-500">*</span>
                   </label>
+
                   <div className="flex items-center gap-2">
-                    <div className="flex-1 border border-[#E6F5F4] rounded-md px-3 py-2 flex items-center justify-between bg-[#F8FFFE]">
-                      <input
-                        type="date"
-                        min={minDateStr}
-                        value={formatInputDate(formData.checkInDate)}
-                        onChange={(e) => handleDateChange('checkInDate', e.target.value)}
-                        className="flex-1 text-sm outline-none bg-transparent"
-                        style={{ fontFamily: 'Poppins' }}
-                      />
-                      <div className="w-px h-6 bg-[#E0F0EE] mx-3" />
-                      <input
-                        type="time"
-                        value={formData.checkInTime || ''}
-                        onChange={(e) => handleTimeChange('checkInTime', e.target.value)}
-                        className="w-28 text-sm outline-none bg-transparent"
-                        style={{ fontFamily: 'Poppins' }}
-                      />
-                    </div>
+                    <button
+                      onClick={() => { setDateModalField('checkIn'); setDateModalOpen(true); setCalendarMonth(initialDate.getMonth()); setCalendarYear(initialDate.getFullYear()); }}
+                      className="flex-1 border border-[#E6F5F4] rounded-md px-3 py-2 flex items-center justify-between bg-[#F8FFFE]"
+                      aria-haspopup="dialog"
+                      aria-expanded={isDateModalOpen && dateModalField === 'checkIn'}
+                      aria-label="Open date picker for check in"
+                    >
+                      <div className="text-left">
+                        <div className="text-[11px] sm:text-sm text-gray-600">Dates</div>
+                        <div className="font-semibold text-[#0B5858]" style={{ fontFamily: 'Poppins' }}>
+                          {formData.checkInDate ? displayDateLabel(formData.checkInDate) : 'Select date'}
+                        </div>
+                      </div>
+
+                      <div className="ml-4 flex items-center gap-3">
+                        {/* unified time button (desktop + mobile) */}
+                        <button
+                          onClick={(e: React.MouseEvent) => {
+                            // prevent parent date button from receiving the click
+                            e.stopPropagation();
+                            e.preventDefault();
+                            setActiveTimeField('checkInTime');
+                            setTimeSheetOpen(true);
+                          }}
+                          className="w-36 md:w-36 h-10 rounded-md border border-[#E6F5F4] bg-white text-sm flex items-center justify-center gap-2"
+                          aria-label="Open check-in time selector"
+                        >
+                          <span className="text-xs text-gray-600">{displayTimeLabel(formData.checkInTime)}</span>
+                          <span className="text-gray-400">⏱</span>
+                        </button>
+                      </div>
+                    </button>
                   </div>
                 </div>
 
                 <div>
-                  <label className="text-sm text-gray-600 mb-2 block" style={{ fontFamily: 'Poppins' }}>
+                  <label className="text-xs sm:text-sm text-gray-600 mb-2 block" style={{ fontFamily: 'Poppins' }}>
                     Check-out <span className="text-red-500">*</span>
                   </label>
+
                   <div className="flex items-center gap-2">
-                    <div className="flex-1 border border-[#E6F5F4] rounded-md px-3 py-2 flex items-center justify-between bg-[#F8FFFE]">
-                      <input
-                        type="date"
-                        min={minDateStr}
-                        value={formatInputDate(formData.checkOutDate)}
-                        onChange={(e) => handleDateChange('checkOutDate', e.target.value)}
-                        className="flex-1 text-sm outline-none bg-transparent"
-                        style={{ fontFamily: 'Poppins' }}
-                      />
-                      <div className="w-px h-6 bg-[#E0F0EE] mx-3" />
-                      <input
-                        type="time"
-                        value={formData.checkOutTime || ''}
-                        onChange={(e) => handleTimeChange('checkOutTime', e.target.value)}
-                        className="w-28 text-sm outline-none bg-transparent"
-                        style={{ fontFamily: 'Poppins' }}
-                      />
-                    </div>
+                    <button
+                      onClick={() => { setDateModalField('checkOut'); setDateModalOpen(true); setCalendarMonth(initialDate.getMonth()); setCalendarYear(initialDate.getFullYear()); }}
+                      className="flex-1 border border-[#E6F5F4] rounded-md px-3 py-2 flex items-center justify-between bg-[#F8FFFE]"
+                      aria-haspopup="dialog"
+                      aria-expanded={isDateModalOpen && dateModalField === 'checkOut'}
+                      aria-label="Open date picker for check out"
+                    >
+                      <div className="text-left">
+                        <div className="text-[11px] sm:text-sm text-gray-600">Dates</div>
+                        <div className="font-semibold text-[#0B5858]" style={{ fontFamily: 'Poppins' }}>
+                          {formData.checkOutDate ? displayDateLabel(formData.checkOutDate) : 'Select date'}
+                        </div>
+                      </div>
+
+                      <div className="ml-4 flex items-center gap-3">
+                        {/* unified time button (desktop + mobile) */}
+                        <button
+                          onClick={(e: React.MouseEvent) => {
+                            // prevent parent date button from receiving the click
+                            e.stopPropagation();
+                            e.preventDefault();
+                            setActiveTimeField('checkOutTime');
+                            setTimeSheetOpen(true);
+                          }}
+                          className="w-36 md:w-36 h-10 rounded-md border border-[#E6F5F4] bg-white text-sm flex items-center justify-center gap-2"
+                          aria-label="Open check-out time selector"
+                        >
+                          <span className="text-xs text-gray-600">{displayTimeLabel(formData.checkOutTime)}</span>
+                          <span className="text-gray-400">⏱</span>
+                        </button>
+                      </div>
+                    </button>
                   </div>
                 </div>
               </div>
             </div>
 
             {/* Guests */}
-            <div className="border border-[#E6F5F4] rounded-lg p-4 bg-white shadow-sm">
-              <div className="flex items-center gap-3 mb-3">
-                <svg className="w-5 h-5 text-[#0B5858]" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                  <path d="M12 12a4 4 0 100-8 4 4 0 000 8z" strokeWidth="1.2" />
-                  <path d="M3 20a9 9 0 0118 0" strokeWidth="1.2" />
-                </svg>
+            <div className="border border-[#E6F5F4] rounded-lg p-3 sm:p-4 bg-white shadow-sm text-xs sm:text-sm">
+              <div className="flex items-center gap-0 mb-2 justify-start pl-0">
                 <h3 className="font-semibold text-gray-800" style={{ fontFamily: 'Poppins' }}>Guests</h3>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-start">
                 <div>
-                  <label className="text-sm text-gray-600 mb-3 flex items-center gap-2" style={{ fontFamily: 'Poppins' }}>
+                  <label className="text-xs sm:text-sm text-gray-600 mb-3 flex items-center gap-2" style={{ fontFamily: 'Poppins' }}>
                     <span>Number of Guests</span>
                     <span className="relative inline-block group">
                       <button
@@ -434,7 +476,7 @@ const StayDetailsStep: React.FC<StayDetailsStepProps> = ({ formData, onUpdate, o
                     </span>
                   </label>
 
-                  <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-2">
                     <button
                       onClick={() => decrementGuest('numberOfGuests')}
                       className="w-8 h-8 rounded-md border border-[#0B5858] text-[#0B5858] text-base flex items-center justify-center bg-white hover:bg-[#f1fefa]"
@@ -443,8 +485,8 @@ const StayDetailsStep: React.FC<StayDetailsStepProps> = ({ formData, onUpdate, o
                       −
                     </button>
 
-                    <div className="flex-1 bg-[#F8FFFE] border border-[#E6F5F4] rounded-lg px-6 py-3 flex items-center justify-center min-h-[44px]">
-                      <span className="text-lg font-semibold text-[#0B5858]" style={{ fontFamily: 'Poppins' }}>
+                    <div className="flex-1 bg-[#F8FFFE] border border-[#E6F5F4] rounded-lg px-4 py-2 flex items-center justify-center min-h-[40px]">
+                      <span className="text-base font-semibold text-[#0B5858]" style={{ fontFamily: 'Poppins' }}>
                         {currentPrimaryGuests}
                       </span>
                     </div>
@@ -460,13 +502,13 @@ const StayDetailsStep: React.FC<StayDetailsStepProps> = ({ formData, onUpdate, o
                     </button>
                   </div>
 
-                  <p className="text-xs text-gray-400 mt-3" style={{ fontFamily: 'Poppins' }}>
+                  <p className="text-xs text-gray-400 mt-2" style={{ fontFamily: 'Poppins' }}>
                     Base rate covers up to <span className="font-medium">{baseGuests}</span> guest{baseGuests > 1 ? 's' : ''}
                   </p>
                 </div>
 
                 <div>
-                  <label className="text-sm text-gray-600 mb-3 flex items-center gap-2" style={{ fontFamily: 'Poppins' }}>
+                  <label className="text-xs sm:text-sm text-gray-600 mb-3 flex items-center gap-2" style={{ fontFamily: 'Poppins' }}>
                     <span>Extra Guests</span>
                     <span className="relative inline-block group">
                       <button
@@ -488,7 +530,7 @@ const StayDetailsStep: React.FC<StayDetailsStepProps> = ({ formData, onUpdate, o
                     </span>
                   </label>
 
-                  <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-2">
                     <button
                       onClick={() => decrementGuest('extraGuests')}
                       className="w-8 h-8 rounded-md border border-[#0B5858] text-[#0B5858] text-base flex items-center justify-center bg-white hover:bg-[#f1fefa]"
@@ -497,8 +539,8 @@ const StayDetailsStep: React.FC<StayDetailsStepProps> = ({ formData, onUpdate, o
                       −
                     </button>
 
-                    <div className="flex-1 bg-[#F8FFFE] border border-[#E6F5F4] rounded-lg px-6 py-3 flex items-center justify-center min-h-[44px]">
-                      <span className="text-lg font-semibold text-[#0B5858]" style={{ fontFamily: 'Poppins' }}>
+                    <div className="flex-1 bg-[#F8FFFE] border border-[#E6F5F4] rounded-lg px-4 py-2 flex items-center justify-center min-h-[40px]">
+                      <span className="text-base font-semibold text-[#0B5858]" style={{ fontFamily: 'Poppins' }}>
                         {extraGuests}
                       </span>
                     </div>
@@ -513,30 +555,30 @@ const StayDetailsStep: React.FC<StayDetailsStepProps> = ({ formData, onUpdate, o
                     </button>
                   </div>
 
-                  <p className="text-xs text-gray-400 mt-3" style={{ fontFamily: 'Poppins' }}>
-                    Extra guests incur additional fees (₱{extraGuestFeePerPerson} / guest / night)
+                  <p className="text-xs text-gray-500 mt-2" style={{ fontFamily: 'Poppins' }}>
+                    Extra guests incur additional fees (₱{extraGuestFeePerPerson})
                   </p>
                 </div>
               </div>
             </div>
 
-            {/* Calendar */}
-            <div className="border border-[#E6F5F4] rounded-lg p-6 bg-white shadow-sm">
-              <div className="mb-3">
+            {/* Calendar + helper (single calendar only; no time controls inside modal) */}
+            <div className="border border-[#E6F5F4] rounded-lg p-3 sm:p-4 bg-white shadow-sm text-xs sm:text-sm">
+              <div className="mb-2">
                 <h3 className="font-semibold text-gray-800" style={{ fontFamily: 'Poppins' }}>
-                  Select Dates
+                  Quick Calendar
                 </h3>
               </div>
 
-              <div className="border rounded-md p-6">
-                <div className="flex items-center justify-between mb-6">
+              <div className="border rounded-md p-3 sm:p-4">
+                <div className="flex items-center justify-between mb-4">
                   <button onClick={prevMonth} aria-label="Previous month" className="p-2 rounded hover:bg-gray-50">
                     <svg className="w-4 h-4 text-gray-600" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
                       <path fillRule="evenodd" d="M12.707 15.707a1 1 0 01-1.414 0L6.586 11l4.707-4.707a1 1 0 011.414 1.414L9.414 11l3.293 3.293a1 1 0 010 1.414z" clipRule="evenodd" />
                     </svg>
                   </button>
 
-                  <div className="text-base font-semibold text-gray-800" style={{ fontFamily: 'Poppins' }}>
+                  <div className="text-sm sm:text-base font-semibold text-gray-800" style={{ fontFamily: 'Poppins' }}>
                     {new Date(calendarYear, calendarMonth).toLocaleString('en-US', { month: 'long', year: 'numeric' })}
                   </div>
 
@@ -547,7 +589,7 @@ const StayDetailsStep: React.FC<StayDetailsStepProps> = ({ formData, onUpdate, o
                   </button>
                 </div>
 
-                <div className="grid grid-cols-7 gap-6 text-xs text-center mb-4">
+                <div className="grid grid-cols-7 gap-2 text-[10px] sm:text-xs text-center mb-3">
                   {WEEK_DAYS.map(d => (
                     <div key={d} className="text-gray-500 font-medium py-1" style={{ fontFamily: 'Poppins' }}>
                       {d}
@@ -555,11 +597,12 @@ const StayDetailsStep: React.FC<StayDetailsStepProps> = ({ formData, onUpdate, o
                   ))}
                 </div>
 
-                <div className="grid grid-cols-7 gap-4 text-sm justify-items-center">
+                <div className="grid grid-cols-7 gap-2 text-sm justify-items-center">
                   {days.map((cell, i) => {
-                    if (!cell) return <div key={`empty-${i}`} className="w-12 h-12" />;
+                    if (!cell) return <div key={`empty-${i}`} className="w-9 h-9 sm:w-12 sm:h-12" />;
 
-                    const base = 'w-12 h-12 flex items-center justify-center text-sm select-none';
+                    const base = 'flex items-center justify-center select-none';
+                    const sizeClass = 'w-9 h-9 sm:w-12 sm:h-12 text-[11px] sm:text-sm';
                     const startOrEnd = cell.isStart || cell.isEnd;
                     const bgClass = startOrEnd
                       ? 'bg-[#0B5858] text-white'
@@ -574,7 +617,7 @@ const StayDetailsStep: React.FC<StayDetailsStepProps> = ({ formData, onUpdate, o
                       <div
                         key={`day-${cell.date.getTime()}`}
                         {...interactiveProps}
-                        className={`${base} ${bgClass} ${roundedClass} ${disabledClass}`}
+                        className={`${base} ${sizeClass} ${bgClass} ${roundedClass} ${disabledClass}`}
                         title={cell.date.toDateString()}
                         style={{ fontFamily: 'Poppins' }}
                       >
@@ -584,19 +627,22 @@ const StayDetailsStep: React.FC<StayDetailsStepProps> = ({ formData, onUpdate, o
                   })}
                 </div>
 
-                <div className="mt-6">
-                  <div className="mx-auto w-full bg-[#EAF9F8] rounded-xl py-4 px-6 text-center">
+                <div className="mt-4">
+                  <div className="mx-auto w-full bg-[#EAF9F8] rounded-xl py-3 px-4 text-center text-xs sm:text-sm">
                     <div className="text-xs text-gray-600" style={{ fontFamily: 'Poppins' }}>Selected Range</div>
                     <div className="text-sm font-semibold text-[#0B5858]" style={{ fontFamily: 'Poppins' }}>
                       {formattedRange ?? '—'}
+                    </div>
+                    <div className="text-[11px] text-gray-500 mt-2" style={{ fontFamily: 'Poppins' }}>
+                      Use the clock button next to each date input to open the time sheet and select times.
                     </div>
                   </div>
                 </div>
               </div>
             </div>
 
-            {/* Actions */}
-            <div className="flex justify-end space-x-4 mt-2">
+            {/* Desktop actions */}
+            <div className="hidden lg:flex justify-end space-x-4 mt-2">
               <button
                 onClick={onCancel}
                 className="px-6 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors text-sm"
@@ -617,32 +663,32 @@ const StayDetailsStep: React.FC<StayDetailsStepProps> = ({ formData, onUpdate, o
 
           {/* Sidebar summary */}
           <aside className="lg:col-span-1">
-            <div className="lg:sticky lg:top-28 lg:self-start lg:mt-6 space-y-4">
-              <div className="border border-[#E6F5F4] rounded-lg p-4 bg-white shadow-sm">
-                <h4 className="text-sm font-semibold text-gray-800 mb-3" style={{ fontFamily: 'Poppins' }}>Booking Summary</h4>
+            <div className="lg:sticky lg:top-20 lg:self-start lg:mt-2 space-y-3">
+              <div className="border border-[#E6F5F4] rounded-lg p-3 sm:p-4 bg-white shadow-sm text-xs sm:text-sm">
+                <h4 className="text-sm font-semibold text-gray-800 mb-2" style={{ fontFamily: 'Poppins' }}>Booking Summary</h4>
 
-                <div className="flex items-center justify-between text-sm text-gray-600 mb-2">
+                <div className="flex items-center justify-between text-xs sm:text-sm text-gray-600 mb-1">
                   <div>Price / night</div>
                   <div className="font-semibold text-gray-800" style={{ fontFamily: 'Poppins' }}>{formatCurrency(pricePerNight)}</div>
                 </div>
 
-                <div className="flex items-center justify-between text-sm text-gray-600 mb-2">
+                <div className="flex items-center justify-between text-xs sm:text-sm text-gray-600 mb-1">
                   <div>Nights</div>
                   <div className="font-semibold text-gray-800" style={{ fontFamily: 'Poppins' }}>{nights}</div>
                 </div>
 
-                <div className="flex items-center justify-between text-sm text-gray-600 mb-2">
+                <div className="flex items-center justify-between text-xs sm:text-sm text-gray-600 mb-2">
                   <div>Extra guests</div>
                   <div className="font-semibold text-gray-800" style={{ fontFamily: 'Poppins' }}>{extraGuests}</div>
                 </div>
 
-                <div className="border-t border-[#E6F5F4] mt-3 pt-3">
-                  <div className="flex items-center justify-between text-sm text-gray-600 mb-1">
+                <div className="border-t border-[#E6F5F4] mt-2 pt-2">
+                  <div className="flex items-center justify-between text-xs sm:text-sm text-gray-600 mb-1">
                     <div>Subtotal</div>
                     <div className="font-semibold text-gray-800">{formatCurrency(subtotal)}</div>
                   </div>
 
-                  <div className="flex items-center justify-between text-sm text-gray-600 mb-3">
+                  <div className="flex items-center justify-between text-xs sm:text-sm text-gray-600 mb-2">
                     <div>Extra guest fees</div>
                     <div className="font-semibold text-gray-800">{formatCurrency(extraGuestFees)}</div>
                   </div>
@@ -653,19 +699,19 @@ const StayDetailsStep: React.FC<StayDetailsStepProps> = ({ formData, onUpdate, o
                   </div>
                 </div>
 
-                <div className="mt-4 text-xs text-gray-500">
+                <div className="mt-3 text-[10px] sm:text-xs text-gray-500">
                   <div>• Price shown is an estimate. Final total calculated at checkout.</div>
-                  <div className="mt-2">• Free cancellation up to 48 hours before check-in.</div>
+                  <div className="mt-1">• Free cancellation up to 48 hours before check-in.</div>
                 </div>
               </div>
 
-              <div className="border border-[#E6F5F4] rounded-lg p-4 bg-white shadow-sm">
-                <h4 className="text-sm font-semibold text-gray-800 mb-2" style={{ fontFamily: 'Poppins' }}>Need help?</h4>
-                <p className="text-sm text-gray-600 mb-3" style={{ fontFamily: 'Poppins' }}>
+              <div className="border border-[#E6F5F4] rounded-lg p-3 sm:p-4 bg-white shadow-sm text-xs sm:text-sm">
+                <h4 className="text-sm font-semibold text-gray-800 mb-1" style={{ fontFamily: 'Poppins' }}>Need help?</h4>
+                <p className="text-xs sm:text-sm text-gray-600 mb-2" style={{ fontFamily: 'Poppins' }}>
                   If you have questions about availability or special requests, contact us and we'll assist.
                 </p>
                 <button
-                  className="w-full px-4 py-2 bg-[#E8F8F7] text-[#0B5858] rounded-md text-sm font-medium"
+                  className="w-full px-3 py-2 bg-[#E8F8F7] text-[#0B5858] rounded-md text-sm font-medium"
                   style={{ fontFamily: 'Poppins' }}
                   onClick={() => alert('Contact support (placeholder)')}
                 >
@@ -676,6 +722,209 @@ const StayDetailsStep: React.FC<StayDetailsStepProps> = ({ formData, onUpdate, o
           </aside>
         </div>
       </div>
+
+      {/* Mobile fixed footer: Cancel + Next */}
+      <div
+        className="fixed left-0 right-0 bottom-0 bg-white border-t border-gray-200 p-3 lg:hidden"
+        role="region"
+        aria-label="Stay details actions"
+        style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 12px)' }}
+      >
+        <div className="max-w-6xl mx-auto flex items-center gap-3">
+          <button
+            onClick={onCancel}
+            className="flex-1 px-3 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors text-sm"
+            style={{ fontFamily: 'Poppins' }}
+          >
+            Cancel
+          </button>
+          <button
+            onClick={onNext}
+            disabled={!isFormValid()}
+            className="flex-1 px-3 py-2 bg-[#0B5858] text-white rounded-lg hover:bg-[#0a4a4a] transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm"
+            style={{ fontFamily: 'Poppins' }}
+            aria-disabled={!isFormValid()}
+          >
+            Next
+          </button>
+        </div>
+      </div>
+
+      {/* ----------------------
+          Date modal (bottom sheet on small screens)
+          Calendar only — single-date pick for the field that opened the modal
+          ---------------------- */}
+      {isDateModalOpen && dateModalField && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label={`Pick ${dateModalField === 'checkIn' ? 'check-in' : 'check-out'} date`}
+          className="fixed inset-0 z-50 flex items-end md:items-center justify-center"
+        >
+          {/* backdrop */}
+          <div
+            className="absolute inset-0 bg-black/40"
+            onClick={() => { setDateModalOpen(false); setDateModalField(null); }}
+          />
+
+          <div className="relative w-full md:max-w-2xl md:rounded-lg bg-white md:shadow-lg"
+               style={{ maxHeight: '92vh', overflow: 'auto' }}>
+            <div className="flex items-center justify-between p-3 border-b border-gray-100">
+              <div className="text-sm font-semibold" style={{ fontFamily: 'Poppins' }}>
+                {dateModalField === 'checkIn' ? 'Select check‑in date' : 'Select check‑out date'}
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="text-xs text-gray-500">{minAllowedDate ? `From ${minAllowedDate.toLocaleDateString()}` : ''}</div>
+                <button onClick={() => { setDateModalOpen(false); setDateModalField(null); }} className="text-gray-600 p-1 rounded" aria-label="Close date picker">✕</button>
+              </div>
+            </div>
+
+            <div className="p-4 grid grid-cols-1 gap-4">
+              <div>
+                <div className="flex items-center justify-between mb-3">
+                  <button onClick={() => { prevMonth(); }} className="p-2 rounded hover:bg-gray-50">
+                    <svg className="w-4 h-4 text-gray-600" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                      <path fillRule="evenodd" d="M12.707 15.707a1 1 0 01-1.414 0L6.586 11l4.707-4.707a1 1 0 011.414 1.414L9.414 11l3.293 3.293a1 1 0 010 1.414z" clipRule="evenodd" />
+                    </svg>
+                  </button>
+                  <div className="font-semibold text-sm" style={{ fontFamily: 'Poppins' }}>
+                    {new Date(calendarYear, calendarMonth).toLocaleString('en-US', { month: 'long', year: 'numeric' })}
+                  </div>
+                  <button onClick={() => { nextMonth(); }} className="p-2 rounded hover:bg-gray-50">
+                    <svg className="w-4 h-4 text-gray-600" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                      <path fillRule="evenodd" d="M7.293 4.293a1 1 0 011.414 0L13.414 9l-4.707 4.707a1 1 0 01-1.414-1.414L10.586 9 7.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+                    </svg>
+                  </button>
+                </div>
+
+                <div className="grid grid-cols-7 gap-2 text-[10px] sm:text-xs text-center mb-2">
+                  {WEEK_DAYS.map(d => (
+                    <div key={d} className="text-gray-500 font-medium py-1" style={{ fontFamily: 'Poppins' }}>
+                      {d}
+                    </div>
+                  ))}
+                </div>
+
+                <div className="grid grid-cols-7 gap-2 text-sm justify-items-center">
+                  {days.map((cell, i) => {
+                    if (!cell) return <div key={`m-empty-${i}`} className="w-10 h-10 sm:w-12 sm:h-12" />;
+
+                    const base = 'flex items-center justify-center select-none';
+                    const sizeClass = 'w-10 h-10 sm:w-12 sm:h-12 text-[12px] sm:text-sm';
+                    const startOrEnd = cell.isStart || cell.isEnd;
+                    const bgClass = startOrEnd
+                      ? 'bg-[#0B5858] text-white'
+                      : cell.isSelected
+                        ? 'bg-[#DFF6F5] text-[#0B7A76]'
+                        : 'text-gray-700 hover:bg-[#EAF9F8]';
+                    const roundedClass = startOrEnd ? 'rounded-lg' : (cell.isSelected ? 'rounded-md' : 'rounded-none');
+                    const disabledClass = cell.isDisabled ? 'text-gray-300 opacity-60 cursor-not-allowed hover:bg-transparent' : 'cursor-pointer';
+                    // In modal we use single-date selection for the field that opened it
+                    const interactiveProps = cell.isDisabled ? {} : { onClick: () => onModalCalendarClick(cell) };
+
+                    return (
+                      <div
+                        key={`m-day-${cell.date.getTime()}`}
+                        {...interactiveProps}
+                        className={`${base} ${sizeClass} ${bgClass} ${roundedClass} ${disabledClass}`}
+                        title={cell.date.toDateString()}
+                        style={{ fontFamily: 'Poppins' }}
+                      >
+                        {cell.day}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div>
+                <div className="bg-[#F8FFFE] border border-[#E6F5F4] rounded-lg p-3 flex flex-col gap-3">
+                  <div>
+                    <div className="text-xs text-gray-600">Selected</div>
+                    <div className="text-base font-semibold text-[#0B5858]">
+                      {dateModalField === 'checkIn'
+                        ? (formData.checkInDate ? displayDateLabel(formData.checkInDate) : '—')
+                        : (formData.checkOutDate ? displayDateLabel(formData.checkOutDate) : '—')}
+                    </div>
+                  </div>
+
+                  <div className="text-xs text-gray-500">
+                    This calendar selects only the date for the field you opened it from. Times are selected via the clock button next to each date input.
+                  </div>
+
+                  <div className="mt-2 flex gap-2">
+                    <button
+                      onClick={() => { setDateModalOpen(false); setDateModalField(null); }}
+                      className="flex-1 px-3 py-2 border border-gray-300 rounded-md text-sm"
+                    >
+                      Done
+                    </button>
+                    <button
+                      onClick={() => {
+                        if (dateModalField === 'checkIn') {
+                          onUpdate({ checkInDate: '' });
+                          setSelectedDates(prev => ({ ...prev, start: null }));
+                        } else if (dateModalField === 'checkOut') {
+                          onUpdate({ checkOutDate: '' });
+                          setSelectedDates(prev => ({ ...prev, end: null }));
+                        }
+                      }}
+                      className="flex-1 px-3 py-2 bg-[#FFEFEF] text-[#B00000] rounded-md text-sm"
+                    >
+                      Clear
+                    </button>
+                  </div>
+                </div>
+
+                <div className="mt-3 text-xs text-gray-500">
+                  Tip: Tap a date to set {dateModalField === 'checkIn' ? 'your check‑in' : 'your check‑out'} date. Dates before {minAllowedDate?.toLocaleDateString() || 'today'} are disabled.
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Time bottom sheet (used across breakpoints now) */}
+      {isTimeSheetOpen && activeTimeField && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label={activeTimeField === 'checkInTime' ? 'Select check in time' : 'Select check out time'}
+          className="fixed inset-0 z-50 flex items-end justify-center"
+        >
+          <div className="absolute inset-0 bg-black/40" onClick={() => { setTimeSheetOpen(false); setActiveTimeField(null); }} />
+          <div className="relative w-full bg-white rounded-t-xl p-4 max-h-[70vh] overflow-auto"
+               style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 16px)' }}>
+            <div className="flex items-center justify-between mb-3">
+              <div className="text-sm font-semibold" style={{ fontFamily: 'Poppins' }}>
+                {activeTimeField === 'checkInTime' ? 'Check-in time' : 'Check-out time'}
+              </div>
+              <button onClick={() => { setTimeSheetOpen(false); setActiveTimeField(null); }} className="text-gray-600">✕</button>
+            </div>
+
+            <div className="grid grid-cols-3 gap-2">
+              {timeOptions.map(t => {
+                const selected = (activeTimeField === 'checkInTime' ? formData.checkInTime : formData.checkOutTime) === t;
+                return (
+                  <button
+                    key={t}
+                    onClick={() => {
+                      if (activeTimeField) handleTimeChange(activeTimeField, t);
+                      setTimeSheetOpen(false);
+                      setActiveTimeField(null);
+                    }}
+                    className={`py-2 px-3 rounded-md text-sm ${selected ? 'bg-[#0B5858] text-white' : 'bg-white border border-[#E6F5F4] text-gray-700'}`}
+                    style={{ fontFamily: 'Poppins' }}
+                  >
+                    {t}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

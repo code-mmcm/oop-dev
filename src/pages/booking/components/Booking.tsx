@@ -3,6 +3,8 @@ import Navbar from '../../../components/Navbar';
 import Footer from '../../../components/Footer';
 import { BookingService } from '../../../services/bookingService';
 import type { Booking, BookingStatus } from '../../../types/booking';
+// use the modal component that exists in your repo
+import BookingDetailsModal from './BookingDetailsModal';
 
 const BookingComponent: React.FC = () => {
   const [bookings, setBookings] = useState<Booking[]>([]);
@@ -10,6 +12,8 @@ const BookingComponent: React.FC = () => {
   const [activeTab, setActiveTab] = useState<BookingStatus | 'all'>('all');
   const [isLoading, setIsLoading] = useState(true);
   const [toggleStates, setToggleStates] = useState<Record<string, boolean>>({});
+  const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null);
+
   useEffect(() => {
     loadBookings();
   }, []);
@@ -166,6 +170,8 @@ const BookingComponent: React.FC = () => {
                         className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
                           toggleStates[booking.id] ? 'bg-green-500' : 'bg-gray-300'
                         }`}
+                        aria-pressed={!!toggleStates[booking.id]}
+                        aria-label={`Toggle notifications for booking ${booking.transaction_number ?? booking.id}`}
                       >
                         <span
                           className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
@@ -234,7 +240,11 @@ const BookingComponent: React.FC = () => {
                         </p>
                       </div>
                       
-                      <button className="bg-[#0B5858] text-white px-6 py-2 rounded-lg font-medium hover:bg-[#0a4a4a] transition-colors" style={{fontFamily: 'Poppins'}}>
+                      <button
+                        onClick={() => setSelectedBooking(booking)}
+                        className="bg-[#0B5858] text-white px-6 py-2 rounded-lg font-medium hover:bg-[#0a4a4a] transition-colors"
+                        style={{fontFamily: 'Poppins'}}
+                      >
                         View
                       </button>
                     </div>
@@ -247,6 +257,21 @@ const BookingComponent: React.FC = () => {
       </div>
 
       <Footer />
+      {selectedBooking && (
+        <div className="fixed inset-0 z-50 flex items-start justify-center p-6">
+          <div
+            className="absolute inset-0 bg-black opacity-40"
+            onClick={() => setSelectedBooking(null)}
+            aria-hidden
+          />
+          <div className="relative max-w-6xl w-full overflow-auto" style={{ maxHeight: 'calc(100vh - 4rem)' }}>
+            <BookingDetailsModal
+              booking={selectedBooking}
+              onClose={() => setSelectedBooking(null)}
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 };

@@ -16,7 +16,6 @@ const isImageUrl = (url?: string) => {
   return IMAGE_EXTENSIONS.some(ext => lower.endsWith(ext));
 };
 
-
 // Small icon components used in detail rows
 const IconUser = ({ className = 'w-4 h-4' }: { className?: string }) => (
   <svg className={className} viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
@@ -91,6 +90,43 @@ const limitToWords = (text: string | undefined, maxWords: number) => {
   const words = String(text).trim().split(/\s+/).filter(Boolean);
   if (words.length <= maxWords) return text;
   return words.slice(0, maxWords).join(' ');
+};
+
+/**
+ * ExpandableText
+ * - Displays a wrapped, break-word-safe block of text.
+ * - If the text is longer than `maxChars`, it shows a shortened preview with a "Show more" toggler.
+ * - Keeps layout stable on small screens by allowing wrapping instead of forcing a single-line truncate.
+ */
+const ExpandableText: React.FC<{ text?: string; maxChars?: number; className?: string; ariaLabel?: string }> = ({ text, maxChars = 100, className = '', ariaLabel }) => {
+  const [expanded, setExpanded] = useState(false);
+  if (!text) return <span className={className}>—</span>;
+
+  const normalized = String(text);
+  const tooLong = normalized.length > maxChars;
+  const preview = tooLong ? normalized.slice(0, maxChars).trim() + '…' : normalized;
+
+  return (
+    <div className={className}>
+      <div
+        className="whitespace-pre-wrap break-words"
+        style={{ wordBreak: 'break-word' }}
+        aria-label={ariaLabel}
+      >
+        {expanded || !tooLong ? normalized : preview}
+      </div>
+      {tooLong && (
+        <button
+          type="button"
+          onClick={() => setExpanded(e => !e)}
+          className="mt-1 text-xs text-[#0B5858] hover:underline"
+          aria-expanded={expanded}
+        >
+          {expanded ? 'Show less' : 'Show more'}
+        </button>
+      )}
+    </div>
+  );
 };
 
 const ConfirmationStep: React.FC<ConfirmationStepProps> = ({
@@ -262,17 +298,17 @@ const ConfirmationStep: React.FC<ConfirmationStepProps> = ({
   };
 
   return (
-    <div className="w-full max-w-[1200px] mx-auto">
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 space-y-6">
+    <div className="w-full max-w-[1200px] mx-auto px-4 sm:px-6">
+      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 sm:p-6 space-y-6">
         {/* Top: heading + help */}
         <div className="flex items-start justify-between gap-4">
           <div className="flex items-start gap-4">
-            <div className="w-1.5 h-8 bg-[#0B5858] rounded" />
+            <div className="w-1.5 h-6 sm:h-8 bg-[#0B5858] rounded" />
             <div>
-              <h2 className="text-xl font-semibold text-[#0B5858]" style={{ fontFamily: 'Poppins' }}>
+              <h2 className="text-base sm:text-xl font-semibold text-[#0B5858]" style={{ fontFamily: 'Poppins' }}>
                 You're almost done!
               </h2>
-              <p className="text-sm text-gray-600 mt-1" style={{ fontFamily: 'Poppins' }}>
+              <p className="text-xs sm:text-sm text-gray-600 mt-1" style={{ fontFamily: 'Poppins' }}>
                 Double-check your booking details below — make sure everything looks good before finalizing.
               </p>
             </div>
@@ -299,9 +335,9 @@ const ConfirmationStep: React.FC<ConfirmationStepProps> = ({
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Left: main content (col-span-2) */}
           <div className="lg:col-span-2 space-y-6">
-            {/* Redesigned property header */}
-            <div className="flex items-center gap-4 border border-gray-200 rounded-lg p-4">
-              <div className="w-36 h-24 flex-shrink-0 overflow-hidden rounded-md">
+            {/* Redesigned property header - responsive stacking on mobile */}
+            <div className="flex flex-col sm:flex-row items-start gap-4 border border-gray-200 rounded-lg p-3">
+              <div className="w-24 h-16 sm:w-36 sm:h-24 flex-shrink-0 overflow-hidden rounded-md">
                 <img
                   src="/heroimage.png"
                   alt={propertyTitle}
@@ -316,16 +352,22 @@ const ConfirmationStep: React.FC<ConfirmationStepProps> = ({
                   </span>
                 </div>
 
-                <h3 className="text-lg font-semibold text-gray-800 truncate" style={{ fontFamily: 'Poppins' }}>
+                <h3 className="text-base sm:text-lg font-semibold text-gray-800" style={{ fontFamily: 'Poppins' }}>
                   {propertyTitle}
                 </h3>
 
-                <p className="text-sm text-gray-500 mt-1 truncate" style={{ fontFamily: 'Poppins' }}>
-                  {propertyLocationShort}
-                </p>
+                {/* Use the new ExpandableText to gracefully handle very long addresses */}
+                <div className="mt-1">
+                  <ExpandableText
+                    text={propertyLocationShort}
+                    maxChars={100}
+                    className="text-xs sm:text-sm text-gray-500"
+                    ariaLabel="Property location short"
+                  />
+                </div>
 
                 {/* guest summary only */}
-                <div className="mt-3 flex flex-wrap items-center gap-3 text-xs text-gray-600" style={{ fontFamily: 'Poppins' }}>
+                <div className="mt-2 sm:mt-3 flex flex-wrap items-center gap-3 text-xs text-gray-600" style={{ fontFamily: 'Poppins' }}>
                   <div className="flex items-center gap-2">
                     <svg className="w-4 h-4 text-gray-400" viewBox="0 0 24 24" fill="none" aria-hidden="true">
                       <path d="M12 2v6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"></path>
@@ -337,8 +379,8 @@ const ConfirmationStep: React.FC<ConfirmationStepProps> = ({
                 </div>
               </div>
 
-              {/* right: compact meta card */}
-              <div className="ml-2 w-44 flex-shrink-0">
+              {/* right: compact meta card - moves under on small screens */}
+              <div className="mt-3 sm:mt-0 ml-0 sm:ml-2 w-full sm:w-44 flex-shrink-0">
                 <div className="border border-gray-100 rounded-lg p-3 bg-gray-50 text-sm" style={{ fontFamily: 'Poppins' }}>
                   <div className="text-xs text-gray-500">Booking Reference</div>
                   <div className="font-semibold text-gray-800 mt-1 break-words" style={{ wordBreak: 'break-word' }}>{bookingRef}</div>
@@ -516,7 +558,7 @@ const ConfirmationStep: React.FC<ConfirmationStepProps> = ({
                           <div className="mt-2">
                             {isImageUrl(formData.bankReceiptUrl) ? (
                               <a href={formData.bankReceiptUrl} target="_blank" rel="noopener noreferrer" title="Open receipt">
-                                <img src={formData.bankReceiptUrl} alt={formData.bankReceiptFileName || 'Receipt'} className="w-28 h-20 object-cover rounded border cursor-pointer" />
+                                <img src={formData.bankReceiptUrl} alt={formData.bankReceiptFileName || 'Receipt'} className="w-24 h-16 sm:w-28 sm:h-20 object-cover rounded border cursor-pointer" />
                               </a>
                             ) : (
                               <a
@@ -569,7 +611,7 @@ const ConfirmationStep: React.FC<ConfirmationStepProps> = ({
                           <div className="mt-2">
                             {isImageUrl(formData.billingDocumentUrl) ? (
                               <a href={formData.billingDocumentUrl} target="_blank" rel="noopener noreferrer" title="Open document">
-                                <img src={formData.billingDocumentUrl} alt={formData.billingDocumentFileName || 'Document'} className="w-28 h-20 object-cover rounded border cursor-pointer" />
+                                <img src={formData.billingDocumentUrl} alt={formData.billingDocumentFileName || 'Document'} className="w-24 h-16 sm:w-28 sm:h-20 object-cover rounded border cursor-pointer" />
                               </a>
                             ) : (
                               <a
@@ -679,8 +721,7 @@ const ConfirmationStep: React.FC<ConfirmationStepProps> = ({
                     <iframe
                       title="Booking location map"
                       src={mapSrc}
-                      width="100%"
-                      height={200}
+                      className="w-full h-36 sm:h-48"
                       style={{ border: 0 }}
                       loading="lazy"
                       referrerPolicy="no-referrer-when-downgrade"
@@ -691,7 +732,7 @@ const ConfirmationStep: React.FC<ConfirmationStepProps> = ({
                 )}
 
                 {/* details stacked under the map with extra spacing */}
-                <div className="mt-4 space-y-3 text-sm text-gray-700" style={{ fontFamily: 'Poppins' }}>
+                <div className="mt-3 sm:mt-4 space-y-3 text-sm text-gray-700" style={{ fontFamily: 'Poppins' }}>
                   <div className="flex items-start gap-2">
                     <svg className="w-4 h-4 text-gray-400 mt-0.5" viewBox="0 0 24 24" fill="none" aria-hidden="true">
                       <path d="M12 2C8 2 5 5 5 9c0 5 7 13 7 13s7-8 7-13c0-4-3-7-7-7z" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"></path>
@@ -710,7 +751,7 @@ const ConfirmationStep: React.FC<ConfirmationStepProps> = ({
                     </svg>
                     <div>
                       <div className="text-xs text-gray-500">Landmark</div>
-                      <div className="font-medium text-gray-800 break-words" style={{ wordBreak: 'break-word' }}>{location.landmark}</div>
+                      <ExpandableText text={location.landmark} maxChars={80} className="font-medium text-gray-800" ariaLabel="Landmark" />
                     </div>
                   </div>
 
@@ -721,7 +762,7 @@ const ConfirmationStep: React.FC<ConfirmationStepProps> = ({
                     </svg>
                     <div>
                       <div className="text-xs text-gray-500">Parking</div>
-                      <div className="font-medium text-gray-800 break-words" style={{ wordBreak: 'break-word' }}>{location.parking}</div>
+                      <ExpandableText text={location.parking} maxChars={80} className="font-medium text-gray-800" ariaLabel="Parking" />
                     </div>
                   </div>
 
@@ -778,29 +819,29 @@ const ConfirmationStep: React.FC<ConfirmationStepProps> = ({
         </div>
 
         {/* Footer / actions */}
-        <div className="pt-4 border-t border-gray-200 flex items-center justify-between">
+        <div className="pt-4 border-t border-gray-200 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
           <p className="text-sm text-gray-600" style={{ fontFamily: 'Poppins' }}>
             Once confirmed, your booking will be saved and can no longer be edited without assistance.
           </p>
 
-          <div className="flex items-center gap-3">
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full sm:w-auto">
             <button
               onClick={onCancel}
-              className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 text-sm"
+              className="w-full sm:w-auto px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 text-sm"
               style={{ fontFamily: 'Poppins' }}
             >
               Cancel
             </button>
             <button
               onClick={onBack}
-              className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 text-sm"
+              className="w-full sm:w-auto px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 text-sm"
               style={{ fontFamily: 'Poppins' }}
             >
               Back
             </button>
             <button
               onClick={handleConfirm}
-              className="px-6 py-2 bg-[#0B5858] text-white rounded-lg hover:bg-[#0a4a4a] transition-colors text-sm"
+              className="w-full sm:w-auto px-6 py-2 bg-[#0B5858] text-white rounded-lg hover:bg-[#0a4a4a] transition-colors text-sm"
               style={{ fontFamily: 'Poppins' }}
               aria-disabled={status === 'processing'}
               disabled={status === 'processing'}
@@ -820,13 +861,13 @@ const ConfirmationStep: React.FC<ConfirmationStepProps> = ({
         >
           <div className="absolute inset-0 bg-black opacity-30" onClick={() => { /* ignore clicks behind modal */ }} />
 
-          <div className="relative bg-white rounded-lg shadow-lg max-w-sm w-full text-center p-8">
+          <div className="relative bg-white rounded-lg shadow-lg max-w-sm w-full text-center p-6 sm:p-8">
             {/* animated icon */}
             <div aria-hidden className="flex items-center justify-center mb-6">
               {/* spinner with outer green arc and inner dot */}
               {status === 'processing' && (
-                <div className="w-24 h-24 flex items-center justify-center">
-                  <svg viewBox="0 0 60 60" className="w-24 h-24">
+                <div className="w-20 h-20 flex items-center justify-center">
+                  <svg viewBox="0 0 60 60" className="w-20 h-20">
                     <defs>
                       <linearGradient id="g" x1="0" x2="1">
                         <stop offset="0%" stopColor="#22c55e" />
@@ -855,8 +896,8 @@ const ConfirmationStep: React.FC<ConfirmationStepProps> = ({
               )}
 
               {status === 'success' && (
-                <div className="w-24 h-24 flex items-center justify-center">
-                  <svg viewBox="0 0 64 64" className="w-24 h-24">
+                <div className="w-20 h-20 flex items-center justify-center">
+                  <svg viewBox="0 0 64 64" className="w-20 h-20">
                     <circle cx="32" cy="32" r="30" fill="#ecfdf5" />
                     <circle cx="32" cy="32" r="14" fill="#16a34a" />
                     <path d="M20 33l6 6 18-18" stroke="#ffffff" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" fill="none" />
@@ -865,8 +906,8 @@ const ConfirmationStep: React.FC<ConfirmationStepProps> = ({
               )}
 
               {status === 'error' && (
-                <div className="w-24 h-24 flex items-center justify-center">
-                  <svg viewBox="0 0 64 64" className="w-24 h-24">
+                <div className="w-20 h-20 flex items-center justify-center">
+                  <svg viewBox="0 0 64 64" className="w-20 h-20">
                     <circle cx="32" cy="32" r="30" fill="#fff1f2" />
                     <path d="M20 20l24 24M44 20L20 44" stroke="#ef4444" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" />
                   </svg>

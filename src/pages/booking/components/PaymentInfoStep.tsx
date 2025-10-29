@@ -9,6 +9,8 @@ interface PaymentInfoStepProps {
   onCancel: () => void;
 }
 
+type PaymentMethod = 'bank_transfer' | 'credit_card' | 'company_account' | 'cash' | '';
+
 const PaymentInfoStep: React.FC<PaymentInfoStepProps> = ({
   formData,
   onUpdate,
@@ -17,7 +19,7 @@ const PaymentInfoStep: React.FC<PaymentInfoStepProps> = ({
   onCancel
 }) => {
   // Initialize from formData so the selection persists when navigating away/back
-  const [selectedMethod, setSelectedMethod] = React.useState<string>(formData.paymentMethod ?? '');
+  const [selectedMethod, setSelectedMethod] = React.useState<PaymentMethod>(formData.paymentMethod ?? '');
   const [hasInteracted, setHasInteracted] = React.useState<boolean>(!!formData.paymentMethod);
 
   const [bankReceiptPreview, setBankReceiptPreview] = React.useState<string | null>(null);
@@ -32,14 +34,16 @@ const PaymentInfoStep: React.FC<PaymentInfoStepProps> = ({
     if (formData.paymentMethod) {
       // avoid unnecessary state updates
       if (formData.paymentMethod !== selectedMethod) {
-        setSelectedMethod(formData.paymentMethod);
+        setSelectedMethod(formData.paymentMethod as PaymentMethod);
       }
       setHasInteracted(true);
     } else {
       setSelectedMethod('');
       setHasInteracted(false);
     }
-  }, [formData.paymentMethod, selectedMethod]);
+    // intentionally not including selectedMethod to avoid update loop
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [formData.paymentMethod]);
 
   // Cleanup object URLs on unmount
   React.useEffect(() => {
@@ -65,30 +69,54 @@ const PaymentInfoStep: React.FC<PaymentInfoStepProps> = ({
 
   // ------------------ sanitizers / helpers ------------------
 
-  // Normalize spacing: trim ends and collapse multiple internal whitespace to a single space.
-  // This ensures no leading whitespace and at most one internal whitespace sequence.
-  const normalizeSpace = (s: string) => {
+  // collapseInternalNoLeading:
+  // - removes any leading whitespace (user cannot start input with spaces)
+  // - collapses any internal whitespace sequences to a single space
+  // - preserves trailing space so users can type naturally
+  const collapseInternalNoLeading = (s: string) => {
+    if (typeof s !== 'string') return s;
+    // remove leading whitespace, collapse internal whitespace to a single space
+    return s.replace(/^\s+/, '').replace(/\s+/g, ' ');
+  };
+
+  // For final storage/validation you can use trimAndCollapse to remove trailing spaces as well:
+  const trimAndCollapse = (s: string) => {
     if (typeof s !== 'string') return s;
     return s.trim().replace(/\s+/g, ' ');
   };
 
-
   const sanitizeDigits = (value: string) => value.replace(/\D/g, '');
   const sanitizePhone = (value: string) => {
-    let v = value.replace(/\s+/g, '');
-    v = v.replace(/(?!^\+)\+/g, '');
+    if (typeof value !== 'string') return value;
+    // Trim first for phone handling then keep only digits and optional leading +
+    let v = value.trim();
     v = v.replace(/[^\d+]/g, '');
+    if (v.includes('+')) {
+      const startedWithPlus = value.trim().startsWith('+');
+      v = v.replace(/\+/g, '');
+      if (startedWithPlus) v = `+${v}`;
+    }
     return v;
   };
+
+  // Allow only unicode letters, single internal spaces and common name punctuation (apostrophe, hyphen, period).
+  // Use collapseInternalNoLeading to enforce no leading spaces and at most one internal space sequence.
   const sanitizeAlpha = (value: string) => {
-    const cleaned = value.replace(/[^a-zA-Z\s.'-]/g, '');
-    return normalizeSpace(cleaned);
+    if (typeof value !== 'string') return value;
+    // remove anything that is not a unicode letter, space, apostrophe, dot or hyphen
+    const cleaned = value.replace(/[^\p{L}\s.'-]/gu, '');
+    return collapseInternalNoLeading(cleaned);
   };
+
+  // Allow unicode letters, numbers and safe punctuation for company names, addresses, PO numbers etc.
   const sanitizeAlphanumericAndSpace = (value: string) => {
-    const cleaned = value.replace(/[^a-zA-Z0-9\s\-\/&.,]/g, '');
-    return normalizeSpace(cleaned);
+    if (typeof value !== 'string') return value;
+    const cleaned = value.replace(/[^\p{L}\p{N}\s\-\/&.,]/gu, '');
+    return collapseInternalNoLeading(cleaned);
   };
+
   const sanitizeExpiry = (value: string) => {
+    if (typeof value !== 'string') return value;
     const digits = value.replace(/\D/g, '').slice(0, 6); // allow MMYY or MMYYYY
     if (digits.length <= 2) return digits;
     if (digits.length <= 4) return `${digits.slice(0, 2)}/${digits.slice(2)}`;
@@ -147,9 +175,23 @@ const PaymentInfoStep: React.FC<PaymentInfoStepProps> = ({
     return re.test(email.trim());
   };
 
+  // Name validation helper that ensures:
+  // - Non-empty
+  // - Contains only allowed characters (unicode letters, single spaces, apostrophe, hyphen, dot)
+  // - No numbers
+  // Uses trimAndCollapse for validation (so leading/trailing spaces are ignored for the check).
+  const isValidPersonName = (name?: string) => {
+    if (!name) return false;
+    const n = trimAndCollapse(name);
+    // allow Unicode letters with separators (single space or one of the punctuation)
+    // pattern: start with letter(s), then zero or more groups of separator + letters
+    const pattern = /^\p{L}+(?:[ '\.-]\p{L}+)*$/u;
+    return pattern.test(n);
+  };
+
   // ------------------ input handlers ------------------
 
-  const handlePaymentMethodChange = (method: 'bank_transfer' | 'credit_card' | 'company_account' | 'cash') => {
+  const handlePaymentMethodChange = (method: Exclude<PaymentMethod, ''>) => {
     // If user clicks the same method again after interacting, do nothing (prevents accidental clears)
     if (method === selectedMethod && hasInteracted) return;
 
@@ -189,7 +231,7 @@ const PaymentInfoStep: React.FC<PaymentInfoStepProps> = ({
     });
   };
 
-  const clearPaymentFieldsExcept = (keep: 'bank_transfer' | 'credit_card' | 'company_account' | 'cash') => {
+  const clearPaymentFieldsExcept = (keep: Exclude<PaymentMethod, ''>) => {
     const cleared: Partial<BookingFormData> = {
       cardNumber: '',
       nameOnCard: '',
@@ -245,10 +287,11 @@ const PaymentInfoStep: React.FC<PaymentInfoStepProps> = ({
     return cleared;
   };
 
-  // Generic updater that strips leading whitespace and collapses multiple whitespaces into single spaces
+  // Generic updater that collapses internal whitespace and removes leading whitespace
+  // so the input will never begin with a space. Trailing space is preserved while typing.
   const handleGenericInput = (field: keyof BookingFormData | string, value: any) => {
     if (typeof value === 'string') {
-      value = normalizeSpace(value);
+      value = collapseInternalNoLeading(value);
     }
     onUpdate({ [field]: value } as Partial<BookingFormData>);
   };
@@ -262,7 +305,7 @@ const PaymentInfoStep: React.FC<PaymentInfoStepProps> = ({
     } else if (field === 'expirationDate') {
       onUpdate({ [field]: sanitizeExpiry(value) } as Partial<BookingFormData>);
     } else {
-      // normalize spacing and remove invalid characters for name on card
+      // remove leading spaces and collapse internal whitespace for name on card
       onUpdate({ [field]: sanitizeAlpha(value) } as Partial<BookingFormData>);
     }
   };
@@ -325,6 +368,32 @@ const PaymentInfoStep: React.FC<PaymentInfoStepProps> = ({
     }
   };
 
+  // Accessible keyboard activation helper for clickable divs
+  const handleClickableKey = (e: React.KeyboardEvent, clickFn: () => void) => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      clickFn();
+    }
+  };
+
+  // Drag & drop handlers for files (bank receipt & billing doc)
+  const handleDropBankReceipt = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const file = e.dataTransfer.files?.[0] ?? null;
+    if (file) {
+      onBankReceiptChange(file);
+    }
+  };
+  const handleDropBillingDoc = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const file = e.dataTransfer.files?.[0] ?? null;
+    if (file) {
+      onBillingDocChange(file);
+    }
+  };
+
   const handleTermsChange = (agree: boolean) => onUpdate({ agreeToTerms: agree });
 
   // Determine the active payment method to validate against (UI-interacted method preferred)
@@ -333,7 +402,8 @@ const PaymentInfoStep: React.FC<PaymentInfoStepProps> = ({
   // ------------------ validations ------------------
 
   // Helper: checks whether the selected payment method's required fields are complete (EXCLUDES agreeToTerms)
-  const isPaymentMethodComplete = (method?: string) => {
+  // NOTE: cash now requires only payer name; contact is optional.
+  const isPaymentMethodComplete = (method?: PaymentMethod) => {
     switch (method) {
       case 'credit_card':
         return !!(formData.cardNumber && formData.nameOnCard && formData.cvvCode && formData.expirationDate);
@@ -342,7 +412,8 @@ const PaymentInfoStep: React.FC<PaymentInfoStepProps> = ({
       case 'company_account':
         return !!(formData.companyName && formData.billingContact && formData.billingEmail);
       case 'cash':
-        return !!(formData.cashPayerName && formData.cashPayerContact);
+        // Require payer name; contact is optional (so users can just provide a name)
+        return !!(formData.cashPayerName);
       default:
         return false;
     }
@@ -352,6 +423,7 @@ const PaymentInfoStep: React.FC<PaymentInfoStepProps> = ({
   const cardNumber = formData.cardNumber ?? '';
   const cvvCode = formData.cvvCode ?? '';
   const expirationDate = formData.expirationDate ?? '';
+  const nameOnCard = formData.nameOnCard ?? '';
 
   const cardNumberDigits = sanitizeDigits(cardNumber);
   const cardNumberError = (() => {
@@ -376,6 +448,12 @@ const PaymentInfoStep: React.FC<PaymentInfoStepProps> = ({
     return '';
   })();
 
+  const nameOnCardError = (() => {
+    if (!nameOnCard) return 'Name on card required';
+    if (!isValidPersonName(nameOnCard)) return 'Name on card contains invalid characters or numbers';
+    return '';
+  })();
+
   // Bank transfer validations
   const bankName = formData.bankName ?? '';
   const bankAccountNumber = formData.bankAccountNumber ?? '';
@@ -390,6 +468,7 @@ const PaymentInfoStep: React.FC<PaymentInfoStepProps> = ({
   })();
   const depositorError = (() => {
     if (!depositorName) return 'Depositor name required';
+    if (!isValidPersonName(depositorName)) return 'Depositor name contains invalid characters or numbers';
     return '';
   })();
 
@@ -402,18 +481,26 @@ const PaymentInfoStep: React.FC<PaymentInfoStepProps> = ({
     if (!billingContact) return 'Billing contact required';
     if (!billingEmail) return 'Billing email required';
     if (!isValidEmail(billingEmail)) return 'Enter a valid billing email';
+    // make sure billing contact is a valid person name (no numbers)
+    if (!isValidPersonName(billingContact)) return 'Billing contact contains invalid characters or numbers';
     return '';
   })();
 
   // Cash payer validations
   const cashPayerName = formData.cashPayerName ?? '';
   const cashPayerContact = formData.cashPayerContact ?? '';
-  const cashContactDigits = sanitizePhone(cashPayerContact).replace(/\D/g, '');
+  const cashContactNormalized = sanitizePhone(cashPayerContact);
+  const cashContactDigits = cashContactNormalized.replace(/\D/g, '');
   const cashPayerError = (() => {
     if (!cashPayerName) return 'Payer name required';
-    if (!cashPayerContact) return 'Payer contact required';
-    if (!(cashContactDigits.length === 10 || cashContactDigits.length === 11 || (cashContactDigits.length >= 7 && cashContactDigits.length <= 15))) {
-      return 'Payer contact must be 10 or 11 digits (or 7–15 digits for international)';
+    // Ensure payer name does not contain digits or invalid characters
+    if (!isValidPersonName(cashPayerName)) return 'Payer name contains invalid characters or numbers';
+    // Contact is optional — validate only if present
+    if (cashPayerContact) {
+      // Accept common local (10 or 11) or international numbers (7-15 digits)
+      if (!(cashContactDigits.length === 10 || cashContactDigits.length === 11 || (cashContactDigits.length >= 7 && cashContactDigits.length <= 15))) {
+        return 'Payer contact must be 10 or 11 digits (or 7–15 digits for international)';
+      }
     }
     return '';
   })();
@@ -422,6 +509,7 @@ const PaymentInfoStep: React.FC<PaymentInfoStepProps> = ({
     switch (methodToValidate) {
       case 'credit_card':
         if (cardNumberError) return cardNumberError;
+        if (nameOnCardError) return nameOnCardError;
         if (cvvError) return cvvError;
         if (expiryError) return expiryError;
         return '';
@@ -508,24 +596,32 @@ const PaymentInfoStep: React.FC<PaymentInfoStepProps> = ({
   const currentSelectedForUI = hasInteracted ? selectedMethod : (formData.paymentMethod ?? '');
 
   return (
-    <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+    <div
+      className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 sm:p-6 pb-16 md:pb-6 text-xs sm:text-sm md:text-base"
+      style={{ fontFamily: 'Poppins' }}
+    >
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-8">
         <div>
-          <h2 className="text-2xl font-semibold text-[#0B5858] mb-3" style={{ fontFamily: 'Poppins' }}>
+          <h2 className="text-lg sm:text-xl md:text-2xl font-semibold text-[#0B5858] mb-2 sm:mb-3">
             Payment Method
           </h2>
-          <p className="text-gray-600 mb-6 text-sm" style={{ fontFamily: 'Poppins', lineHeight: 1.5 }}>
+          <p className="text-xs sm:text-sm text-gray-600 mb-4" style={{ lineHeight: 1.5 }}>
             Choose a payment channel. After selecting, fill the fields specific to that method.
           </p>
 
-          <div className="space-y-4 mb-6">
+          <div className="space-y-3 mb-4">
             {[
               { value: 'bank_transfer', label: 'Bank Transfer / Deposit' },
               { value: 'credit_card', label: 'Credit or Debit Card' },
               { value: 'company_account', label: 'Company Account / Billing' },
               { value: 'cash', label: 'Cash Payment' }
             ].map((option) => (
-              <label key={option.value} className="flex items-center gap-3">
+              <label
+                key={option.value}
+                className="flex items-center gap-3 p-2 rounded-md hover:bg-gray-50 focus-within:ring-2 focus-within:ring-[#0B5858] cursor-pointer"
+                aria-label={option.label}
+                title={option.label}
+              >
                 <input
                   type="radio"
                   name="paymentMethod"
@@ -534,25 +630,22 @@ const PaymentInfoStep: React.FC<PaymentInfoStepProps> = ({
                   onChange={() => handlePaymentMethodChange(option.value as any)}
                   className="w-4 h-4 text-[#0B5858] border-gray-300 focus:ring-[#0B5858]"
                 />
-                <span className="ml-1 text-gray-800 text-sm" style={{ fontFamily: 'Poppins' }}>
-                  {option.label}
-                </span>
+                <span className="ml-1 text-xs sm:text-sm text-gray-800">{option.label}</span>
               </label>
             ))}
           </div>
 
-          {/* Payment method detail panels (unchanged behaviour) */}
+          {/* Payment method detail panels */}
           {hasInteracted && selectedMethod === 'bank_transfer' && (
             <div className="mt-2 space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2" style={{ fontFamily: 'Poppins' }}>
+                <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">
                   Select Bank
                 </label>
                 <select
                   value={formData.bankName || ''}
                   onChange={(e) => handleGenericInput('bankName', sanitizeAlphanumericAndSpace(e.target.value))}
-                  className="w-full text-sm px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0B5858] focus:border-transparent"
-                  style={{ fontFamily: 'Poppins' }}
+                  className="w-full text-xs sm:text-sm px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0B5858] focus:border-transparent"
                 >
                   <option value="">-- Select Bank --</option>
                   <option value="BDO">BDO</option>
@@ -564,7 +657,7 @@ const PaymentInfoStep: React.FC<PaymentInfoStepProps> = ({
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2" style={{ fontFamily: 'Poppins' }}>
+                  <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">
                     Account / Reference Number
                   </label>
                   <input
@@ -574,14 +667,14 @@ const PaymentInfoStep: React.FC<PaymentInfoStepProps> = ({
                     placeholder="123456789012"
                     inputMode="numeric"
                     maxLength={30}
-                    className="w-full text-sm px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0B5858] focus:border-transparent"
-                    style={{ fontFamily: 'Poppins' }}
+                    className="w-full text-xs sm:text-sm px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0B5858] focus:border-transparent"
+                    aria-describedby={bankAccountError ? 'bank-account-error' : undefined}
                   />
-                  {bankAccountError && <div className="mt-1 text-xs text-yellow-700">{bankAccountError}</div>}
+                  {bankAccountError && <div id="bank-account-error" className="mt-1 text-xs text-yellow-700">{bankAccountError}</div>}
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2" style={{ fontFamily: 'Poppins' }}>
+                  <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">
                     Depositor / Account Name
                   </label>
                   <input
@@ -589,24 +682,27 @@ const PaymentInfoStep: React.FC<PaymentInfoStepProps> = ({
                     value={formData.depositorName || ''}
                     onChange={(e) => handleGenericInput('depositorName', sanitizeAlpha(e.target.value))}
                     placeholder="Juan dela Cruz"
-                    className="w-full text-sm px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0B5858] focus:border-transparent"
-                    style={{ fontFamily: 'Poppins' }}
+                    className="w-full text-xs sm:text-sm px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0B5858] focus:border-transparent"
+                    aria-describedby={depositorError ? 'depositor-error' : undefined}
                   />
-                  {depositorError && <div className="mt-1 text-xs text-yellow-700">{depositorError}</div>}
+                  {depositorError && <div id="depositor-error" className="mt-1 text-xs text-yellow-700">{depositorError}</div>}
                 </div>
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2" style={{ fontFamily: 'Poppins' }}>
+                <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">
                   Upload Proof of Payment (Receipt)
                 </label>
 
                 <div
                   role="button"
                   tabIndex={0}
-                  onKeyDown={() => {}}
+                  onKeyDown={(e) => handleClickableKey(e, () => {
+                    const el = document.getElementById('bankReceiptInput') as HTMLInputElement | null;
+                    el?.click();
+                  })}
                   className={
-                    "w-full flex items-center gap-4 p-4 rounded-lg border-2 border-dashed " +
+                    "w-full flex items-center gap-3 sm:gap-4 p-3 sm:p-4 rounded-lg border-2 border-dashed " +
                     (formData.bankReceiptUploaded ? "border-green-400 bg-green-50" : "border-gray-300 bg-gray-50") +
                     " cursor-pointer"
                   }
@@ -614,19 +710,21 @@ const PaymentInfoStep: React.FC<PaymentInfoStepProps> = ({
                     const el = document.getElementById('bankReceiptInput') as HTMLInputElement | null;
                     el?.click();
                   }}
+                  onDragOver={(e) => e.preventDefault()}
+                  onDrop={handleDropBankReceipt}
                   aria-label="Upload bank transfer receipt"
                 >
                   <div className="flex-shrink-0">
-                    <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg className="w-6 h-6 sm:w-7 sm:h-7 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" d="M7 7v10M17 7v10M3 13h18M12 3v14" />
                     </svg>
                   </div>
 
                   <div className="flex-1 text-left">
-                    <div className="text-sm font-medium text-gray-800" style={{ fontFamily: 'Poppins' }}>
+                    <div className="text-xs sm:text-sm font-medium text-gray-800">
                       {formData.bankReceiptFileName ? formData.bankReceiptFileName : 'Click to upload or drag and drop a receipt'}
                     </div>
-                    <div className="text-xs text-gray-500 mt-1" style={{ fontFamily: 'Poppins' }}>
+                    <div className="text-[10px] sm:text-xs text-gray-500 mt-1">
                       Accepted: JPG, PNG, PDF. Max file size depends on backend.
                     </div>
                   </div>
@@ -658,26 +756,26 @@ const PaymentInfoStep: React.FC<PaymentInfoStepProps> = ({
 
                 <div className="mt-2 flex items-center gap-3">
                   {bankReceiptPreview ? (
-                    <img src={bankReceiptPreview} alt="receipt preview" className="w-20 h-20 object-cover rounded border" />
+                    <img src={bankReceiptPreview} alt="receipt preview" className="w-16 h-16 sm:w-20 sm:h-20 object-cover rounded border" />
                   ) : formData.bankReceiptUploaded ? (
-                    <div className="px-3 py-1 text-xs bg-green-100 text-green-800 rounded" style={{ fontFamily: 'Poppins' }}>
+                    <div className="px-3 py-1 text-xs bg-green-100 text-green-800 rounded">
                       Receipt uploaded
                     </div>
                   ) : (
-                    <div className="text-xs text-gray-500" style={{ fontFamily: 'Poppins' }}>
+                    <div className="text-xs text-gray-500">
                       No file uploaded yet.
                     </div>
                   )}
                 </div>
 
-                <p className="text-xs text-gray-500 mt-2" style={{ fontFamily: 'Poppins' }}>
+                <p className="text-[11px] sm:text-xs text-gray-500 mt-2">
                   After transferring, upload the receipt so we can confirm your payment faster.
                 </p>
               </div>
 
-              <div className="bg-yellow-50 border-l-4 border-yellow-300 p-3 text-sm text-gray-700 rounded">
-                <div style={{ fontFamily: 'Poppins' }}>Transfer instructions:</div>
-                <div className="mt-1 text-xs text-gray-600" style={{ lineHeight: 1.4, fontFamily: 'Poppins' }}>
+              <div className="bg-yellow-50 border-l-4 border-yellow-300 p-3 text-xs text-gray-700 rounded">
+                <div>Transfer instructions:</div>
+                <div className="mt-1 text-[11px] text-gray-600" style={{ lineHeight: 1.4 }}>
                   - Use the account number above as reference.<br />
                   - Enter exact amount shown in summary.<br />
                   - Upload receipt and allow up to 24 hours for confirmation.
@@ -689,23 +787,23 @@ const PaymentInfoStep: React.FC<PaymentInfoStepProps> = ({
           {hasInteracted && selectedMethod === 'credit_card' && (
             <div className="mt-2 space-y-4">
               <div className="flex items-center justify-between">
-                <span className="text-gray-700 font-semibold text-sm" style={{ fontFamily: 'Poppins' }}>
+                <span className="text-xs sm:text-sm font-semibold text-gray-700">
                   Card (Credit / Debit)
                 </span>
                 <div className="flex space-x-2">
-                  <img src="/Credit_Cards/Credit.png" alt="Credit Card" className="h-6" />
+                  <img src="/Credit_Cards/Credit.png" alt="Credit Card" className="h-5 sm:h-6" />
                 </div>
               </div>
 
               {/* EXPIRED CARD ALERT */}
               {expiryInfo.validFormat && expiryInfo.expired && (
-                <div className="mb-2 p-3 rounded-md bg-red-50 border border-red-200 text-sm text-red-800" role="alert" style={{ fontFamily: 'Poppins' }}>
+                <div className="mb-2 p-3 rounded-md bg-red-50 border border-red-200 text-xs text-red-800" role="alert">
                   The expiration date you entered indicates the card is expired. Please update the expiration date or use another card.
                 </div>
               )}
 
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2" style={{ fontFamily: 'Poppins' }}>
+                <label className="block text-xs sm:text-sm font-semibold text-gray-700 mb-2">
                   Card Number
                 </label>
                 <input
@@ -715,14 +813,14 @@ const PaymentInfoStep: React.FC<PaymentInfoStepProps> = ({
                   placeholder="1234567890123456"
                   inputMode="numeric"
                   maxLength={19}
-                  className="w-full text-sm px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0B5858]"
-                  style={{ fontFamily: 'Poppins' }}
+                  className="w-full text-xs sm:text-sm px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0B5858]"
+                  aria-describedby={cardNumberError ? 'card-number-error' : undefined}
                 />
-                {cardNumberError && <div className="mt-1 text-xs text-yellow-700">{cardNumberError}</div>}
+                {cardNumberError && <div id="card-number-error" className="mt-1 text-xs text-yellow-700">{cardNumberError}</div>}
               </div>
 
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2" style={{ fontFamily: 'Poppins' }}>
+                <label className="block text-xs sm:text-sm font-semibold text-gray-700 mb-2">
                   Name on Card
                 </label>
                 <input
@@ -730,14 +828,15 @@ const PaymentInfoStep: React.FC<PaymentInfoStepProps> = ({
                   value={formData.nameOnCard || ''}
                   onChange={(e) => handleCardInputChange('nameOnCard', e.target.value)}
                   placeholder="John Doe"
-                  className="w-full text-sm px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0B5858]"
-                  style={{ fontFamily: 'Poppins' }}
+                  className="w-full text-xs sm:text-sm px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0B5858]"
+                  aria-describedby={nameOnCardError ? 'name-on-card-error' : undefined}
                 />
+                {nameOnCardError && <div id="name-on-card-error" className="mt-1 text-xs text-yellow-700">{nameOnCardError}</div>}
               </div>
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-2" style={{ fontFamily: 'Poppins' }}>
+                  <label className="block text-xs sm:text-sm font-semibold text-gray-700 mb-2">
                     CVV
                   </label>
                   <input
@@ -747,13 +846,13 @@ const PaymentInfoStep: React.FC<PaymentInfoStepProps> = ({
                     placeholder="123"
                     maxLength={4}
                     inputMode="numeric"
-                    className="w-full text-sm px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0B5858]"
-                    style={{ fontFamily: 'Poppins' }}
+                    className="w-full text-xs sm:text-sm px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0B5858]"
+                    aria-describedby={cvvError ? 'cvv-error' : undefined}
                   />
-                  {cvvError && <div className="mt-1 text-xs text-yellow-700">{cvvError}</div>}
+                  {cvvError && <div id="cvv-error" className="mt-1 text-xs text-yellow-700">{cvvError}</div>}
                 </div>
                 <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-2" style={{ fontFamily: 'Poppins' }}>
+                  <label className="block text-xs sm:text-sm font-semibold text-gray-700 mb-2">
                     Expiration (MM/YY)
                   </label>
                   <input
@@ -763,14 +862,14 @@ const PaymentInfoStep: React.FC<PaymentInfoStepProps> = ({
                     placeholder="12/25"
                     maxLength={7}
                     inputMode="numeric"
-                    className="w-full text-sm px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0B5858]"
-                    style={{ fontFamily: 'Poppins' }}
+                    className="w-full text-xs sm:text-sm px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0B5858]"
+                    aria-describedby={expiryError ? 'expiry-error' : undefined}
                   />
-                  {expiryError && <div className="mt-1 text-xs text-yellow-700">{expiryError}</div>}
+                  {expiryError && <div id="expiry-error" className="mt-1 text-xs text-yellow-700">{expiryError}</div>}
                 </div>
               </div>
 
-              <div className="text-xs text-gray-600" style={{ fontFamily: 'Poppins' }}>
+              <div className="text-[11px] text-gray-600">
                 We use a PCI-compliant processor — card details are tokenized and not stored on our servers.
               </div>
             </div>
@@ -779,7 +878,7 @@ const PaymentInfoStep: React.FC<PaymentInfoStepProps> = ({
           {hasInteracted && selectedMethod === 'company_account' && (
             <div className="mt-2 space-y-4">
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2" style={{ fontFamily: 'Poppins' }}>
+                <label className="block text-xs sm:text-sm font-semibold text-gray-700 mb-2">
                   Company Name
                 </label>
                 <input
@@ -787,13 +886,12 @@ const PaymentInfoStep: React.FC<PaymentInfoStepProps> = ({
                   value={formData.companyName || ''}
                   onChange={(e) => handleGenericInput('companyName', sanitizeAlphanumericAndSpace(e.target.value))}
                   placeholder="ACME Corporation"
-                  className="w-full text-sm px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0B5858]"
-                  style={{ fontFamily: 'Poppins' }}
+                  className="w-full text-xs sm:text-sm px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0B5858]"
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2" style={{ fontFamily: 'Poppins' }}>
+                <label className="block text-xs sm:text-sm font-semibold text-gray-700 mb-2">
                   Billing Contact Name
                 </label>
                 <input
@@ -801,14 +899,13 @@ const PaymentInfoStep: React.FC<PaymentInfoStepProps> = ({
                   value={formData.billingContact || ''}
                   onChange={(e) => handleGenericInput('billingContact', sanitizeAlpha(e.target.value))}
                   placeholder="Jane Accountant"
-                  className="w-full text-sm px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0B5858]"
-                  style={{ fontFamily: 'Poppins' }}
+                  className="w-full text-xs sm:text-sm px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0B5858]"
                 />
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-2" style={{ fontFamily: 'Poppins' }}>
+                  <label className="block text-xs sm:text-sm font-semibold text-gray-700 mb-2">
                     Billing Email
                   </label>
                   <input
@@ -816,14 +913,14 @@ const PaymentInfoStep: React.FC<PaymentInfoStepProps> = ({
                     value={formData.billingEmail || ''}
                     onChange={(e) => handleGenericInput('billingEmail', e.target.value.trim())}
                     placeholder="billing@company.com"
-                    className="w-full text-sm px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0B5858]"
-                    style={{ fontFamily: 'Poppins' }}
+                    className="w-full text-xs sm:text-sm px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0B5858]"
+                    aria-describedby={companyError ? 'company-error' : undefined}
                   />
-                  {companyError && <div className="mt-1 text-xs text-yellow-700">{companyError}</div>}
+                  {companyError && <div id="company-error" className="mt-1 text-xs text-yellow-700">{companyError}</div>}
                 </div>
 
                 <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-2" style={{ fontFamily: 'Poppins' }}>
+                  <label className="block text-xs sm:text-sm font-semibold text-gray-700 mb-2">
                     PO / Billing Reference (optional)
                   </label>
                   <input
@@ -831,20 +928,19 @@ const PaymentInfoStep: React.FC<PaymentInfoStepProps> = ({
                     value={formData.poNumber || ''}
                     onChange={(e) => handleGenericInput('poNumber', sanitizeAlphanumericAndSpace(e.target.value))}
                     placeholder="PO-12345"
-                    className="w-full text-sm px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0B5858]"
-                    style={{ fontFamily: 'Poppins' }}
+                    className="w-full text-xs sm:text-sm px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0B5858]"
                   />
                 </div>
               </div>
 
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2" style={{ fontFamily: 'Poppins' }}>
+                <label className="block text-xs sm:text-sm font-semibold text-gray-700 mb-2">
                   Upload Billing Documents (optional)
                 </label>
 
                 <div
                   className={
-                    "w-full flex items-center gap-4 p-4 rounded-lg border-2 border-dashed " +
+                    "w-full flex items-center gap-3 sm:gap-4 p-3 sm:p-4 rounded-lg border-2 border-dashed " +
                     (formData.billingDocumentUploaded ? "border-green-400 bg-green-50" : "border-gray-300 bg-gray-50") +
                     " cursor-pointer"
                   }
@@ -852,18 +948,26 @@ const PaymentInfoStep: React.FC<PaymentInfoStepProps> = ({
                     const el = document.getElementById('billingDocInput') as HTMLInputElement | null;
                     el?.click();
                   }}
+                  onKeyDown={(e) => handleClickableKey(e, () => {
+                    const el = document.getElementById('billingDocInput') as HTMLInputElement | null;
+                    el?.click();
+                  })}
+                  role="button"
+                  tabIndex={0}
+                  onDragOver={(e) => e.preventDefault()}
+                  onDrop={handleDropBillingDoc}
                 >
                   <div className="flex-shrink-0">
-                    <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg className="w-6 h-6 sm:w-7 sm:h-7 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" d="M12 3v12M3 12h18" />
                     </svg>
                   </div>
 
                   <div className="flex-1 text-left">
-                    <div className="text-sm font-medium text-gray-800" style={{ fontFamily: 'Poppins' }}>
+                    <div className="text-xs sm:text-sm font-medium text-gray-800">
                       {formData.billingDocumentFileName ? formData.billingDocumentFileName : 'Click to upload a billing document (PDF or image)'}
                     </div>
-                    <div className="text-xs text-gray-500 mt-1" style={{ fontFamily: 'Poppins' }}>
+                    <div className="text-[10px] sm:text-xs text-gray-500 mt-1">
                       Optional: Upload PO, invoice or other billing documents.
                     </div>
                   </div>
@@ -895,20 +999,20 @@ const PaymentInfoStep: React.FC<PaymentInfoStepProps> = ({
 
                 <div className="mt-2">
                   {billingDocPreview ? (
-                    <img src={billingDocPreview} alt="billing preview" className="w-20 h-20 object-cover rounded border" />
+                    <img src={billingDocPreview} alt="billing preview" className="w-16 h-16 sm:w-20 sm:h-20 object-cover rounded border" />
                   ) : formData.billingDocumentUploaded ? (
-                    <div className="px-3 py-1 text-xs bg-green-100 text-green-800 rounded" style={{ fontFamily: 'Poppins' }}>
+                    <div className="px-3 py-1 text-xs bg-green-100 text-green-800 rounded">
                       Document uploaded
                     </div>
                   ) : (
-                    <div className="text-xs text-gray-500" style={{ fontFamily: 'Poppins' }}>
+                    <div className="text-xs text-gray-500">
                       No document uploaded.
                     </div>
                   )}
                 </div>
               </div>
 
-              <p className="text-xs text-gray-500" style={{ fontFamily: 'Poppins' }}>
+              <p className="text-[11px] sm:text-xs text-gray-500">
                 For invoice/billing arrangements we will contact the billing contact. Please ensure PO/reference is provided if required by your accounts payable.
               </p>
             </div>
@@ -917,7 +1021,7 @@ const PaymentInfoStep: React.FC<PaymentInfoStepProps> = ({
           {hasInteracted && selectedMethod === 'cash' && (
             <div className="mt-2 space-y-4">
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2" style={{ fontFamily: 'Poppins' }}>
+                <label className="block text-xs sm:text-sm font-semibold text-gray-700 mb-2">
                   Payer Name
                 </label>
                 <input
@@ -925,15 +1029,18 @@ const PaymentInfoStep: React.FC<PaymentInfoStepProps> = ({
                   value={formData.cashPayerName || ''}
                   onChange={(e) => handleGenericInput('cashPayerName', sanitizeAlpha(e.target.value))}
                   placeholder="Name of person who will pay on arrival"
-                  className="w-full text-sm px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0B5858]"
-                  style={{ fontFamily: 'Poppins' }}
+                  className="w-full text-xs sm:text-sm px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0B5858]"
+                  aria-describedby={cashPayerError ? 'cash-payer-error' : undefined}
                 />
-                {cashPayerError && <div className="mt-1 text-xs text-yellow-700">{cashPayerError}</div>}
+                <div className="text-[11px] sm:text-xs text-gray-500 mt-1">
+                  No numbers — enter the payer's full name.
+                </div>
+                {cashPayerError && <div id="cash-payer-error" className="mt-1 text-xs text-yellow-700">{cashPayerError}</div>}
               </div>
 
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2" style={{ fontFamily: 'Poppins' }}>
-                  Payer Contact Number
+                <label className="block text-xs sm:text-sm font-semibold text-gray-700 mb-2">
+                  Payer Contact Number (optional)
                 </label>
                 <input
                   type="text"
@@ -941,19 +1048,18 @@ const PaymentInfoStep: React.FC<PaymentInfoStepProps> = ({
                   onChange={(e) => handleGenericInput('cashPayerContact', sanitizePhone(e.target.value))}
                   placeholder="+639123456789"
                   inputMode="tel"
-                  className="w-full text-sm px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0B5858]"
-                  style={{ fontFamily: 'Poppins' }}
+                  className="w-full text-xs sm:text-sm px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0B5858]"
                 />
-                <div className="text-xs text-gray-500 mt-1" style={{ fontFamily: 'Poppins' }}>
-                  Only digits allowed (optionally a leading +). No spaces or letters.
+                <div className="text-[11px] sm:text-xs text-gray-500 mt-1">
+                  Optional: digits only (optionally a single leading +). No letters.
                 </div>
               </div>
 
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2" style={{ fontFamily: 'Poppins' }}>
+                <label className="block text-xs sm:text-sm font-semibold text-gray-700 mb-2">
                   Payment Option
                 </label>
-                <div className="flex items-center gap-4">
+                <div className="flex flex-wrap items-center gap-3">
                   <label className="flex items-center gap-2">
                     <input
                       type="radio"
@@ -962,7 +1068,7 @@ const PaymentInfoStep: React.FC<PaymentInfoStepProps> = ({
                       onChange={() => handleGenericInput('cashPayBeforeArrival', false)}
                       className="w-4 h-4 text-[#0B5858] border-gray-300 focus:ring-[#0B5858]"
                     />
-                    <span className="text-sm text-gray-700" style={{ fontFamily: 'Poppins' }}>Pay on arrival / on-site</span>
+                    <span className="text-xs sm:text-sm text-gray-700">Pay on arrival / on-site</span>
                   </label>
                   <label className="flex items-center gap-2">
                     <input
@@ -972,19 +1078,19 @@ const PaymentInfoStep: React.FC<PaymentInfoStepProps> = ({
                       onChange={() => handleGenericInput('cashPayBeforeArrival', true)}
                       className="w-4 h-4 text-[#0B5858] border-gray-300 focus:ring-[#0B5858]"
                     />
-                    <span className="text-sm text-gray-700" style={{ fontFamily: 'Poppins' }}>Pay before arrival (arrange pickup)</span>
+                    <span className="text-xs sm:text-sm text-gray-700">Pay before arrival (arrange pickup)</span>
                   </label>
                 </div>
               </div>
 
-              <p className="text-xs text-gray-500" style={{ fontFamily: 'Poppins' }}>
+              <p className="text-[11px] sm:text-xs text-gray-500">
                 If paying on arrival, ensure the payer brings a valid ID and booking reference. If paying before arrival, we'll arrange pickup and confirm via contact number.
               </p>
             </div>
           )}
 
           <div className="mt-6">
-            <p className="text-sm text-gray-600 mb-3" style={{ fontFamily: 'Poppins' }}>
+            <p className="text-xs sm:text-sm text-gray-600 mb-3">
               Please review your booking and payment details before proceeding. By clicking 'Confirm Payment,' you agree to the terms and conditions of this transaction.
             </p>
 
@@ -997,7 +1103,7 @@ const PaymentInfoStep: React.FC<PaymentInfoStepProps> = ({
                 disabled={!isPaymentMethodComplete(methodToValidate)}
                 title={!isPaymentMethodComplete(methodToValidate) ? 'Complete payment method details first' : 'I agree to the payment terms and conditions'}
               />
-              <span className={`ml-2 text-sm ${!isPaymentMethodComplete(methodToValidate) ? 'text-gray-400' : 'text-gray-700'}`} style={{ fontFamily: 'Poppins' }}>
+              <span className={`ml-2 text-xs sm:text-sm ${!isPaymentMethodComplete(methodToValidate) ? 'text-gray-400' : 'text-gray-700'}`}>
                 I agree to the payment terms and conditions
               </span>
             </label>
@@ -1005,97 +1111,97 @@ const PaymentInfoStep: React.FC<PaymentInfoStepProps> = ({
         </div>
 
         {/* Right Panel - Summary */}
-        <div>
-          <div className="bg-gray-50 rounded-lg p-6">
-            <h3 className="text-lg font-semibold text-gray-800 mb-4" style={{ fontFamily: 'Poppins' }}>
+        <div className="lg:pl-4">
+          <div className="bg-gray-50 rounded-lg p-3 sm:p-6">
+            <h3 className="text-sm sm:text-base font-semibold text-gray-800 mb-3">
               Summary Charges
             </h3>
 
-            <div className="space-y-3 text-sm">
+            <div className="space-y-2 sm:space-y-3 text-xs sm:text-sm">
               <div className="flex justify-between">
-                <span className="text-gray-600" style={{ fontFamily: 'Poppins' }}>Unit Charge (per night)</span>
-                <span className="text-gray-800" style={{ fontFamily: 'Poppins' }}>₱{summary.unitCharge.toFixed(2)}</span>
+                <span className="text-gray-600">Unit Charge (per night)</span>
+                <span className="text-gray-800">₱{summary.unitCharge.toFixed(2)}</span>
               </div>
 
               <div className="flex justify-between">
-                <span className="text-gray-600" style={{ fontFamily: 'Poppins' }}>Base guests included</span>
-                <span className="text-gray-800" style={{ fontFamily: 'Poppins' }}>{summary.baseGuests ?? baseGuests}</span>
+                <span className="text-gray-600">Base guests included</span>
+                <span className="text-gray-800">{summary.baseGuests ?? baseGuests}</span>
               </div>
 
               <div className="flex justify-between">
-                <span className="text-gray-600" style={{ fontFamily: 'Poppins' }}>Extra Guests (one-time)</span>
-                <span className="text-gray-800" style={{ fontFamily: 'Poppins' }}>{summary.extraGuests ?? extraGuests}</span>
+                <span className="text-gray-600">Extra Guests (one-time)</span>
+                <span className="text-gray-800">{summary.extraGuests ?? extraGuests}</span>
               </div>
 
               <div className="flex justify-between">
-                <span className="text-gray-600" style={{ fontFamily: 'Poppins' }}>Nights</span>
-                <span className="text-gray-800" style={{ fontFamily: 'Poppins' }}>{summary.nights ?? nights}</span>
+                <span className="text-gray-600">Nights</span>
+                <span className="text-gray-800">{summary.nights ?? nights}</span>
               </div>
 
               <div className="flex justify-between">
-                <span className="text-gray-600" style={{ fontFamily: 'Poppins' }}>Subtotal (base rate × nights)</span>
-                <span className="text-gray-800" style={{ fontFamily: 'Poppins' }}>₱{((summary as any).subtotal ?? subtotal).toFixed(2)}</span>
+                <span className="text-gray-600">Subtotal (base rate × nights)</span>
+                <span className="text-gray-800">₱{((summary as any).subtotal ?? subtotal).toFixed(2)}</span>
               </div>
 
               <div className="flex justify-between">
-                <span className="text-gray-600" style={{ fontFamily: 'Poppins' }}>Amenities Charge</span>
-                <span className="text-gray-800" style={{ fontFamily: 'Poppins' }}>₱{summary.amenitiesCharge.toFixed(2)}</span>
+                <span className="text-gray-600">Amenities Charge</span>
+                <span className="text-gray-800">₱{summary.amenitiesCharge.toFixed(2)}</span>
               </div>
 
               <div className="flex justify-between">
-                <span className="text-gray-600" style={{ fontFamily: 'Poppins' }}>Extra guest fees (one-time)</span>
-                <span className="text-gray-800" style={{ fontFamily: 'Poppins' }}>₱{((summary as any).extraGuestFees ?? extraGuestFees).toFixed(2)}</span>
+                <span className="text-gray-600">Extra guest fees (one-time)</span>
+                <span className="text-gray-800">₱{((summary as any).extraGuestFees ?? extraGuestFees).toFixed(2)}</span>
               </div>
 
               <div className="flex justify-between">
-                <span className="text-gray-600" style={{ fontFamily: 'Poppins' }}>Service Charges</span>
-                <span className="text-gray-800" style={{ fontFamily: 'Poppins' }}>₱{summary.serviceCharge.toFixed(2)}</span>
+                <span className="text-gray-600">Service Charges</span>
+                <span className="text-gray-800">₱{summary.serviceCharge.toFixed(2)}</span>
               </div>
 
               <div className="flex justify-between">
-                <span className="text-gray-600" style={{ fontFamily: 'Poppins' }}>Discounts</span>
-                <span className="text-gray-800" style={{ fontFamily: 'Poppins' }}>-₱{summary.discount.toFixed(2)}</span>
+                <span className="text-gray-600">Discounts</span>
+                <span className="text-gray-800">-₱{summary.discount.toFixed(2)}</span>
               </div>
 
               <div className="border-t border-gray-300 pt-3">
                 <div className="flex justify-between">
-                  <span className="font-semibold text-gray-800" style={{ fontFamily: 'Poppins' }}>Total Charges</span>
-                  <span className="font-bold text-lg text-gray-800" style={{ fontFamily: 'Poppins' }}>₱{summary.totalCharges.toFixed(2)}</span>
+                  <span className="font-semibold text-gray-800">Total Charges</span>
+                  <span className="font-bold text-lg text-gray-800">₱{summary.totalCharges.toFixed(2)}</span>
                 </div>
               </div>
             </div>
 
-            <div className="mt-6 text-center">
+            <div className="mt-5 text-center">
               {hasInteracted && selectedMethod === 'bank_transfer' && (
-                <div className="text-sm text-gray-700" style={{ fontFamily: 'Poppins' }}>
+                <div className="text-xs text-gray-700">
                   Bank transfer selected. Please transfer the exact amount and upload the receipt using the highlighted upload area.
                 </div>
               )}
               {hasInteracted && selectedMethod === 'credit_card' && (
-                <div className="text-sm text-gray-700" style={{ fontFamily: 'Poppins' }}>
+                <div className="text-xs text-gray-700">
                   Secure card payment. You will be charged when you confirm.
                 </div>
               )}
               {hasInteracted && selectedMethod === 'company_account' && (
-                <div className="text-sm text-gray-700" style={{ fontFamily: 'Poppins' }}>
+                <div className="text-xs text-gray-700">
                   We will issue an invoice to the billing email after confirmation.
                 </div>
               )}
               {hasInteracted && selectedMethod === 'cash' && (
-                <div className="text-sm text-gray-700" style={{ fontFamily: 'Poppins' }}>
+                <div className="text-xs text-gray-700">
                   Cash payment selected. Please ensure the named payer presents valid ID and booking reference.
                 </div>
               )}
               {!hasInteracted && (
-                <div className="text-sm text-gray-700" style={{ fontFamily: 'Poppins' }}>
+                <div className="text-xs text-gray-700">
                   No payment method selected yet.
                 </div>
               )}
 
               <div className="mt-4">
-                <div className="bg-white p-4 rounded-lg inline-block">
-                  <div className="w-24 h-24 bg-gray-200 rounded flex items-center justify-center">
-                    <svg className="w-12 h-12 text-gray-400" fill="currentColor" viewBox="0 0 20 20">
+                <div className="bg-white p-3 sm:p-4 rounded-lg inline-block">
+                  <div className="w-20 h-20 sm:w-24 sm:h-24 bg-gray-200 rounded flex items-center justify-center">
+                    <svg className="w-10 h-10 sm:w-12 sm:h-12 text-gray-400" fill="currentColor" viewBox="0 0 20 20">
                       <path fillRule="evenodd" d="M3 4a1 1 0 011-1h3a1 1 0 011 1v3a1 1 0 01-1 1H4a1 1 0 01-1-1V4zm2 2V5h1v1H5zM3 13a1 1 0 011-1h3a1 1 0 011 1v3a1 1 0 01-1 1H4a1 1 0 01-1-1v-3zm2 2v-1h1v1H5zM13 4a1 1 0 011-1h3a1 1 0 011 1v3a1 1 0 01-1 1h-3a1 1 0 01-1-1V4zm2 2V5h1v1h-1z" clipRule="evenodd" />
                     </svg>
                   </div>
@@ -1103,7 +1209,7 @@ const PaymentInfoStep: React.FC<PaymentInfoStepProps> = ({
               </div>
 
               <div className="mt-4 text-center">
-                <p className="text-sm text-gray-500" style={{ fontFamily: 'Poppins' }}>
+                <p className="text-xs text-gray-500">
                   Payment Status: Pending
                 </p>
               </div>
@@ -1112,18 +1218,17 @@ const PaymentInfoStep: React.FC<PaymentInfoStepProps> = ({
         </div>
       </div>
 
-      <div className="flex justify-end space-x-4 mt-8 pt-6 border-t border-gray-200">
+      {/* Desktop actions: visible on lg and up */}
+      <div className="hidden lg:flex justify-end space-x-4 mt-6 pt-4 border-t border-gray-200">
         <button
           onClick={onCancel}
           className="px-6 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors text-sm"
-          style={{ fontFamily: 'Poppins' }}
         >
           Cancel
         </button>
         <button
           onClick={onBack}
           className="px-6 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors text-sm"
-          style={{ fontFamily: 'Poppins' }}
         >
           Back
         </button>
@@ -1131,10 +1236,34 @@ const PaymentInfoStep: React.FC<PaymentInfoStepProps> = ({
           onClick={handleNext}
           disabled={!isFormValid()}
           className="px-6 py-2 bg-[#0B5858] text-white rounded-lg hover:bg-[#0a4a4a] transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm"
-          style={{ fontFamily: 'Poppins' }}
         >
           Next
         </button>
+      </div>
+
+      {/* Mobile fixed footer: Back + Next */}
+      <div
+        className="fixed left-0 right-0 bottom-0 bg-white border-t border-gray-200 p-3 lg:hidden"
+        role="region"
+        aria-label="Payment actions"
+        style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 12px)' }}
+      >
+        <div className="max-w-6xl mx-auto flex items-center gap-3">
+          <button
+            onClick={onBack}
+            className="flex-1 px-3 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors text-sm"
+          >
+            Back
+          </button>
+          <button
+            onClick={handleNext}
+            disabled={!isFormValid()}
+            aria-disabled={!isFormValid()}
+            className="flex-1 px-3 py-2 bg-[#0B5858] text-white rounded-lg hover:bg-[#0a4a4a] transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm"
+          >
+            Next
+          </button>
+        </div>
       </div>
     </div>
   );
