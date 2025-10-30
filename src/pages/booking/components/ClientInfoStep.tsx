@@ -12,13 +12,6 @@ interface ClientInfoStepProps {
 
 const collapseSpacesTrim = (s: string) => s.replace(/ {2,}/g, ' ').replace(/^\s+/, '').replace(/\s+$/, '');
 
-const collapseSpacesKeepTrailing = (s: string) => {
-  const hadTrailing = /\s$/.test(s);
-  let tmp = s.replace(/ {2,}/g, ' ').replace(/^\s+/, '');
-  if (hadTrailing) tmp = tmp + ' ';
-  return tmp;
-};
-
 const FloatingInput: React.FC<{
   id: string;
   label: string;
@@ -703,6 +696,9 @@ const ClientInfoStep: React.FC<ClientInfoStepProps> = ({ formData, onUpdate, onU
       </div>
 
       <div className="hidden lg:flex justify-end space-x-4 mt-6 pt-4 border-t border-gray-200">
+        <button onClick={onCancel} className="px-6 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors text-sm" style={{ fontFamily: 'Poppins' }}>
+          Cancel
+        </button>
         <button onClick={onBack} className="px-6 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors text-sm" style={{ fontFamily: 'Poppins' }}>
           Back
         </button>
@@ -718,6 +714,13 @@ const ClientInfoStep: React.FC<ClientInfoStepProps> = ({ formData, onUpdate, onU
         style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 12px)' }}
       >
         <div className="max-w-6xl mx-auto flex items-center gap-3">
+          <button
+            onClick={onCancel}
+            className="flex-1 px-3 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors text-sm"
+            style={{ fontFamily: 'Poppins' }}
+          >
+            Cancel
+          </button>
           <button
             onClick={onBack}
             className="flex-1 px-3 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors text-sm"
