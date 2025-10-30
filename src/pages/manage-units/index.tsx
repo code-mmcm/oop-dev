@@ -21,6 +21,7 @@ const ManageUnits: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [togglingUnits, setTogglingUnits] = useState<Set<string>>(new Set());
+  const [togglingFeatured, setTogglingFeatured] = useState<Set<string>>(new Set());
   const [showNewListing, setShowNewListing] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage] = useState(10);
@@ -259,6 +260,36 @@ const ManageUnits: React.FC = () => {
         const newSet = new Set(prev);
         newSet.delete(unitId);
         return newSet;
+      });
+    }
+  };
+
+  /**
+   * Toggles the featured status of a unit both in the backend and local UI state.
+   * Uses a per-unit toggling set to prevent duplicate clicks while request is in-flight.
+   */
+  const toggleFeatured = async (unitId: string, currentFeatured: boolean) => {
+    try {
+      setTogglingFeatured(prev => new Set(prev).add(unitId));
+      const newFeatured = !currentFeatured;
+      logger.info('Toggling featured status for listing', { id: unitId, to: newFeatured });
+      await ListingService.updateListing(unitId, { is_featured: newFeatured });
+      setUnits(prevUnits => 
+        prevUnits.map(unit => 
+          unit.id === unitId 
+            ? { ...unit, is_featured: newFeatured, updated_at: new Date().toISOString() }
+            : unit
+        )
+      );
+      logger.info('Successfully updated featured status for listing', { id: unitId, to: newFeatured });
+    } catch (error) {
+      logger.error('Error updating featured status', error);
+      showToast('Failed to update featured status. Please try again.');
+    } finally {
+      setTogglingFeatured(prev => {
+        const next = new Set(prev);
+        next.delete(unitId);
+        return next;
       });
     }
   };
@@ -566,10 +597,10 @@ const ManageUnits: React.FC = () => {
 
 
               {/* View Toggle */}
-              <div className="flex border border-gray-200 rounded-lg overflow-hidden">
+              <div className="flex border border-gray-300 rounded-lg overflow-hidden h-[52px]">
                 <button
                   onClick={() => setViewMode('list')}
-                  className={`px-4 py-3 transition-colors cursor-pointer ${
+                  className={`px-4 h-full flex items-center transition-colors cursor-pointer ${
                     viewMode === 'list' 
                       ? 'text-white' 
                       : 'text-gray-600 hover:bg-gray-50'
@@ -585,7 +616,7 @@ const ManageUnits: React.FC = () => {
                 </button>
                 <button
                   onClick={() => setViewMode('grid')}
-                  className={`px-4 py-3 transition-colors cursor-pointer ${
+                  className={`px-4 h-full flex items-center transition-colors cursor-pointer ${
                     viewMode === 'grid' 
                       ? 'text-white' 
                       : 'text-gray-600 hover:bg-gray-50'
@@ -616,40 +647,43 @@ const ManageUnits: React.FC = () => {
           </div>
 
           {/* Units Table */}
-            <div className="bg-white rounded-lg shadow-sm overflow-hidden">
+              <div className="bg-white rounded-lg shadow-sm overflow-hidden">
               <div className="overflow-x-auto">
                 <table className="w-full table-auto min-w-[900px] md:min-w-0">
                 <thead className="sticky top-0 z-10">
                   <tr style={{backgroundColor: '#0B5858'}}>
                     {/* Increase header font weight for improved scannability and contrast on dark background */}
-                    <th className="px-4 py-3 text-left text-white font-semibold text-sm" style={{fontFamily: 'Poppins', width: '18%'}}>
+                    <th className="px-4 py-3 text-left text-white font-semibold text-sm" style={{fontFamily: 'Poppins'}}>
+                      {/* Intentionally left blank for featured star column */}
+                    </th>
+                    <th className="px-4 py-3 text-left text-white font-semibold text-sm" style={{fontFamily: 'Poppins'}}>
                       Unit Title
                     </th>
-                    <th className="px-4 py-3 text-left text-white font-semibold text-sm whitespace-nowrap" style={{fontFamily: 'Poppins', width: '14%'}}>
+                    <th className="px-4 py-3 text-left text-white font-semibold text-sm whitespace-nowrap" style={{fontFamily: 'Poppins'}}>
                       Location
                     </th>
-                    <th className="px-4 py-3 text-left text-white font-semibold text-sm whitespace-nowrap" style={{fontFamily: 'Poppins', width: '10%'}}>
+                    <th className="px-4 py-3 text-left text-white font-semibold text-sm whitespace-nowrap" style={{fontFamily: 'Poppins'}}>
                       Type
                     </th>
-                    <th className="px-4 py-3 text-left text-white font-semibold text-sm whitespace-nowrap" style={{fontFamily: 'Poppins', width: '8%'}}>
+                    <th className="px-4 py-3 text-left text-white font-semibold text-sm whitespace-nowrap" style={{fontFamily: 'Poppins'}}>
                       Capacity
                     </th>
-                    <th className="px-4 py-3 text-left text-white font-semibold text-sm whitespace-nowrap" style={{fontFamily: 'Poppins', width: '10%'}}>
+                    <th className="px-4 py-3 text-left text-white font-semibold text-sm whitespace-nowrap" style={{fontFamily: 'Poppins'}}>
                       Price/Night
                     </th>
-                    <th className="px-4 py-3 text-left text-white font-semibold text-sm whitespace-nowrap" style={{fontFamily: 'Poppins', width: '8%'}}>
+                    <th className="px-4 py-3 text-left text-white font-semibold text-sm whitespace-nowrap" style={{fontFamily: 'Poppins'}}>
                       Status
                     </th>
-                    <th className="px-4 py-3 text-left text-white font-semibold text-sm whitespace-nowrap" style={{fontFamily: 'Poppins', width: '8%'}}>
+                    <th className="px-4 py-3 text-left text-white font-semibold text-sm whitespace-nowrap" style={{fontFamily: 'Poppins'}}>
                       Slots
                     </th>
-                    <th className="px-4 py-3 text-left text-white font-semibold text-sm whitespace-nowrap hidden md:table-cell" style={{fontFamily: 'Poppins', width: '6%'}}>
+                    <th className="px-4 py-3 text-left text-white font-semibold text-sm whitespace-nowrap hidden md:table-cell" style={{fontFamily: 'Poppins'}}>
                       Bookings
                     </th>
-                    <th className="px-4 py-3 text-left text-white font-semibold text-sm whitespace-nowrap" style={{fontFamily: 'Poppins', width: '9%'}}>
+                    <th className="px-4 py-3 text-left text-white font-semibold text-sm whitespace-nowrap" style={{fontFamily: 'Poppins'}}>
                       Last Updated
                     </th>
-                    <th className="px-4 py-3 text-left text-white font-semibold text-sm whitespace-nowrap" style={{fontFamily: 'Poppins', width: '9%'}}>
+                    <th className="px-4 py-3 text-left text-white font-semibold text-sm whitespace-nowrap" style={{fontFamily: 'Poppins'}}>
                       Actions
                     </th>
                   </tr>
@@ -657,8 +691,8 @@ const ManageUnits: React.FC = () => {
                 <tbody>
                   {roleLoading ? (
                     // Role loading state - show loading message
-                    <tr>
-                      <td colSpan={9} className="px-6 py-8 text-center">
+                  <tr>
+                    <td colSpan={10} className="px-6 py-8 text-center">
                         <div className="flex flex-col items-center">
                           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900 mb-4"></div>
                           <p className="text-gray-600" style={{fontFamily: 'Poppins'}}>Loading...</p>
@@ -667,8 +701,8 @@ const ManageUnits: React.FC = () => {
                     </tr>
                   ) : !isAdmin ? (
                     // Access denied state - maintain table structure
-                    <tr>
-                      <td className="px-6 py-8 text-center" colSpan={9}>
+                  <tr>
+                    <td className="px-6 py-8 text-center" colSpan={10}>
                         <div className="text-red-500">
                           <svg className="w-16 h-16 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
@@ -684,8 +718,8 @@ const ManageUnits: React.FC = () => {
                     </tr>
                   ) : isLoading ? (
                     // Data loading state - show loading message
-                    <tr>
-                      <td colSpan={9} className="px-6 py-8 text-center">
+                  <tr>
+                    <td colSpan={10} className="px-6 py-8 text-center">
                         <div className="flex flex-col items-center">
                           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900 mb-4"></div>
                           <p className="text-gray-600" style={{fontFamily: 'Poppins'}}>Loading units...</p>
@@ -694,8 +728,8 @@ const ManageUnits: React.FC = () => {
                     </tr>
                   ) : error ? (
                     // Error state - maintain table structure
-                    <tr>
-                      <td className="px-6 py-8 text-center" colSpan={9}>
+                  <tr>
+                    <td className="px-6 py-8 text-center" colSpan={10}>
                         <div className="text-red-500">
                           <svg className="w-16 h-16 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
@@ -712,7 +746,7 @@ const ManageUnits: React.FC = () => {
                   ) : filteredUnits.length === 0 ? (
                     // No units found - maintain table structure
                     <tr>
-                      <td className="px-6 py-8 text-center" colSpan={9}>
+                      <td className="px-6 py-8 text-center" colSpan={10}>
                         <div className="text-gray-500">
                           <svg className="w-16 h-16 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
@@ -735,6 +769,34 @@ const ManageUnits: React.FC = () => {
                           index % 2 === 0 ? 'bg-white' : 'bg-gray-50'
                         }`}
                       >
+                        {/* Featured Star */}
+                        <td className="px-4 py-3 align-middle text-center">
+                          <button
+                            onClick={() => { if (togglingFeatured.has(unit.id)) return; toggleFeatured(unit.id, !!unit.is_featured); }}
+                            className="cursor-pointer"
+                            aria-label="Toggle featured"
+                            title={unit.is_featured ? 'Unmark as featured' : 'Mark as featured'}
+                            onMouseEnter={(e) => { e.currentTarget.style.transform = 'scale(1.15)'; }}
+                            onMouseLeave={(e) => { e.currentTarget.style.transform = 'scale(1)'; }}
+                            style={{ transition: 'fill 0.2s ease, transform 0.2s ease' }}
+                          >
+                            <svg
+                              xmlns="http://www.w3.org/2000/svg"
+                              viewBox="0 0 24 24"
+                              width="24"
+                              height="24"
+                              style={{ transition: 'fill 0.2s ease, transform 0.2s ease' }}
+                              fill={unit.is_featured ? '#F6D658' : 'none'}
+                              stroke={'#0B5858'}
+                              strokeWidth="1.5"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                            >
+                              {/* Rounded star path per request */}
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M11.48 3.499c.197-.49.843-.49 1.04 0l2.125 5.111a1 1 0 00.874.618l5.518.401c.53.038.744.706.341 1.04l-4.205 3.53a1 1 0 00-.33 1.06l1.273 5.36c.122.515-.44.93-.898.65l-4.77-2.85a1 1 0 00-1.034 0l-4.77 2.85c-.458.279-1.02-.135-.898-.65l1.273-5.36a1 1 0 00-.33-1.06l-4.205-3.53c-.402-.334-.189-1.002.341-1.04l5.518-.401a1 1 0 00.874-.618l2.125-5.111z" />
+                            </svg>
+                          </button>
+                        </td>
                         {/* Unit Name */}
                         <td className="px-4 py-3 align-middle">
                           <div className="flex items-center space-x-3">
