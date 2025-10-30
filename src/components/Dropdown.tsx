@@ -6,46 +6,44 @@ import { createPortal } from 'react-dom';
  * These styles ensure the scrollbar is always visible and functional
  */
 const scrollbarStyles = `
-  /* Webkit browsers (Chrome, Safari, Edge) */
+  /* Dropdown list container */
+  .dropdown-list,
   .dropdown-scrollable-list {
-    overflow-y: scroll !important;
+    overflow-y: auto !important;
     overflow-x: hidden !important;
-    scroll-behavior: smooth;
-    /* Enhanced smooth scrolling */
-    -webkit-overflow-scrolling: touch;
+    scroll-behavior: auto; /* prevent CSS smooth from fighting wheel */
+    overscroll-behavior: contain;
     scrollbar-gutter: stable;
   }
-  
+
+  /* WebKit scrollbar (only on dropdown list) */
+  .dropdown-list::-webkit-scrollbar,
   .dropdown-scrollable-list::-webkit-scrollbar {
     width: 8px;
-    background: transparent;
   }
-  
+  .dropdown-list::-webkit-scrollbar-track,
   .dropdown-scrollable-list::-webkit-scrollbar-track {
-    background: #f3f4f6;
-    border-radius: 4px;
-    margin: 2px 0;
+    background: rgba(11, 88, 88, 0.06);
+    border-radius: 9999px;
   }
-  
+  .dropdown-list::-webkit-scrollbar-thumb,
   .dropdown-scrollable-list::-webkit-scrollbar-thumb {
-    background: #9ca3af;
-    border-radius: 4px;
-    border: 1px solid #f3f4f6;
+    background: #0B5858;
+    border-radius: 9999px;
   }
-  
+  .dropdown-list::-webkit-scrollbar-thumb:hover,
   .dropdown-scrollable-list::-webkit-scrollbar-thumb:hover {
-    background: #6b7280;
+    background: #0a4a4a;
   }
-  
-  .dropdown-scrollable-list::-webkit-scrollbar-thumb:active {
-    background: #4b5563;
-  }
-  
+
   /* Firefox */
-  .dropdown-scrollable-list {
-    scrollbar-width: thin;
-    scrollbar-color: #9ca3af #f3f4f6;
-  }
+  .dropdown-list,
+  .dropdown-scrollable-list { scrollbar-width: thin; scrollbar-color: #0B5858 rgba(11, 88, 88, 0.06); }
+
+  /* Menu animation */
+  .dropdown-menu { opacity: 0; transform: translateY(4px); transition: opacity 150ms ease-out, transform 150ms ease-out; }
+  .dropdown-enter { opacity: 1; transform: translateY(0); }
+  .dropdown-exit { opacity: 0; transform: translateY(4px); }
 `;
 
 // Inject scrollbar styles once
@@ -119,6 +117,10 @@ interface DropdownProps {
   className?: string;
   /** Optional custom width for the dropdown menu (defaults to trigger width) */
   menuWidth?: string;
+  /** Maximum number of visible items before scrolling is enabled (default: 5) */
+  maxVisibleItems?: number;
+  /** Force scroll container and scrollbar even if options are fewer than maxVisibleItems */
+  alwaysScrollable?: boolean;
 }
 
 const Dropdown: React.FC<DropdownProps> = ({
@@ -128,10 +130,13 @@ const Dropdown: React.FC<DropdownProps> = ({
   placeholder = "Select an option",
   disabled = false,
   className = "",
-  menuWidth
+  menuWidth,
+  maxVisibleItems = 5,
+  alwaysScrollable = false
 }) => {
   // State management
   const [isOpen, setIsOpen] = useState(false);
+  const [isExiting, setIsExiting] = useState(false);
   const [focusedIndex, setFocusedIndex] = useState(-1);
   const [dropdownPosition, setDropdownPosition] = useState<{top: number, left: number, width: string | number} | null>(null);
   
@@ -139,20 +144,24 @@ const Dropdown: React.FC<DropdownProps> = ({
   const triggerRef = useRef<HTMLButtonElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
+  const touchStartYRef = useRef<number | null>(null);
   const optionRefs = useRef<(HTMLButtonElement | null)[]>([]);
+  // Direct wheel handler binding to the list element for responsiveness
 
   /**
-   * Determine if scrolling should be enabled based on number of options
-   * Rule: >= 5 options = scroll with max-height ~200px, < 5 options = no scroll
+   * Determine if scrolling should be enabled based on number of options.
+   * Rule: >= maxVisibleItems = scroll with max-height of optionHeight * maxVisibleItems
    */
-  const shouldScroll = options.length >= 5;
+  const optionRowHeight = 40; // px per option row
+  const shouldScroll = alwaysScrollable || options.length >= maxVisibleItems;
 
   /**
    * Calculate dropdown position based on trigger position
    * Enhanced to handle all scrollable containers and edge cases
    */
   const calculateDropdownPosition = useCallback((rect: DOMRect) => {
-    const dropdownHeight = shouldScroll ? 200 : Math.min(options.length * 40, 200);
+    const targetMaxHeight = optionRowHeight * maxVisibleItems;
+    const dropdownHeight = shouldScroll ? targetMaxHeight : Math.min(options.length * optionRowHeight, targetMaxHeight);
     const viewportHeight = window.innerHeight;
     const viewportWidth = window.innerWidth;
     const headerHeight = 64; // Fixed header height (h-16 = 64px)
@@ -227,16 +236,22 @@ const Dropdown: React.FC<DropdownProps> = ({
       left: Math.round(finalLeft),
       width: Math.round(finalWidth)
     };
-  }, [shouldScroll, options.length, menuWidth]);
+  }, [shouldScroll, options.length, menuWidth, maxVisibleItems]);
 
   /**
    * Handle closing the dropdown
    */
   const handleClose = useCallback(() => {
-    setIsOpen(false);
+    if (!isOpen) return;
+    setIsExiting(true);
     setFocusedIndex(-1);
-    triggerRef.current?.focus();
-  }, []);
+    // Allow CSS exit animation to play before unmounting
+    setTimeout(() => {
+      setIsOpen(false);
+      setIsExiting(false);
+      triggerRef.current?.focus();
+    }, 150);
+  }, [isOpen]);
 
 
   /**
@@ -251,6 +266,7 @@ const Dropdown: React.FC<DropdownProps> = ({
     }
     setIsOpen(true);
     setFocusedIndex(-1);
+    setIsExiting(false);
   }, [disabled, calculateDropdownPosition]);
 
   /**
@@ -338,41 +354,86 @@ const Dropdown: React.FC<DropdownProps> = ({
    * Optimized for smooth scrolling without delays
    */
   useEffect(() => {
-    const handleWheel = (event: WheelEvent) => {
-      if (isOpen && menuRef.current) {
-        // Check if the mouse is over the dropdown menu
-        const rect = menuRef.current.getBoundingClientRect();
-        const isOverDropdown = (
-          event.clientX >= rect.left &&
-          event.clientX <= rect.right &&
-          event.clientY >= rect.top &&
-          event.clientY <= rect.bottom
-        );
+    if (!isOpen) return;
+    const el = listRef.current;
+    if (!el || !shouldScroll) return;
 
-        if (isOverDropdown) {
-          // Only prevent default if we have scrollable content
-          if (shouldScroll && listRef.current) {
-            // Let the browser handle the scrolling naturally for smoothness
-            // Just prevent it from bubbling to the page
-            event.stopPropagation();
-            
-            // Don't prevent default - let the browser handle smooth scrolling
-            // The CSS scroll-behavior: smooth will handle the smoothness
-          } else {
-            // For non-scrollable dropdowns, prevent page scroll
-            event.preventDefault();
-            event.stopPropagation();
-          }
-        }
+    const onWheel = (e: WheelEvent) => {
+      // Only act if the wheel is over the list element
+      const rect = el.getBoundingClientRect();
+      const over = e.clientX >= rect.left && e.clientX <= rect.right && e.clientY >= rect.top && e.clientY <= rect.bottom;
+      if (!over) return;
+
+      const atTop = el.scrollTop <= 0;
+      const atBottom = Math.ceil(el.scrollTop + el.clientHeight) >= el.scrollHeight;
+      const goingDown = e.deltaY > 0;
+
+      // Always block page scroll while hovering the dropdown
+      e.preventDefault();
+      e.stopPropagation();
+
+      // Only adjust list scroll if there's room in the intended direction
+      if ((goingDown && !atBottom) || (!goingDown && !atTop)) {
+        el.scrollTop += e.deltaY;
       }
     };
 
-    if (isOpen) {
-      // Use capture phase to ensure we catch the event before it bubbles
-      document.addEventListener('wheel', handleWheel, { passive: false, capture: true });
-      return () => document.removeEventListener('wheel', handleWheel, { capture: true });
-    }
+    el.addEventListener('wheel', onWheel, { passive: false });
+    return () => {
+      el.removeEventListener('wheel', onWheel as any);
+    };
   }, [isOpen, shouldScroll]);
+
+  // Touch scrolling trap for mobile devices
+  useEffect(() => {
+    if (!isOpen || !menuRef.current || !listRef.current) return;
+
+    const onTouchStart = (e: TouchEvent) => {
+      if (!menuRef.current) return;
+      const rect = menuRef.current.getBoundingClientRect();
+      const touch = e.touches[0];
+      const isOverDropdown = touch.clientX >= rect.left && touch.clientX <= rect.right && touch.clientY >= rect.top && touch.clientY <= rect.bottom;
+      if (!isOverDropdown) return;
+      touchStartYRef.current = touch.clientY;
+    };
+
+    const onTouchMove = (e: TouchEvent) => {
+      if (touchStartYRef.current == null || !listRef.current || !menuRef.current) return;
+      const rect = menuRef.current.getBoundingClientRect();
+      const touch = e.touches[0];
+      const isOverDropdown = touch.clientX >= rect.left && touch.clientX <= rect.right && touch.clientY >= rect.top && touch.clientY <= rect.bottom;
+      if (!isOverDropdown) return;
+
+      const delta = touchStartYRef.current - touch.clientY; // positive when moving up
+      const el = listRef.current;
+      const atTop = el.scrollTop <= 0;
+      const atBottom = Math.ceil(el.scrollTop + el.clientHeight) >= el.scrollHeight;
+
+      // Prevent page scroll always while interacting with dropdown
+      e.preventDefault();
+      e.stopPropagation();
+
+      if ((delta < 0 && atTop) || (delta > 0 && atBottom)) {
+        return;
+      }
+      el.scrollTop += delta;
+      touchStartYRef.current = touch.clientY;
+    };
+
+    const onTouchEnd = () => {
+      touchStartYRef.current = null;
+    };
+
+    document.addEventListener('touchstart', onTouchStart, { passive: false, capture: true });
+    document.addEventListener('touchmove', onTouchMove, { passive: false, capture: true });
+    document.addEventListener('touchend', onTouchEnd, { passive: true, capture: true });
+
+    return () => {
+      document.removeEventListener('touchstart', onTouchStart as any, { capture: true } as any);
+      document.removeEventListener('touchmove', onTouchMove as any, { capture: true } as any);
+      document.removeEventListener('touchend', onTouchEnd as any, { capture: true } as any);
+    };
+  }, [isOpen]);
 
   /**
    * Update dropdown position immediately when it opens (synchronous)
@@ -386,124 +447,39 @@ const Dropdown: React.FC<DropdownProps> = ({
   }, [isOpen, calculateDropdownPosition]);
 
   /**
-   * Handle scroll events to automatically close dropdown
-   * Enhanced to allow internal dropdown scrolling while preventing page scroll
+   * Close dropdown when page or parent scrolls (but not when the list itself scrolls)
    */
   useEffect(() => {
-    if (isOpen) {
-      // Optimized scroll handler that checks if scroll is inside dropdown
-      const handleScroll = (event: Event) => {
-        // Quick check if we have a menu reference
-        if (!menuRef.current) {
-          handleClose();
-          return;
-        }
-        
-        // Check if the scroll event originated from within the dropdown menu
-        if (event.target) {
-          const target = event.target as Node;
-          if (menuRef.current.contains(target)) {
-            // Scroll is happening inside the dropdown - don't close it
-            return;
-          }
-        }
-        
-        // Scroll is happening outside the dropdown - close it
-        handleClose();
-      };
-      
-      // Add scroll and resize listeners to window and document
-      window.addEventListener('scroll', handleScroll, { passive: true });
-      document.addEventListener('scroll', handleScroll, { passive: true });
-      window.addEventListener('resize', handleScroll, { passive: true });
-      
-      // Detect and listen to all scrollable containers
-      const scrollableSelectors = [
-        // Common overflow classes
-        '.overflow-auto',
-        '.overflow-scroll', 
-        '.overflow-y-auto',
-        '.overflow-y-scroll',
-        '.overflow-x-auto',
-        '.overflow-x-scroll',
-        // Table-related containers
-        'table',
-        'tbody',
-        'thead',
-        '.table-container',
-        // Card and content containers
-        '.bg-white.rounded-lg.shadow-sm.overflow-hidden',
-        '.max-w-7xl.mx-auto',
-        // Any element with computed overflow scroll/auto
-        '[style*="overflow"]'
-      ];
-      
-      const scrollableElements: Element[] = [];
-      
-      // Method 1: Query selectors
-      scrollableSelectors.forEach(selector => {
-        try {
-          const elements = document.querySelectorAll(selector);
-          elements.forEach(element => {
-            element.addEventListener('scroll', handleScroll, { passive: true });
-            scrollableElements.push(element);
-          });
-        } catch (e) {
-          // Ignore invalid selectors
-        }
-      });
-      
-      // Method 2: Dynamic detection of scrollable elements
-      const detectScrollableElements = () => {
-        const allElements = document.querySelectorAll('*');
-        allElements.forEach(element => {
-          const computedStyle = window.getComputedStyle(element);
-          const overflowX = computedStyle.overflowX;
-          const overflowY = computedStyle.overflowY;
-          
-          // Check if element is scrollable
-          if (
-            (overflowX === 'auto' || overflowX === 'scroll') ||
-            (overflowY === 'auto' || overflowY === 'scroll')
-          ) {
-            // Avoid duplicates
-            if (!scrollableElements.includes(element)) {
-              element.addEventListener('scroll', handleScroll, { passive: true });
-              scrollableElements.push(element);
-            }
-          }
-        });
-      };
-      
-      // Initial detection
-      detectScrollableElements();
-      
-      // Re-detect on DOM changes (for dynamic content)
-      const observer = new MutationObserver(() => {
-        detectScrollableElements();
-      });
-      
-      observer.observe(document.body, {
-        childList: true,
-        subtree: true,
-        attributes: true,
-        attributeFilter: ['style', 'class']
-      });
-      
-      return () => {
-        // Remove all event listeners
-        window.removeEventListener('scroll', handleScroll);
-        document.removeEventListener('scroll', handleScroll);
-        window.removeEventListener('resize', handleScroll);
-        
-        scrollableElements.forEach(element => {
-          element.removeEventListener('scroll', handleScroll);
-        });
-        
-        // Disconnect mutation observer
-        observer.disconnect();
-      };
-    }
+    if (!isOpen) return;
+
+    const handleScroll = (event: Event) => {
+      // If scroll originated inside dropdown menu or list, ignore
+      const target = event.target as Node | null;
+      if (menuRef.current && target && menuRef.current.contains(target)) return;
+      if (listRef.current && target && listRef.current.contains(target)) return;
+      handleClose();
+    };
+
+    // Always listen to window scroll/resize
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    window.addEventListener('resize', handleScroll, { passive: true });
+
+    // Optionally listen on a main container if present
+    const containerSelectors = ['.main-content', '.table-container', '.app-shell'];
+    const containers: Element[] = [];
+    containerSelectors.forEach(sel => {
+      const el = document.querySelector(sel);
+      if (el) {
+        el.addEventListener('scroll', handleScroll, { passive: true });
+        containers.push(el);
+      }
+    });
+
+    return () => {
+      window.removeEventListener('scroll', handleScroll);
+      window.removeEventListener('resize', handleScroll);
+      containers.forEach(el => el.removeEventListener('scroll', handleScroll));
+    };
   }, [isOpen, handleClose]);
 
   /**
@@ -530,7 +506,7 @@ const Dropdown: React.FC<DropdownProps> = ({
    * Uses simple document.body portal container - no transforms or forced positioning
    */
   const renderMenu = () => {
-    if (!isOpen || !dropdownPosition) return null;
+    if (!(isOpen || isExiting) || !dropdownPosition) return null;
 
     // Use the simple portal container in document.body
     const portalContainer = document.getElementById('dropdown-portal-container') || document.body;
@@ -538,24 +514,22 @@ const Dropdown: React.FC<DropdownProps> = ({
     return createPortal(
       <div
         ref={menuRef}
-        className="fixed bg-white border border-gray-300 rounded-lg shadow-lg overflow-hidden"
+        className={`fixed dropdown-menu ${isOpen && !isExiting ? 'dropdown-enter' : 'dropdown-exit'} overflow-hidden`}
         style={{
           top: `${dropdownPosition.top}px`,
           left: `${dropdownPosition.left}px`,
           width: `${dropdownPosition.width}px`,
           zIndex: 9999,
           position: 'fixed',
-          // Enhanced styling to ensure proper positioning
           margin: 0,
-          padding: 0,
-          border: '1px solid #d1d5db',
-          borderRadius: '8px',
-          backgroundColor: 'white',
-          boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)',
+          padding: '4px 0',
+          border: '1px solid rgba(11, 88, 88, 0.12)',
+          borderRadius: '12px',
+          backgroundColor: '#ffffff',
+          boxShadow: '0 18px 30px rgba(11, 88, 88, 0.08), 0 6px 12px rgba(15, 23, 42, 0.04)',
           pointerEvents: 'auto',
           visibility: 'visible',
           opacity: 1,
-          // Ensure no CSS properties interfere with positioning
           transform: 'none',
           willChange: 'auto',
           contain: 'none',
@@ -569,10 +543,10 @@ const Dropdown: React.FC<DropdownProps> = ({
         {/* Options list container - scrollable only if >= 5 options */}
         <div
           ref={listRef}
-          className={shouldScroll ? 'dropdown-scrollable-list' : ''}
+          className={`dropdown-list`}
           style={{
-            maxHeight: shouldScroll ? '200px' : 'auto',
-            overflowY: shouldScroll ? 'scroll' : 'visible',
+            maxHeight: shouldScroll ? `${optionRowHeight * maxVisibleItems}px` : 'auto',
+            overflowY: shouldScroll ? 'auto' : 'visible',
             overflowX: 'hidden',
             // Performance optimizations for smooth scrolling
             willChange: shouldScroll ? 'scroll-position' : 'auto',
@@ -583,21 +557,23 @@ const Dropdown: React.FC<DropdownProps> = ({
             <button
               key={option.value}
               ref={el => { optionRefs.current[index] = el; }}
-              className={`w-full text-left px-4 py-2 transition-colors duration-150 flex items-center ${
+              className={`flex w-full items-center justify-between gap-2 px-3 py-2.5 h-10 text-[14px] transition ${
                 focusedIndex === index
-                  ? 'bg-teal-50 text-gray-900'
-                  : 'text-gray-700 hover:bg-gray-50'
+                  ? 'bg-[rgba(11,88,88,0.11)] text-[#0B5858]'
+                  : 'text-[#111827] hover:bg-[rgba(11,88,88,0.06)]'
               }`}
-              style={{ 
-                fontFamily: 'Poppins',
-                fontSize: '16px',
-                fontWeight: 400
-              }}
+              style={{ fontFamily: 'Poppins', fontWeight: 400 }}
               onClick={() => handleSelect(option.value)}
               onMouseEnter={() => setFocusedIndex(index)}
             >
-              {option.icon && <span className="mr-3 text-lg">{option.icon}</span>}
-              <span>{option.label}</span>
+              <span className="flex items-center gap-2">
+                {option.icon && <span className="text-lg">{option.icon}</span>}
+                {option.label}
+              </span>
+              {/* Optional check icon for selected option */}
+              {label === option.label && (
+                <svg className="w-4 h-4 text-[#0B5858]" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd"/></svg>
+              )}
             </button>
           ))}
         </div>
@@ -616,17 +592,17 @@ const Dropdown: React.FC<DropdownProps> = ({
         onClick={isOpen ? handleClose : handleOpen}
         onKeyDown={handleKeyDown}
         className={`
-          w-full flex items-center justify-between py-3 px-4 border border-gray-300 rounded-lg
-          transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2
-          ${disabled 
-            ? 'bg-gray-50 text-gray-400 cursor-not-allowed' 
-            : 'bg-white text-gray-700 hover:border-gray-400 hover:shadow-md focus:border-transparent cursor-pointer'
+          w-full flex items-center justify-between px-4 py-3 border rounded-lg
+          transition-shadow duration-150 focus:outline-none focus:ring-2 focus:ring-offset-2
+          ${disabled
+            ? 'bg-gray-50 text-gray-400 cursor-not-allowed border-gray-200'
+            : 'bg-white text-slate-800 border-[#d1d5db] hover:shadow-sm focus:border-transparent cursor-pointer'
           }
           ${isOpen ? 'ring-2 ring-offset-2' : ''}
         `}
         style={{ 
           fontFamily: 'Poppins',
-          fontSize: '16px',
+          fontSize: '15px',
           fontWeight: 400,
           '--tw-ring-color': '#549F74'
         } as React.CSSProperties}
@@ -634,38 +610,16 @@ const Dropdown: React.FC<DropdownProps> = ({
         aria-expanded={isOpen}
         aria-label={`${label || placeholder} dropdown`}
       >
-        <span className={`${!label ? 'text-gray-500' : 'text-gray-900'}`}>
+        <span className={`${!label ? 'text-gray-500' : 'text-slate-900'}`}>
           {label || placeholder}
         </span>
         
         {/* Circled Arrow Icon that rotates */}
-        <div 
-          className={`flex-shrink-0 ml-2 transition-transform duration-200 ${
-            isOpen ? 'rotate-180' : ''
-          }`}
-        >
-          <svg
-            className={`w-6 h-6 ${disabled ? 'text-gray-400' : 'text-[#0B5858]'}`}
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            {/* Circle */}
-            <circle
-              cx="12"
-              cy="12"
-              r="10"
-              strokeWidth="1.5"
-            />
-            {/* Arrow inside */}
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M8 10l4 4 4-4"
-            />
+        <span className={`ml-2 inline-flex items-center justify-center w-6 h-6 rounded-full border border-slate-200 text-[#0B5858] transition-transform duration-150 ${isOpen ? 'rotate-180' : ''}`}>
+          <svg className="w-3.5 h-3.5" viewBox="0 0 20 20" fill="currentColor">
+            <path fillRule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 10.94l3.71-3.71a.75.75 0 111.06 1.06l-4.24 4.24a.75.75 0 01-1.06 0L5.25 8.29a.75.75 0 01-.02-1.08z" clipRule="evenodd" />
           </svg>
-        </div>
+        </span>
       </button>
 
       {/* Dropdown Menu Portal */}
