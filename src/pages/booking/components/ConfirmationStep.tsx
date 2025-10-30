@@ -368,6 +368,68 @@ const ConfirmationStep: React.FC<ConfirmationStepProps> = ({
         // Don't throw - booking was created successfully
       }
 
+      // Insert payment record based on selected payment method
+      const paymentStatus = (() => {
+        switch (formData.paymentMethod) {
+          case 'credit_card':
+            return 'paid';
+          case 'bank_transfer':
+            return formData.bankReceiptUploaded ? 'paid' : 'pending';
+          case 'company_account':
+          case 'cash':
+          default:
+            return 'pending';
+        }
+      })();
+
+      const cardDigits = (formData.cardNumber || '').toString().replace(/\s+/g, '');
+      const cardLast4 = cardDigits.length >= 4 ? Number(cardDigits.slice(-4)) : null;
+      const cardExpNumeric = formData.expirationDate
+        ? Number(String(formData.expirationDate).replace(/[^0-9]/g, ''))
+        : null;
+
+      const paymentData: any = {
+        booking_id: booking.id,
+        payment_method: formData.paymentMethod,
+        amount_paid: summary.totalCharges,
+        currency: 'PHP',
+        payment_status: paymentStatus,
+        reference_number: formData.poNumber || formData.bankAccountNumber || null,
+        proof_of_payment_url: (formData as any).bankReceiptUrl || formData.billingDocumentUrl || null,
+        payer_name: formData.nameOnCard || formData.depositorName || formData.cashPayerName || null,
+        payer_contact: formData.cashPayerContact || formData.billingContact || formData.preferredContactNumber || null,
+        payment_option: formData.paymentMethod,
+        card_number_last4: cardLast4,
+        card_holder_name: formData.nameOnCard || null,
+        card_expiration: cardExpNumeric,
+        company_name: formData.companyName || null,
+        billing_contact_name: formData.billingContact || null,
+        billing_email: formData.billingEmail || null,
+        billing_reference: formData.poNumber || null,
+        billing_document_url: formData.billingDocumentUrl || null,
+        bank_name: formData.bankName || null,
+        depositor_name: formData.depositorName || null,
+        transaction_summary: {
+          nights,
+          unitCharge: summary.unitCharge,
+          extraGuestChargeTotal,
+          amenitiesCharge: summary.amenitiesCharge,
+          serviceCharge: summary.serviceCharge,
+          discount: summary.discount,
+          total: summary.totalCharges
+        },
+        remarks: formData.requestDescription || null
+      };
+
+      const { error: paymentError } = await supabase
+        .from('payment')
+        .insert([paymentData]);
+
+      if (paymentError) {
+        console.error('Error creating payment record:', paymentError);
+        // Do not throw; booking and client details succeeded
+      }
+
       setStatus('success');
 
       // Keep the processing modal open to show success state
