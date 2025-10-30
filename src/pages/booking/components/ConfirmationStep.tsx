@@ -334,29 +334,29 @@ const ConfirmationStep: React.FC<ConfirmationStepProps> = ({
         listingId: booking?.listing_id
       });
 
-      // Create client_details record if we have the info
-      if (formData.firstName && formData.lastName) {
-        const clientDetailsData = {
-          booking_id: booking.id,
-          first_name: formData.firstName,
-          last_name: formData.lastName,
-          nickname: formData.nickname || null,
-          email: formData.email || null,
-          contact_number: formData.preferredContactNumber ? parseFloat(formData.preferredContactNumber.replace(/\D/g, '')) : null,
-          gender: formData.gender || null,
-          birth_date: formData.dateOfBirth || null,
-          preferred_contact: formData.contactType || null,
-          referred_by: formData.referredBy || null
-        };
+      // Create client_details record ALWAYS after booking is created
+      const clientDetailsData = {
+        booking_id: booking.id,
+        first_name: formData.firstName || '',
+        last_name: formData.lastName || '',
+        nickname: formData.nickname || '',
+        email: formData.email || '',
+        contact_number: formData.preferredContactNumber
+          ? parseFloat(formData.preferredContactNumber.replace(/\D/g, ''))
+          : null,
+        gender: formData.gender || '',
+        birth_date: formData.dateOfBirth || '',
+        preferred_contact: formData.contactType || '',
+        referred_by: formData.referredBy || ''
+      };
 
-        const { error: clientError } = await supabase
-          .from('client_details')
-          .insert([clientDetailsData]);
+      const { error: clientError } = await supabase
+        .from('client_details')
+        .insert([clientDetailsData]);
 
-        if (clientError) {
-          console.error('Error creating client details:', clientError);
-          // Don't throw - booking was created successfully
-        }
+      if (clientError) {
+        console.error('Error creating client details:', clientError);
+        // Don't throw - booking was created successfully
       }
 
       setStatus('success');
