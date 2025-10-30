@@ -202,6 +202,15 @@ const ConfirmationStep: React.FC<ConfirmationStepProps> = ({
     return `${displayHour}:${minutes} ${ampm}`;
   };
 
+  // Combine date (YYYY-MM-DD) and time (HH:mm) into ISO 8601 string (UTC) for timestamptz
+  const toIsoFromDateAndTime = (dateString?: string, timeString?: string): string | null => {
+    if (!dateString) return null;
+    const time = (timeString && /^\d{2}:\d{2}$/.test(timeString)) ? timeString : '00:00';
+    const local = new Date(`${dateString}T${time}:00`);
+    if (Number.isNaN(local.getTime())) return null;
+    return local.toISOString();
+  };
+
   // booking reference: prefer provided one, otherwise generate a short stable-ish id for display
   const bookingRef = useMemo(() => {
     if (formData.bookingReference) return formData.bookingReference;
@@ -285,8 +294,8 @@ const ConfirmationStep: React.FC<ConfirmationStepProps> = ({
       // Note: There is NO user_id field in the booking table - only assigned_agent
       const bookingData = {
         listing_id: formData.listingId,
-        check_in_date: formData.checkInDate,
-        check_out_date: formData.checkOutDate,
+        check_in_date: toIsoFromDateAndTime(formData.checkInDate, formData.checkInTime) || formData.checkInDate,
+        check_out_date: toIsoFromDateAndTime(formData.checkOutDate, formData.checkOutTime) || formData.checkOutDate,
         nights: nights,
         num_guests: primaryGuests,
         extra_guests: extraGuests,
