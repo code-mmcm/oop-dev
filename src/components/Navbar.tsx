@@ -173,7 +173,7 @@ const Navbar: React.FC = () => {
                       <div className="py-1">
                         {isAdmin && (
                           <>
-                          <Link
+                            <Link
                               to="/admin"
                               onClick={() => setIsDropdownOpen(false)}
                               className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors cursor-pointer"
@@ -341,15 +341,15 @@ const Navbar: React.FC = () => {
                         Admin Panel
                       </Link>
                       <Link
-                        to="/manage-listings"
+                        to="/manage"
                         onClick={() => setIsMobileMenuOpen(false)}
                         className="block px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 rounded-md transition-colors text-left cursor-pointer"
                         style={{fontFamily: 'Poppins'}}
                       >
-                        Manage Listings
+                        Manage Units
                       </Link>
                       <Link
-                        to="/manage-users"
+                        to="/manageusers"
                         onClick={() => setIsMobileMenuOpen(false)}
                         className="block px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 rounded-md transition-colors text-left cursor-pointer"
                         style={{fontFamily: 'Poppins'}}

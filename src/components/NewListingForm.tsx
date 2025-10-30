@@ -20,21 +20,9 @@ L.Icon.Default.mergeOptions({
 interface NewListingFormProps {
   onSuccess: () => void;
   onCancel: () => void;
-  /** add = create new listing; edit = update existing listing */
-  mode?: 'add' | 'edit';
-  /** When in edit mode, prefill fields from this listing */
-  initialListing?: Listing | null;
-  /** When true, renders without full-page scaffolding (for embedding in modals) */
-  embed?: boolean;
-  /** External control: show all fields in one view */
-  showAllFields?: boolean;
-  /** Optional callback when toggled externally */
-  onShowAllFieldsChange?: (value: boolean) => void;
-  /** Parent-controlled toast hook */
-  showToast?: (message: string) => void;
 }
 
-const NewListingForm: React.FC<NewListingFormProps> = ({ onSuccess, onCancel, mode = 'add', initialListing = null, embed = false, showAllFields, showToast }) => {
+const NewListingForm: React.FC<NewListingFormProps> = ({ onSuccess, onCancel }) => {
   const [currentStep, setCurrentStep] = useState(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -67,27 +55,20 @@ const NewListingForm: React.FC<NewListingFormProps> = ({ onSuccess, onCancel, mo
 
   const [uploadedImages, setUploadedImages] = useState<UploadedImage[]>([]);
   const [selectedMainImageId, setSelectedMainImageId] = useState<string | null>(null);
-  // Show-all-fields toggle (internal fallback if not controlled)
-  const [showAllFieldsInternal] = useState(false);
-  const effectiveShowAllFields = typeof showAllFields === 'boolean' ? showAllFields : showAllFieldsInternal;
-  // Track which submit action to perform in edit mode (useRef avoids async state timing issues)
-  const submitActionRef = useRef<'save' | 'save_exit'>('save');
-  const formRef = useRef<HTMLFormElement>(null);
-  // Toast is now owned by parent; use showToast prop instead
 
   const propertyTypes = [
-    'Apartment',
-    'House',
-    'Condo',
-    'Villa',
-    'Studio',
-    'Penthouse',
-    'Townhouse',
-    'Duplex'
+    'apartment',
+    'house',
+    'condo',
+    'villa',
+    'studio',
+    'penthouse',
+    'townhouse',
+    'duplex'
   ];
 
   const priceUnits = [
-    { value: 'daily', label: 'Per Night' },
+    { value: 'daily', label: 'Per Day' },
     { value: 'weekly', label: 'Per Week' },
     { value: 'monthly', label: 'Per Month' },
     { value: 'yearly', label: 'Per Year' }
@@ -126,38 +107,6 @@ const NewListingForm: React.FC<NewListingFormProps> = ({ onSuccess, onCancel, mo
       active: index === currentStep - 1
     }));
   };
-
-  // Prefill when in edit mode
-  useEffect(() => {
-    if (mode === 'edit' && initialListing) {
-      setFormData({
-        title: initialListing.title || '',
-        description: initialListing.description || '',
-        price: (initialListing.price ?? '').toString(),
-        price_unit: initialListing.price_unit || 'daily',
-        currency: initialListing.currency || 'PHP',
-        location: initialListing.location || initialListing.city || '',
-        city: initialListing.city || '',
-        country: initialListing.country || 'Philippines',
-        bedrooms: (initialListing.bedrooms ?? '').toString(),
-        bathrooms: (initialListing.bathrooms ?? '').toString(),
-        square_feet: (initialListing.square_feet ?? '').toString(),
-        property_type: initialListing.property_type || 'apartment',
-        main_image_url: initialListing.main_image_url || '',
-        image_urls: initialListing.image_urls || [],
-        amenities: initialListing.amenities || [],
-        latitude: initialListing.latitude ? initialListing.latitude.toString() : '',
-        longitude: initialListing.longitude ? initialListing.longitude.toString() : ''
-      });
-      // If we have a main image in edit mode, seed uploadedImages for gallery
-      if (initialListing.main_image_url) {
-        setUploadedImages([{ id: 'existing-main', url: initialListing.main_image_url, name: 'Main Image', size: 0, created_at: new Date().toISOString() }]);
-        setSelectedMainImageId('existing-main');
-      }
-    }
-  }, [mode, initialListing]);
-
-  // No linear track; we will use animated circles with connectors between them
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value, type } = e.target;
@@ -366,8 +315,6 @@ const NewListingForm: React.FC<NewListingFormProps> = ({ onSuccess, onCancel, mo
     if (currentStep < steps.length && isStepValid(currentStep)) {
       setCurrentStep(prev => prev + 1);
       setError(null);
-      // Ensure page is scrolled to the very top when moving to next step
-      setTimeout(() => { window.scrollTo(0, 0); }, 0);
     }
   };
 
@@ -375,8 +322,6 @@ const NewListingForm: React.FC<NewListingFormProps> = ({ onSuccess, onCancel, mo
     if (currentStep > 1) {
       setCurrentStep(prev => prev - 1);
       setError(null);
-      // Ensure page is scrolled to the very top when moving to previous step
-      setTimeout(() => { window.scrollTo(0, 0); }, 0);
     }
   };
 
@@ -407,68 +352,30 @@ const NewListingForm: React.FC<NewListingFormProps> = ({ onSuccess, onCancel, mo
       // Prepare listing data
       const allImageUrls = uploadedImages.map(img => img.url);
 
-      if (mode === 'edit' && initialListing) {
-        const updates: Partial<Listing> = {
-          title: formData.title,
-          description: formData.description || undefined,
-          price: parseFloat(formData.price),
-          price_unit: formData.price_unit,
-          currency: formData.currency,
-          location: formData.location || formData.city,
-          city: formData.city,
-          country: formData.country,
-          bedrooms: parseInt(formData.bedrooms) || 0,
-          bathrooms: parseInt(formData.bathrooms) || 0,
-          square_feet: formData.square_feet ? parseInt(formData.square_feet) : undefined,
-          property_type: formData.property_type,
-          main_image_url: formData.main_image_url || undefined,
-          image_urls: allImageUrls.length > 0 ? allImageUrls : undefined,
-          amenities: Array.isArray(formData.amenities) && formData.amenities.length > 0 ? formData.amenities : undefined,
-          updated_at: new Date().toISOString()
-        };
-        await ListingService.updateListing(initialListing.id, updates);
-        if (submitActionRef.current === 'save') {
-          // Parent-owned toast; stays visible even if this form unmounts
-          if (typeof showToast === 'function') showToast('Changes saved successfully.');
-        } else {
-          if (typeof showToast === 'function') showToast('Changes saved successfully.');
-          try { sessionStorage.setItem('global_toast', 'Changes saved.'); } catch {}
-        }
-      } else {
-        const listingData: Omit<Listing, 'id' | 'created_at' | 'updated_at'> = {
-          title: formData.title,
-          description: formData.description || undefined,
-          price: parseFloat(formData.price),
-          price_unit: formData.price_unit,
-          currency: formData.currency,
-          location: formData.location || formData.city,
-          city: formData.city,
-          country: formData.country,
-          bedrooms: parseInt(formData.bedrooms) || 0,
-          bathrooms: parseInt(formData.bathrooms) || 0,
-          square_feet: formData.square_feet ? parseInt(formData.square_feet) : undefined,
-          property_type: formData.property_type,
-          main_image_url: formData.main_image_url || undefined,
-          image_urls: allImageUrls.length > 0 ? allImageUrls : undefined,
-          amenities: Array.isArray(formData.amenities) && formData.amenities.length > 0 ? formData.amenities : undefined,
-          is_available: true,
-          is_featured: false,
-          latitude: formData.latitude ? parseFloat(formData.latitude) : undefined,
-          longitude: formData.longitude ? parseFloat(formData.longitude) : undefined
-        };
-        await ListingService.createListing(listingData);
-        // Hand off toast to parent for display after returning to Manage Listings
-        try { sessionStorage.setItem('global_toast', 'Listing created.'); } catch {}
-      }
-      if (mode === 'edit') {
-        if (submitActionRef.current === 'save_exit') {
-          // Immediately return to parent; parent owns toast lifecycle
-          onSuccess();
-          return;
-        }
-      } else {
-        onSuccess();
-      }
+      const listingData: Omit<Listing, 'id' | 'created_at' | 'updated_at'> = {
+        title: formData.title,
+        description: formData.description || undefined,
+        price: parseFloat(formData.price),
+        price_unit: formData.price_unit,
+        currency: formData.currency,
+        location: formData.location || formData.city,
+        city: formData.city,
+        country: formData.country,
+        bedrooms: parseInt(formData.bedrooms) || 0,
+        bathrooms: parseInt(formData.bathrooms) || 0,
+        square_feet: formData.square_feet ? parseInt(formData.square_feet) : undefined,
+        property_type: formData.property_type,
+        main_image_url: formData.main_image_url || undefined,
+        image_urls: allImageUrls.length > 0 ? allImageUrls : undefined,
+        amenities: Array.isArray(formData.amenities) && formData.amenities.length > 0 ? formData.amenities : undefined,
+        is_available: true,
+        is_featured: false,
+        latitude: formData.latitude ? parseFloat(formData.latitude) : undefined,
+        longitude: formData.longitude ? parseFloat(formData.longitude) : undefined
+      };
+
+      await ListingService.createListing(listingData);
+      onSuccess();
     } catch (err) {
       console.error('Error creating listing:', err);
       setError(err instanceof Error ? err.message : 'Failed to create listing');
@@ -641,6 +548,18 @@ const NewListingForm: React.FC<NewListingFormProps> = ({ onSuccess, onCancel, mo
 
         <div>
           <label className="block text-sm font-semibold mb-2" style={{fontFamily: 'Poppins', color: '#0B5858'}}>
+            Price Unit
+          </label>
+          <Dropdown
+            label={priceUnits.find(unit => unit.value === formData.price_unit)?.label || 'Per Day'}
+            options={priceUnits}
+            onSelect={(value) => setFormData(prev => ({ ...prev, price_unit: value }))}
+            placeholder="Select price unit"
+          />
+        </div>
+
+        <div>
+          <label className="block text-sm font-semibold mb-2" style={{fontFamily: 'Poppins', color: '#0B5858'}}>
             Currency
           </label>
           <Dropdown
@@ -652,18 +571,6 @@ const NewListingForm: React.FC<NewListingFormProps> = ({ onSuccess, onCancel, mo
             ]}
             onSelect={(value) => setFormData(prev => ({ ...prev, currency: value }))}
             placeholder="Select currency"
-          />
-        </div>
-
-        <div>
-          <label className="block text-sm font-semibold mb-2" style={{fontFamily: 'Poppins', color: '#0B5858'}}>
-            Price Unit
-          </label>
-          <Dropdown
-            label={priceUnits.find(unit => unit.value === formData.price_unit)?.label || 'Per Night'}
-            options={priceUnits}
-            onSelect={(value) => setFormData(prev => ({ ...prev, price_unit: value }))}
-            placeholder="Select price unit"
           />
         </div>
       </div>
@@ -754,11 +661,10 @@ const NewListingForm: React.FC<NewListingFormProps> = ({ onSuccess, onCancel, mo
                 '--tw-ring-color': '#549F74'
               } as React.CSSProperties & { '--tw-ring-color': string }}
             />
-            {/* UX: Make the Add button clearly clickable */}
             <button
               type="button"
               onClick={handleAmenityAdd}
-              className="px-4 py-2 text-white rounded-lg transition-colors cursor-pointer hover:cursor-pointer"
+              className="px-4 py-2 text-white rounded-lg transition-colors"
               style={{backgroundColor: '#0B5858', fontFamily: 'Poppins'}}
             >
               Add
@@ -774,15 +680,11 @@ const NewListingForm: React.FC<NewListingFormProps> = ({ onSuccess, onCancel, mo
                 className="inline-flex items-center gap-2 px-3 py-1 bg-[#0B5858] text-white rounded-full text-sm"
                 style={{fontFamily: 'Poppins'}}
               >
-                {/* Render amenity label without hashtag prefix for cleaner UI */}
-                {amenity}
-                {/* UX: Show pointer on delete badge action; hover color matches brand (#B84C4C) */}
+                #{amenity}
                 <button
                   type="button"
                   onClick={() => handleAmenityRemove(amenity)}
-                  className="ml-1 transition-colors cursor-pointer hover:cursor-pointer"
-                  onMouseEnter={(e) => { e.currentTarget.style.color = '#B84C4C'; }}
-                  onMouseLeave={(e) => { e.currentTarget.style.color = ''; }}
+                  className="ml-1 hover:text-red-200 transition-colors"
                 >
                   ×
                 </button>
@@ -812,7 +714,7 @@ const NewListingForm: React.FC<NewListingFormProps> = ({ onSuccess, onCancel, mo
                 className={`px-3 py-1 rounded-full text-sm border transition-colors ${
                   formData.amenities.includes(amenity)
                     ? 'bg-gray-200 text-gray-500 cursor-not-allowed'
-                    : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50 cursor-pointer hover:cursor-pointer'
+                    : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
                 }`}
                 style={{fontFamily: 'Poppins'}}
               >
@@ -981,243 +883,128 @@ const NewListingForm: React.FC<NewListingFormProps> = ({ onSuccess, onCancel, mo
   );
 
     return (
-      <div className={embed ? '' : 'min-h-screen bg-gray-50 py-6 sm:py-8'}>
-      <div className={(embed ? '' : 'max-w-6xl mx-auto px-4 sm:px-6 lg:px-8') + ' relative'}>
+      <div className="min-h-screen bg-gray-50 py-6 sm:py-8">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Header */}
-        {!effectiveShowAllFields && (
         <div className="mb-8">
-            {/* Subtle animated circles with enhanced connector lines (no top track) */}
-            <div className="flex items-center justify-center space-x-6">
-              {getUpdatedSteps().map((step, index) => {
-                const stepNumber = index + 1;
-                const completed = step.completed; // stepNumber < currentStep
-                const active = step.active; // stepNumber === currentStep
-
-                return (
+            {/* Progress Indicator */}
+            <div className="flex items-center justify-center">
+              <div className="flex items-center space-x-4">
+                {getUpdatedSteps().map((step, index) => (
                   <React.Fragment key={step.id}>
-                    <div className="flex items-center">
-                      <div className="flex flex-col items-center text-center select-none">
-                        {/* Circle with gradient styling */}
-                        <div className="relative">
-                          {/* Soft outer glow/pulse for the active step */}
-                          {active && (
-                            <div className="absolute -inset-2 rounded-full bg-gradient-to-r from-[#0B5858] to-[#558B8B] opacity-30 animate-pulse" />
-                          )}
-
-                          <button
-                            type="button"
-                            aria-current={active}
-                            aria-label={`Step ${stepNumber}: ${step.title}`}
-                            className={`relative w-14 h-14 rounded-full flex items-center justify-center text-lg font-bold transition-all duration-500 ease-in-out hover:scale-110 shadow-lg ${
-                              completed || active
-                                ? 'bg-gradient-to-br from-[#0B5858] to-[#558B8B] text-white shadow-[#0B5858]/25'
-                                : 'bg-white text-[#558B8B] border-2 border-[#558B8B] shadow-gray-200 hover:shadow-[#558B8B]/20'
-                            } ${(mode === 'edit' || completed) ? 'cursor-pointer' : 'cursor-default'} ${active ? 'scale-105' : ''}`}
-                            onClick={() => {
-                              if (mode === 'edit' || completed) setCurrentStep(stepNumber);
-                            }}
-                            style={{ fontFamily: 'Poppins' }}
-                          >
-                            {completed ? (
-                              <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 20 20">
-                                <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                              </svg>
-                            ) : (
-                              <span className="font-bold">{stepNumber}</span>
-                            )}
-                            {/* Subtle inner ring for current step */}
-                            {active && <span className="absolute inset-0 rounded-full border-2 border-white/20" />}
-                          </button>
-                        </div>
-                        {/* Label under the circle (outside relative container so pulse doesn't cover text) */}
-                        <div className="mt-5 text-center">
-                          <span
-                            className={`text-sm font-semibold transition-colors duration-300 ${
-                              active ? 'text-[#0B5858]' : completed ? 'text-[#0B5858]' : 'text-gray-500'
-                            }`}
-                            style={{ fontFamily: 'Poppins', cursor: mode === 'edit' ? 'pointer' : 'default' }}
-                            onClick={() => {
-                              if (mode === 'edit' || completed) setCurrentStep(stepNumber);
-                            }}
-                          >
-                            {step.title}
-                          </span>
-                        </div>
+                    <div className="flex flex-col items-center">
+                      <div
+                        className={`w-8 h-8 rounded-full flex items-center justify-center ${
+                          step.completed
+                            ? 'bg-[#0B5858] text-white'
+                            : step.active
+                            ? 'bg-white border-2 border-[#0B5858] text-[#0B5858]'
+                            : 'bg-gray-300 text-white'
+                        }`}
+                      >
+                        {step.completed ? (
+                          <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                            <path
+                              fillRule="evenodd"
+                              d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+                              clipRule="evenodd"
+                            />
+                          </svg>
+                        ) : step.active ? (
+                          <div className="w-2 h-2 rounded-full bg-[#0B5858]" />
+                        ) : (
+                          <span className="text-xs font-medium">{index + 1}</span>
+                        )}
                       </div>
-
-                      {/* Connector between circles */}
-                      {index < steps.length - 1 && (
-                        <div className="relative mx-6">
-                          {/* Base track */}
-                          <div className="w-20 h-0.5 bg-gray-200 rounded-full" />
-                          {/* Animated overlay progress (yellow) */}
-                          <div
-                            className={`absolute top-0 left-0 h-0.5 rounded-full transition-all duration-700 ease-out ${
-                              stepNumber < currentStep ? 'w-20 bg-[#F1C40F]' : 'w-0 bg-[#F1C40F]'
-                            }`}
-                          />
-                        </div>
-                      )}
+                      <span
+                        className={`text-xs mt-2 ${step.active ? 'text-[#0B5858] font-medium' : 'text-gray-500'}`}
+                        style={{ fontFamily: 'Poppins' }}
+                      >
+                        {step.title}
+                      </span>
                     </div>
+                    {index < steps.length - 1 && (
+                      <div className={`w-16 h-0.5 ${step.completed ? 'bg-[#0B5858]' : 'bg-gray-300'}`} />
+                    )}
                   </React.Fragment>
-                );
-              })}
+                ))}
+              </div>
             </div>
         </div>
-        )}
 
-        {/* Main content */}
-        {effectiveShowAllFields ? (
-          // Show 4 separate cards with spacing and no outer container card
-          <div className={embed ? '' : 'mx-4 sm:mx-6 lg:mx-8'}>
+        {/* Main White Card */}
+        <div className="bg-white rounded-xl shadow-lg overflow-hidden animate-fade-in-up mx-4 sm:mx-6 lg:mx-8">
+          <div className="p-6 sm:p-8 lg:p-10">
+
             {/* Error Message */}
             {error && (
               <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
                 <p className="text-red-600" style={{fontFamily: 'Poppins'}}>{error}</p>
               </div>
             )}
-            <form ref={formRef} onSubmit={handleSubmit} className="space-y-8">
-              <div className="bg-white rounded-xl shadow-lg overflow-hidden animate-fade-in-up">
-                <div className="p-6 sm:p-8 lg:p-10">{renderBasicInfoPricingStep()}</div>
-              </div>
-              <div className="bg-white rounded-xl shadow-lg overflow-hidden animate-fade-in-up">
-                <div className="p-6 sm:p-8 lg:p-10">{renderPropertyDetailsStep()}</div>
-              </div>
-              <div className="bg-white rounded-xl shadow-lg overflow-hidden animate-fade-in-up">
-                <div className="p-6 sm:p-8 lg:p-10">{renderImagesStep()}</div>
-              </div>
-              <div className="bg-white rounded-xl shadow-lg overflow-hidden animate-fade-in-up">
-                <div className="p-6 sm:p-8 lg:p-10">
-                  {renderLocationMapStep()}
-                  {/* Primary action for create flow when Show All Fields is enabled */}
-                  {mode !== 'edit' && (
-                    <div className="mt-8 pt-6 border-t border-gray-200 flex justify-end">
-                      <button
-                        type="submit"
-                        disabled={isSubmitting || !isFormValid()}
-                        className="px-6 py-2 text-white rounded-lg transition-all duration-300 ease-in-out transform hover:scale-105 hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 disabled:hover:shadow-none cursor-pointer"
-                        style={{ backgroundColor: '#0B5858', fontFamily: 'Poppins', fontWeight: 600 }}
-                      >
-                        {isSubmitting ? 'Creating...' : 'Create Listing'}
-                      </button>
-                    </div>
-                  )}
-                </div>
+
+            {/* Form Content */}
+            <form onSubmit={handleSubmit} className="space-y-8">
+              {/* Full Width Form */}
+              <div className="space-y-8">
+                {renderStepContent()}
               </div>
 
-              {/* Footer Buttons (Show All Fields mode): align actions to the right; hide Cancel */}
-              <div className="flex items-center justify-end pt-2">
-                {mode === 'edit' && (
-                  <div className="flex space-x-3">
-                    <button
-                      type="button"
-                      onClick={() => { submitActionRef.current = 'save'; formRef.current?.requestSubmit(); }}
-                      className="px-6 py-2 text-white rounded-lg transition-all duration-300 ease-in-out transform hover:scale-105 hover:shadow-lg cursor-pointer"
-                      style={{backgroundColor: '#0B5858', fontFamily: 'Poppins', fontWeight: 600}}
-                    >
-                      Save
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => { submitActionRef.current = 'save_exit'; formRef.current?.requestSubmit(); }}
-                      className="px-6 py-2 text-white rounded-lg transition-all duration-300 ease-in-out transform hover:scale-105 hover:shadow-lg cursor-pointer"
-                      style={{backgroundColor: '#0B5858', fontFamily: 'Poppins', fontWeight: 600}}
-                    >
-                      Save & Exit
-                    </button>
-                  </div>
+              {/* Navigation Buttons */}
+              <div className="flex justify-end space-x-4 pt-8 border-t border-gray-200 mt-8">
+                {currentStep > 1 ? (
+                  <button
+                    type="button"
+                    onClick={prevStep}
+                    className="px-6 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-all duration-300 ease-in-out transform hover:scale-105 hover:shadow-md"
+                    style={{fontFamily: 'Poppins'}}
+                  >
+                    Back
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={onCancel}
+                    className="px-6 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-all duration-300 ease-in-out transform hover:scale-105 hover:shadow-md"
+                    style={{fontFamily: 'Poppins'}}
+                  >
+                    Cancel
+                  </button>
+                )}
+                
+                {currentStep < steps.length ? (
+                  <button
+                    type="button"
+                    onClick={nextStep}
+                    disabled={!isStepValid(currentStep)}
+                    className="px-6 py-2 text-white rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300 ease-in-out transform hover:scale-105 hover:shadow-lg disabled:hover:scale-100 disabled:hover:shadow-none"
+                    style={{backgroundColor: '#0B5858', fontFamily: 'Poppins', fontWeight: 600}}
+                  >
+                    Next
+                  </button>
+                ) : (
+                  <button
+                    type="submit"
+                    disabled={isSubmitting || !isFormValid()}
+                    className="px-6 py-2 text-white rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300 ease-in-out transform hover:scale-105 hover:shadow-lg disabled:hover:scale-100 disabled:hover:shadow-none"
+                    style={{backgroundColor: '#0B5858', fontFamily: 'Poppins', fontWeight: 600}}
+                  >
+                    {isSubmitting ? (
+                      <span className="flex items-center">
+                        <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                        Creating...
+                      </span>
+                    ) : 'Create Listing'}
+                  </button>
                 )}
               </div>
             </form>
           </div>
-        ) : (
-          <div key={currentStep} className={`bg-white rounded-xl shadow-lg overflow-hidden ${embed ? '' : 'mx-4 sm:mx-6 lg:mx-8'} fade-step`}>
-            <div className="p-6 sm:p-8 lg:p-10">
-              {/* Error Message */}
-              {error && (
-                <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
-                  <p className="text-red-600" style={{fontFamily: 'Poppins'}}>{error}</p>
-                </div>
-              )}
-              {/* Form Content */}
-              <form ref={formRef} onSubmit={handleSubmit} className="space-y-8">
-                <div className="space-y-8">
-                  {renderStepContent()}
-                </div>
-                {/* Navigation Buttons */}
-                <div className="flex items-center justify-between pt-8 border-t border-gray-200 mt-8">
-                  {/* Left: Save & Save & Exit in edit mode */}
-                  {mode === 'edit' ? (
-                    <div className="flex space-x-3">
-                      <button
-                        type="button"
-                        onClick={() => { submitActionRef.current = 'save'; formRef.current?.requestSubmit(); }}
-                        className="px-6 py-2 text-white rounded-lg transition-all duration-300 ease-in-out transform hover:scale-105 hover:shadow-lg cursor-pointer"
-                        style={{backgroundColor: '#0B5858', fontFamily: 'Poppins', fontWeight: 600}}
-                      >
-                        Save
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => { submitActionRef.current = 'save_exit'; formRef.current?.requestSubmit(); }}
-                        className="px-6 py-2 text-white rounded-lg transition-all duration-300 ease-in-out transform hover:scale-105 hover:shadow-lg cursor-pointer"
-                        style={{backgroundColor: '#0B5858', fontFamily: 'Poppins', fontWeight: 600}}
-                      >
-                        Save & Exit
-                      </button>
-                    </div>
-                  ) : (
-                    <div />
-                  )}
-                  
-                  {/* Right: navigation and primary action */}
-                  <div className="flex space-x-4">
-                  {currentStep > 1 ? (
-                    // UX: Back shows pointer to indicate it is clickable
-                    <button type="button" onClick={prevStep} className="px-6 py-2 bg-white border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-all duration-300 ease-in-out transform hover:scale-105 hover:shadow-md cursor-pointer hover:cursor-pointer" style={{fontFamily: 'Poppins'}}>
-                      Back
-                    </button>
-                  ) : (
-                    // UX: Cancel shows pointer to indicate it is clickable; white fill for clarity
-                    <button type="button" onClick={onCancel} className="px-6 py-2 bg-white border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-all duration-300 ease-in-out transform hover:scale-105 hover:shadow-md cursor-pointer hover:cursor-pointer" style={{fontFamily: 'Poppins', fontWeight: 600}}>
-                      Cancel
-                    </button>
-                  )}
-                  {currentStep < steps.length ? (
-                    // UX: Next has pointer when enabled; falls back to not-allowed when disabled
-                    <button type="button" onClick={nextStep} disabled={!isStepValid(currentStep)} className="px-6 py-2 text-white rounded-lg transition-all duration-300 ease-in-out transform hover:scale-105 hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 disabled:hover:shadow-none cursor-pointer" style={{backgroundColor: '#0B5858', fontFamily: 'Poppins', fontWeight: 600}}>
-                      Next
-                    </button>
-                  ) : (
-                    // UX: Submit behaves similarly to Next for cursor state
-                    <button type="submit" disabled={isSubmitting || !isFormValid()} className="px-6 py-2 text-white rounded-lg transition-all duration-300 ease-in-out transform hover:scale-105 hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 disabled:hover:shadow-none cursor-pointer" style={{backgroundColor: '#0B5858', fontFamily: 'Poppins', fontWeight: 600}}>
-                      {isSubmitting ? (
-                        <span className="flex items-center">
-                          <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                          </svg>
-                          {mode === 'edit' ? 'Saving...' : 'Creating...'}
-                        </span>
-                      ) : (mode === 'edit' ? 'Save Changes' : 'Create Listing')}
-                    </button>
-                  )}
-                  </div>
-                </div>
-              </form>
-            </div>
-          </div>
-        )}
+        </div>
       </div>
-      {/* Toast UI removed; parent manages toast rendering */}
-      {/* Step fade animation styles (scoped) */}
-      <style>{`
-        .fade-step { animation: fadeStep .18s ease-out; will-change: opacity, transform; }
-        @keyframes fadeStep {
-          from { opacity: 0; transform: translateY(6px); }
-          to { opacity: 1; transform: translateY(0); }
-        }
-      `}</style>
     </div>
   );
 };

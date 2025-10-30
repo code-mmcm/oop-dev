@@ -6,7 +6,7 @@ interface AdditionalServicesStepProps {
   onUpdate: (data: Partial<BookingFormData>) => void;
   onNext: () => void;
   onBack: () => void;
-  onCancel?: () => void;
+  onCancel: () => void;
 }
 
 const AdditionalServicesStep: React.FC<AdditionalServicesStepProps> = ({
@@ -27,7 +27,7 @@ const AdditionalServicesStep: React.FC<AdditionalServicesStepProps> = ({
     { name: 'Extra Towel', charge: 50.0 },
     { name: 'Airport Transfer', charge: 500.0 },
     { name: 'Breakfast (per pax)', charge: 150.0 },
-    { name: 'Cleaning Service', charge: 300.0 }, 
+    { name: 'Cleaning Service', charge: 300.0 },
     { name: 'Baby Crib', charge: 250.0 }
   ];
 
@@ -287,7 +287,7 @@ const AdditionalServicesStep: React.FC<AdditionalServicesStepProps> = ({
 
       {/* Action Buttons */}
       <div className="flex justify-end space-x-4 mt-8 pt-6 border-t border-gray-200">
-        <button onClick={() => onCancel?.()} className="px-6 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors" style={{ fontFamily: 'Poppins' }}>Cancel</button>
+        <button onClick={onCancel} className="px-6 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors" style={{ fontFamily: 'Poppins' }}>Cancel</button>
         <button onClick={onBack} className="px-6 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors" style={{ fontFamily: 'Poppins' }}>Back</button>
         <button onClick={onNext} className="px-6 py-2 bg-[#0B5858] text-white rounded-lg hover:bg-[#0a4a4a] transition-colors" style={{ fontFamily: 'Poppins' }}>Next</button>
       </div>
