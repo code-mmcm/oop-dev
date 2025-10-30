@@ -7,16 +7,10 @@ interface ClientInfoStepProps {
   onUpdateField?: (key: keyof BookingFormData, value: any) => void;
   onNext: () => void;
   onBack: () => void;
-  onCancel: () => void;
+  onCancel?: () => void;
 }
 
 const collapseSpacesTrim = (s: string) => s.replace(/ {2,}/g, ' ').replace(/^\s+/, '').replace(/\s+$/, '');
-const collapseSpacesKeepTrailing = (s: string) => {
-  const hadTrailing = /\s$/.test(s);
-  let tmp = s.replace(/ {2,}/g, ' ').replace(/^\s+/, '');
-  if (hadTrailing) tmp = tmp + ' ';
-  return tmp;
-};
 
 const FloatingInput: React.FC<{
   id: string;
@@ -32,20 +26,62 @@ const FloatingInput: React.FC<{
   const [isFocused, setIsFocused] = useState(false);
   const isActive = isFocused || (value != null && String(value).length > 0);
 
+  const prevValueRef = useRef<string>(value ?? '');
+  useEffect(() => {
+    prevValueRef.current = value ?? '';
+  }, [value]);
+
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    let val = e.target.value;
-    if (preventLeadingSpace) val = val.replace(/^\s+/, '');
-    val = collapseSpacesKeepTrailing(val);
-    setValue(val);
+    let newVal = e.target.value ?? '';
+    if (preventLeadingSpace && newVal.startsWith(' ')) {
+      newVal = newVal.replace(/^\s+/, '');
+    }
+
+    if (newVal.length < prevValueRef.current.length) {
+      prevValueRef.current = newVal;
+      setValue(newVal);
+      return;
+    }
+
+    const hadTrailing = /\s$/.test(newVal);
+    let collapsed = newVal.replace(/ {2,}/g, ' ');
+    if (hadTrailing && !collapsed.endsWith(' ')) collapsed = collapsed + ' ';
+
+    prevValueRef.current = collapsed;
+    setValue(collapsed);
   };
 
   const handlePaste = (e: React.ClipboardEvent<HTMLInputElement>) => {
     e.preventDefault();
-    const text = e.clipboardData.getData('text') || '';
-    let cleaned = text;
-    if (preventLeadingSpace) cleaned = cleaned.replace(/^\s+/, '');
-    cleaned = collapseSpacesKeepTrailing(cleaned);
-    setValue((value || '') + cleaned);
+    const pasted = e.clipboardData.getData('text') || '';
+
+    let cleaned = pasted;
+    if (preventLeadingSpace && cleaned.startsWith(' ')) cleaned = cleaned.replace(/^\s+/, '');
+
+    const input = e.target as HTMLInputElement;
+    const selStart = input.selectionStart ?? input.value.length;
+    const selEnd = input.selectionEnd ?? input.value.length;
+
+    const before = (value ?? '').slice(0, selStart);
+    const after = (value ?? '').slice(selEnd);
+    let composed = before + cleaned + after;
+
+    const hadTrailing = /\s$/.test(before + cleaned);
+    composed = composed.replace(/ {2,}/g, ' ');
+    if (hadTrailing && !composed.endsWith(' ')) composed = composed + ' ';
+
+    prevValueRef.current = composed;
+    setValue(composed);
+
+    const caretPos = before.length + cleaned.length;
+    setTimeout(() => {
+      try {
+        input.focus();
+        input.setSelectionRange(caretPos, caretPos);
+      } catch {
+        // ignore
+      }
+    }, 0);
   };
 
   const handleBlur = () => {
@@ -63,7 +99,7 @@ const FloatingInput: React.FC<{
     <div className="relative">
       <label
         htmlFor={id}
-        className={`absolute left-4 transition-all duration-150 pointer-events-none ${
+        className={`absolute left-3 transition-all duration-150 pointer-events-none ${
           isActive ? '-top-2 text-xs bg-white px-1 rounded' : 'top-1/2 -translate-y-1/2 text-gray-400'
         }`}
         style={{ fontFamily: 'Poppins', color: isActive ? '#0B5858' : undefined }}
@@ -88,9 +124,9 @@ const FloatingInput: React.FC<{
           if (inputProps?.onKeyDown) inputProps.onKeyDown(e as any);
         }}
         {...inputProps}
-        className={`w-full py-3 pl-4 pr-4 border rounded-xl transition-all duration-150 ${
+        className={`w-full py-3 pl-3 pr-3 border rounded-xl transition-all duration-150 ${
           isActive ? 'border-transparent ring-2 ring-[#549F74]' : 'border-gray-300'
-        } focus:outline-none`}
+        } focus:outline-none text-xs sm:text-sm md:text-base`}
         style={{ fontFamily: 'Poppins', fontWeight: 400 }}
       />
     </div>
@@ -108,14 +144,10 @@ const FloatingDateParts: React.FC<{
   const [day, setDay] = useState<string>('');
   const [year, setYear] = useState<string>('');
 
-  const currentYear = new Date().getFullYear();
-  const minYear = currentYear - 120;
-  const years = useMemo(() => {
-    const a: string[] = [];
-    for (let y = currentYear; y >= minYear; y--) a.push(String(y).padStart(4, '0'));
-    return a;
-  }, [currentYear]);
+  const [showMonthDropdown, setShowMonthDropdown] = useState(false);
+  const monthRef = useRef<HTMLDivElement | null>(null);
 
+  const currentYear = new Date().getFullYear();
   const months = useMemo(() => ['01','02','03','04','05','06','07','08','09','10','11','12'], []);
 
   const maxDayForMonthYear = useMemo(() => {
@@ -124,12 +156,6 @@ const FloatingDateParts: React.FC<{
     if (!Number.isFinite(yNum) || !Number.isFinite(mNum) || mNum < 1 || mNum > 12) return 31;
     return new Date(yNum, mNum, 0).getDate();
   }, [month, year, currentYear]);
-
-  const days = useMemo(() => {
-    const arr: string[] = [];
-    for (let d = 1; d <= maxDayForMonthYear; d++) arr.push(String(d).padStart(2, '0'));
-    return arr;
-  }, [maxDayForMonthYear]);
 
   const lastAppliedPropRef = useRef<string>('');
 
@@ -181,68 +207,116 @@ const FloatingDateParts: React.FC<{
     }
   }, [month, day, year, allowFuture, onChange, valueYMD]);
 
-  const onYearChange = (newYear: string) => {
-    setYear(newYear);
-    if (month) {
-      const yNum = parseInt(newYear || String(currentYear), 10);
-      const mNum = parseInt(month || '1', 10);
-      if (Number.isFinite(yNum) && Number.isFinite(mNum)) {
-        const maxDay = new Date(yNum, mNum, 0).getDate();
-        if (day && parseInt(day, 10) > maxDay) setDay(String(maxDay).padStart(2, '0'));
-      }
+  useEffect(() => {
+    if (!day) return;
+    const maxDay = maxDayForMonthYear;
+    const dNum = parseInt(day, 10);
+    if (Number.isFinite(dNum) && dNum > maxDay) {
+      setDay(String(maxDay).padStart(2, '0'));
     }
-  };
+  }, [month, year, maxDayForMonthYear, day]);
+
+  useEffect(() => {
+    const onDoc = (e: MouseEvent) => {
+      if (!monthRef.current) return;
+      if (!monthRef.current.contains(e.target as Node)) setShowMonthDropdown(false);
+    };
+    if (showMonthDropdown) document.addEventListener('mousedown', onDoc);
+    return () => document.removeEventListener('mousedown', onDoc);
+  }, [showMonthDropdown]);
 
   return (
-    <div>
-      <div className="rounded-xl bg-white flex items-center border px-1 border-gray-300">
-        <div className="w-1/3 px-2">
-          <label className="sr-only" htmlFor={`${id}-month`}>Month</label>
-          <select
-            id={`${id}-month`}
-            value={month}
-            onChange={(e) => setMonth(e.target.value)}
-            className="w-full py-3 pl-2 pr-2 bg-transparent"
-            aria-label={`${label} month`}
+    <div
+      className="relative border border-gray-300 rounded-xl hover:border-gray-400 hover:shadow-md transition-all duration-300 focus-within:ring-2"
+      style={{
+        borderColor: 'rgb(209 213 219)',
+        '--tw-ring-color': '#549F74',
+      } as React.CSSProperties}
+    >
+      <div className="grid items-center px-1" style={{ gridTemplateColumns: '41.6667% 25% 41.6667%' }}>
+        <div className="relative month-dropdown" ref={monthRef}>
+          <div
+            className="flex items-center justify-between py-3 pl-4 pr-3 cursor-pointer rounded-l-xl"
+            onClick={() => setShowMonthDropdown(!showMonthDropdown)}
+            role="button"
+            aria-haspopup="listbox"
+            aria-expanded={showMonthDropdown}
+            tabIndex={0}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                setShowMonthDropdown(s => !s);
+              }
+            }}
             style={{ fontFamily: 'Poppins' }}
           >
-            <option value="">{'MM'}</option>
-            {months.map((m) => <option key={m} value={m}>{m}</option>)}
-          </select>
+            <span className={`${month ? 'text-black' : 'text-gray-500'}`} style={{ fontFamily: 'Poppins', fontWeight: 400 }}>
+              {month || 'MM'}
+            </span>
+            <img src="/dropdown_icon.svg" alt="dropdown" className="h-5 w-5 opacity-90" />
+          </div>
+
+          {showMonthDropdown && (
+            <div className="absolute top-full left-0 bg-white border border-gray-300 rounded-lg shadow-lg z-50 w-full max-h-48 overflow-y-auto">
+              {months.map((m) => (
+                <div
+                  key={m}
+                  className="flex items-center py-3 px-4 hover:bg-gray-50 cursor-pointer"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setMonth(m);
+                    setShowMonthDropdown(false);
+                  }}
+                >
+                  <span className="text-sm" style={{ fontFamily: 'Poppins', fontWeight: 400 }}>
+                    {m}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
 
-        <div className="h-7 w-px bg-gray-200 mx-2" />
+        <div className="absolute top-1/2 -translate-y-1/2 h-7 w-px bg-gray-300" style={{ left: '44%' }} />
 
-        <div className="w-1/4 px-2">
-          <label className="sr-only" htmlFor={`${id}-day`}>Day</label>
-          <select
+        <div>
+          <input
             id={`${id}-day`}
             value={day}
-            onChange={(e) => setDay(e.target.value)}
-            className="w-full py-3 pl-2 pr-2 bg-transparent"
+            onChange={(e) => {
+              const raw = e.target.value.replace(/\D/g, '');
+              const v = raw.slice(0, 2);
+              // preserve partial entries (e.g. "1" => "1")
+              setDay(v);
+            }}
+            inputMode="numeric"
+            maxLength={2}
+            placeholder="DD"
+            autoComplete="off"
+            className="w-full py-3 pl-4 pr-2 text-left focus:outline-none bg-transparent"
+            style={{ fontFamily: 'Poppins', fontWeight: 400 }}
             aria-label={`${label} day`}
-            style={{ fontFamily: 'Poppins' }}
-          >
-            <option value="">{'DD'}</option>
-            {days.map((d) => <option key={d} value={d}>{d}</option>)}
-          </select>
+          />
         </div>
 
-        <div className="h-7 w-px bg-gray-200 mx-2" />
+        <div className="absolute top-1/2 -translate-y-1/2 h-7 w-px bg-gray-300" style={{ left: '66.6667%' }} />
 
-        <div className="w-5/12 px-2">
-          <label className="sr-only" htmlFor={`${id}-year`}>Year</label>
-          <select
+        <div>
+          <input
             id={`${id}-year`}
             value={year}
-            onChange={(e) => onYearChange(e.target.value)}
-            className="w-full py-3 pl-2 pr-2 bg-transparent"
+            onChange={(e) => {
+              const v = e.target.value.replace(/\D/g, '').slice(0, 4);
+              setYear(v);
+            }}
+            inputMode="numeric"
+            maxLength={4}
+            placeholder="YYYY"
+            autoComplete="off"
+            className="w-full py-3 pl-4 pr-4 text-left rounded-r-xl focus:outline-none bg-transparent"
+            style={{ fontFamily: 'Poppins', fontWeight: 400 }}
             aria-label={`${label} year`}
-            style={{ fontFamily: 'Poppins' }}
-          >
-            <option value="">{'YYYY'}</option>
-            {years.map((y) => <option key={y} value={y}>{y}</option>)}
-          </select>
+          />
         </div>
       </div>
     </div>
@@ -344,7 +418,7 @@ const PhoneInput: React.FC<{
   return (
     <div ref={wrapperRef} className="relative">
       {labelActive && (
-        <label className="absolute left-4 -top-2 text-xs bg-white px-1 rounded" style={{ fontFamily: 'Poppins', color: '#0B5858' }}>
+        <label className="absolute left-3 -top-2 text-xs bg-white px-1 rounded" style={{ fontFamily: 'Poppins', color: '#0B5858' }}>
           {label}
         </label>
       )}
@@ -354,9 +428,9 @@ const PhoneInput: React.FC<{
           <button
             type="button"
             onClick={() => setShowCountryDropdown(s => !s)}
-            className="flex items-center gap-2 py-3 pl-3 pr-3 rounded-l-xl text-gray-700"
+            className="flex items-center gap-2 py-2 sm:py-3 pl-3 pr-3 rounded-l-xl text-gray-700 text-xs sm:text-sm"
             onFocus={() => setIsFocused(true)}
-            onBlur={() => setTimeout(() => setIsFocused(false), 100)}
+            onBlur={() => setTimeout(() => setIsFocused(false), 120)}
             aria-haspopup="listbox"
             aria-expanded={showCountryDropdown}
             style={{ fontFamily: 'Poppins' }}
@@ -368,7 +442,7 @@ const PhoneInput: React.FC<{
           </button>
 
           {showCountryDropdown && (
-            <div className="absolute z-50 top-full left-0 mt-1 w-64 max-h-48 overflow-y-auto bg-white border border-gray-300 rounded-lg shadow-lg">
+            <div className="absolute z-50 top-full left-0 mt-1 w-48 sm:w-56 max-h-48 overflow-y-auto bg-white border border-gray-300 rounded-lg shadow-lg text-xs sm:text-sm">
               {countries.map(c => (
                 <div
                   key={c.code}
@@ -410,9 +484,9 @@ const PhoneInput: React.FC<{
             if (combined !== value) setValue(combined);
           }}
           onFocus={() => setIsFocused(true)}
-          onBlur={() => setTimeout(() => setIsFocused(false), 100)}
+          onBlur={() => setTimeout(() => setIsFocused(false), 120)}
           placeholder={labelActive ? '' : 'Enter phone number'}
-          className="flex-1 py-3 pl-2 pr-4 focus:outline-none"
+          className="flex-1 py-2 sm:py-3 pl-2 pr-4 focus:outline-none text-xs sm:text-sm"
           inputMode="tel"
           style={{ fontFamily: 'Poppins' }}
           aria-label="Phone number"
@@ -488,9 +562,9 @@ const ClientInfoStep: React.FC<ClientInfoStepProps> = ({ formData, onUpdate, onU
   }, [formData, dob, age]);
 
   return (
-    <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6" style={{ fontFamily: 'Poppins' }}>
-      <h2 className="text-2xl font-bold text-[#0B5858] mb-1">Client Information</h2>
-      <p className="text-sm text-gray-500 mb-4">Please fill in your client details to continue</p>
+    <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 sm:p-6 pb-16 md:pb-6 text-xs sm:text-sm md:text-base" style={{ fontFamily: 'Poppins' }}>
+      <h2 className="text-lg sm:text-2xl font-bold text-[#0B5858] mb-1">Client Information</h2>
+      <p className="text-xs sm:text-sm text-gray-500 mb-4">Please fill in your client details to continue</p>
 
       {isUnder18 && !under18NotifDismissed && (
         <div className="mb-4 p-3 rounded-md bg-red-50 border border-red-200 flex items-start justify-between" role="alert">
@@ -510,8 +584,8 @@ const ClientInfoStep: React.FC<ClientInfoStepProps> = ({ formData, onUpdate, onU
         </div>
       )}
 
-      <div className="space-y-6">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="space-y-5">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
           <FloatingInput
             id="firstName"
             label="First Name *"
@@ -545,7 +619,7 @@ const ClientInfoStep: React.FC<ClientInfoStepProps> = ({ formData, onUpdate, onU
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-stretch">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
           <FloatingInput
             id="nickname"
             label="Nickname"
@@ -555,9 +629,10 @@ const ClientInfoStep: React.FC<ClientInfoStepProps> = ({ formData, onUpdate, onU
             sanitizeOnBlur={(v) => (v === '' ? '' : sanitizeGeneric(v))}
           />
 
-          <div className="flex flex-col">
+          <div>
+            <label className="sr-only">Date of Birth</label>
             <FloatingDateParts id="dateOfBirth" label="Date of Birth" valueYMD={dob} onChange={handleDobChange} allowFuture={false} />
-            <div className="mt-2 text-sm">
+            <div className="mt-2 text-xs sm:text-sm">
               {dob && age === null && <div className="text-yellow-700" style={{ fontFamily: 'Poppins' }}>Please provide a valid date.</div>}
             </div>
           </div>
@@ -572,16 +647,23 @@ const ClientInfoStep: React.FC<ClientInfoStepProps> = ({ formData, onUpdate, onU
           />
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
-            <label className="block text-sm text-gray-700 mb-3">Gender *</label>
-            <div className="flex space-x-3">
+            <label className="block text-sm text-gray-700 mb-2">Gender *</label>
+            <div className="flex flex-wrap gap-2">
               {[
                 { value: 'male', label: 'Male' },
                 { value: 'female', label: 'Female' },
                 { value: 'other', label: 'Other' }
               ].map((option) => (
-                <button key={option.value} onClick={() => updateField('gender', option.value)} className={`px-4 py-2 rounded-full border transition-colors ${(formData.gender === option.value) ? 'border-[#0B5858] bg-[#0B5858] text-white' : 'border-gray-300 text-gray-700 hover:border-gray-400'}`} style={{ fontFamily: 'Poppins' }}>
+                <button
+                  key={option.value}
+                  onClick={() => updateField('gender', option.value)}
+                  className={`px-3 py-2 rounded-full border transition-colors text-sm ${
+                    (formData.gender === option.value) ? 'border-[#0B5858] bg-[#0B5858] text-white' : 'border-gray-300 text-gray-700 hover:border-gray-400'
+                  }`}
+                  style={{ fontFamily: 'Poppins' }}
+                >
                   {option.label}
                 </button>
               ))}
@@ -597,13 +679,13 @@ const ClientInfoStep: React.FC<ClientInfoStepProps> = ({ formData, onUpdate, onU
               maxDigits={formData.contactType === 'mobile' ? 10 : undefined}
             />
 
-            <div className="flex space-x-4 mt-3">
+            <div className="flex flex-wrap gap-4 mt-3 items-center">
               {[
                 { value: 'home', label: 'Home' },
                 { value: 'mobile', label: 'Mobile' },
                 { value: 'work', label: 'Work' }
               ].map((option) => (
-                <label key={option.value} className="flex items-center">
+                <label key={option.value} className="flex items-center text-sm">
                   <input type="radio" name="contactType" value={option.value} checked={formData.contactType === option.value} onChange={() => updateField('contactType', option.value)} className="w-4 h-4 text-[#0B5858] border-gray-300 focus:ring-[#0B5858]" />
                   <span className="ml-2 text-sm text-gray-700">{option.label}</span>
                 </label>
@@ -613,10 +695,49 @@ const ClientInfoStep: React.FC<ClientInfoStepProps> = ({ formData, onUpdate, onU
         </div>
       </div>
 
-      <div className="flex justify-end space-x-4 mt-8 pt-6 border-t border-gray-200">
-        <button onClick={onCancel} className="px-6 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors" style={{ fontFamily: 'Poppins' }}>Cancel</button>
-        <button onClick={onBack} className="px-6 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors" style={{ fontFamily: 'Poppins' }}>Back</button>
-        <button onClick={onNext} disabled={!isFormValid || isUnder18} className="px-6 py-2 bg-[#0B5858] text-white rounded-lg hover:bg-[#0a4a4a] transition-colors disabled:opacity-50 disabled:cursor-not-allowed" style={{ fontFamily: 'Poppins' }}>Next</button>
+      <div className="hidden lg:flex justify-end space-x-4 mt-6 pt-4 border-t border-gray-200">
+        <button onClick={onCancel} className="px-6 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors text-sm" style={{ fontFamily: 'Poppins' }}>
+          Cancel
+        </button>
+        <button onClick={onBack} className="px-6 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors text-sm" style={{ fontFamily: 'Poppins' }}>
+          Back
+        </button>
+        <button onClick={onNext} disabled={!isFormValid || isUnder18} className="px-6 py-2 bg-[#0B5858] text-white rounded-lg hover:bg-[#0a4a4a] transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm" style={{ fontFamily: 'Poppins' }}>
+          Next
+        </button>
+      </div>
+
+      <div
+        className="fixed left-0 right-0 bottom-0 bg-white border-t border-gray-200 p-3 lg:hidden"
+        role="region"
+        aria-label="Client actions"
+        style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 12px)' }}
+      >
+        <div className="max-w-6xl mx-auto flex items-center gap-3">
+          <button
+            onClick={onCancel}
+            className="flex-1 px-3 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors text-sm"
+            style={{ fontFamily: 'Poppins' }}
+          >
+            Cancel
+          </button>
+          <button
+            onClick={onBack}
+            className="flex-1 px-3 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors text-sm"
+            style={{ fontFamily: 'Poppins' }}
+          >
+            Back
+          </button>
+          <button
+            onClick={onNext}
+            disabled={!isFormValid || isUnder18}
+            className="flex-1 px-3 py-2 bg-[#0B5858] text-white rounded-lg hover:bg-[#0a4a4a] transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm"
+            style={{ fontFamily: 'Poppins' }}
+            aria-disabled={!isFormValid || isUnder18}
+          >
+            Next
+          </button>
+        </div>
       </div>
     </div>
   );
