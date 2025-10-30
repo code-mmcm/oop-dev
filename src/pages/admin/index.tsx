@@ -305,7 +305,7 @@ const AdminPanel: React.FC = React.memo(() => {
             </div>
             <div className="flex gap-3">
               <button
-                onClick={() => navigate('/manageusers')}
+                onClick={() => navigate('/manage-users')}
                 className="bg-[#0B5858] text-white px-6 py-3 rounded-lg hover:bg-[#0a4a4a] transition-all duration-200 flex items-center shadow-lg hover:shadow-xl cursor-pointer"
                 style={{fontFamily: 'Poppins'}}
               >
@@ -315,7 +315,7 @@ const AdminPanel: React.FC = React.memo(() => {
                 Manage Users
               </button>
               <button
-                onClick={() => navigate('/manage')}
+                onClick={() => navigate('/manage-listings')}
                 className="bg-gradient-to-br from-gray-600 to-gray-700 text-white px-6 py-3 rounded-lg hover:from-gray-700 hover:to-gray-800 transition-all duration-200 flex items-center shadow-lg hover:shadow-xl cursor-pointer"
                 style={{fontFamily: 'Poppins'}}
               >
