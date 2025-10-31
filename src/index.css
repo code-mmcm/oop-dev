@@ -276,10 +276,36 @@
   opacity: 0;
 }
 
+/* Star click animation */
+@keyframes starPop {
+  0% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.12);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+.star-click-animation {
+  animation: starPop 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
 /* Line clamp utilities */
+.line-clamp-1 {
+  display: -webkit-box;
+  -webkit-line-clamp: 1;
+  line-clamp: 1;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
 .line-clamp-2 {
   display: -webkit-box;
   -webkit-line-clamp: 2;
+  line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
@@ -292,3 +318,19 @@
 .scrollbar-hide::-webkit-scrollbar { 
   display: none;  /* Safari and Chrome */
 }
+
+/* Calendar legend/status background helpers (lighter by default, intensify on hover) */
+/* Base (lighter) fills for low visual noise */
+.bg-booked { background-color: rgba(184, 76, 76, 0.12); }
+.bg-pending { background-color: rgba(246, 214, 88, 0.18); }
+.bg-available { background-color: rgba(85, 139, 139, 0.12); }
+.bg-blocked { background-color: rgba(77, 80, 78, 0.12); }
+
+/* Hover states use medium opacity as specified */
+.bg-booked:hover { background-color: rgba(184, 76, 76, 0.25) !important; }
+.bg-pending:hover { background-color: rgba(246, 214, 88, 0.35) !important; }
+.bg-available:hover { background-color: rgba(85, 139, 139, 0.25) !important; }
+.bg-blocked:hover { background-color: rgba(77, 80, 78, 0.25) !important; }
+
+/* Soft teal hover utility for navigation buttons */
+.hover-soft-teal:hover { background-color: rgba(85, 139, 139, 0.12) !important; }
