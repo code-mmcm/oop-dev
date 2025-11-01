@@ -52,12 +52,12 @@ function App() {
           <Route path="/" element={<Home />} />
           <Route path="/unit/:id" element={<UnitView />} />
           <Route path="/login" element={<Login />} />
-          <Route path="/manage" element={<ManageUnits />} />
+          <Route path="/manage-listings" element={<ManageUnits />} />
           <Route path="/profile" element={<Profile />} />
           <Route path="/booking" element={<Booking />} />
           <Route path="/signup" element={<SignUp />} />
           <Route path="/admin" element={<AdminPanel />} />
-          <Route path="/manageusers" element={<ManageUsers />} />
+          <Route path="/manage-users" element={<ManageUsers />} />
           <Route path="/updates" element={<Updates />} />
           <Route path="/calendar" element={<Calendar />} />
           <Route path="/unit-calendar/:id" element={<UnitCalendar />} />
