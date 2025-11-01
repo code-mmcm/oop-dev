@@ -4,6 +4,7 @@ import Navbar from '../../components/Navbar';
 import { BookingService } from '../../services/bookingService';
 import { useAuth } from '../../contexts/AuthContext';
 import type { Booking as BookingType } from '../../types/booking';
+import { logger } from '../../lib/logger';
 
 type Booking = {
   date: Date;
@@ -92,6 +93,13 @@ const Calendar: React.FC<CalendarProps> = ({ hideNavbar = false }) => {
     const c = new Date(d);
     c.setDate(c.getDate() + n);
     return c;
+  };
+
+  // Returns hour (0-23) for a date in a specific timezone
+  const getHourInTimeZone = (date: Date, timeZone: string): number => {
+    const parts = new Intl.DateTimeFormat('en-US', { hour: '2-digit', hour12: false, timeZone }).formatToParts(date);
+    const hourPart = parts.find(p => p.type === 'hour');
+    return hourPart ? parseInt(hourPart.value, 10) : date.getHours();
   };
 
   // centered-week helper (7-day window with focusedDate in the middle)
@@ -196,35 +204,20 @@ const Calendar: React.FC<CalendarProps> = ({ hideNavbar = false }) => {
           const checkInDate = new Date(booking.check_in_date);
           const checkOutDate = new Date(booking.check_out_date);
           
-          // Format time string from date
-          const formatTime = (date: Date) => {
-            // Check if the date string has time information
-            const hasTime = booking.check_in_date.includes('T') && booking.check_in_date.includes(':');
-            
-            if (!hasTime) {
-              // If no time info, use default check-in/out times
-              return date.getTime() === checkInDate.getTime() ? '12:00 PM' : '11:00 AM';
-            }
-            
-            let hours = date.getHours();
-            const minutes = date.getMinutes();
-            const period = hours >= 12 ? 'PM' : 'AM';
-            hours = hours % 12 || 12;
-            return `${hours}:${minutes.toString().padStart(2, '0')} ${period}`;
-          };
+          // no-op: previous local formatter removed in favor of fixed timezone formatter
 
-          const checkInTime = formatTime(checkInDate);
-          const checkOutTime = formatTime(checkOutDate);
+          const checkInTime = new Intl.DateTimeFormat('en-US', { hour: 'numeric', minute: '2-digit', hour12: true, timeZone: 'Asia/Manila' }).format(checkInDate);
+          const checkOutTime = new Intl.DateTimeFormat('en-US', { hour: 'numeric', minute: '2-digit', hour12: true, timeZone: 'Asia/Manila' }).format(checkOutDate);
           const time = `${checkInTime} - ${checkOutTime}`;
 
           // Use listing title or fallback
           const title = booking.listing?.title || 'Unnamed Property';
           const mainImageUrl = booking.listing?.main_image_url;
 
-          // Calculate end hour - default to 11 AM if no time info
+          // Calculate end hour - default to 2 PM check-in and 12 PM check-out if no time info
           const hasTime = booking.check_in_date.includes('T') && booking.check_in_date.includes(':');
-          const startHour = hasTime ? checkInDate.getHours() : 12;
-          const endHour = hasTime ? checkOutDate.getHours() : 11;
+          const startHour = hasTime ? getHourInTimeZone(checkInDate, 'Asia/Manila') : 14; // 2 PM default
+          const endHour = hasTime ? getHourInTimeZone(checkOutDate, 'Asia/Manila') : 12; // 12 PM default
 
           return {
             date: checkInDate,
@@ -335,22 +328,17 @@ const Calendar: React.FC<CalendarProps> = ({ hideNavbar = false }) => {
     if (headerAnimTimer.current) window.clearTimeout(headerAnimTimer.current);
     headerAnimTimer.current = window.setTimeout(() => setHeaderAnimating(false), 280);
 
-    const newDate = new Date(currentDate);
-    newDate.setMonth(currentDate.getMonth() + (direction === 'prev' ? -1 : 1));
+    // Create new date explicitly to avoid day overflow issues (e.g., Oct 31 -> Nov 31 becomes Dec 1)
+    const currentYear = currentDate.getFullYear();
+    const currentMonth = currentDate.getMonth();
+    const newMonth = direction === 'prev' ? currentMonth - 1 : currentMonth + 1;
+    const newDate = new Date(currentYear, newMonth, 1);
     setCurrentDate(newDate);
 
     // move focusedDate into the new month
     const daysInNewMonth = new Date(newDate.getFullYear(), newDate.getMonth() + 1, 0).getDate();
     const desiredDay = Math.min(focusedDate.getDate(), daysInNewMonth);
     setFocusedDate(new Date(newDate.getFullYear(), newDate.getMonth(), desiredDay));
-  };
-
-  const toggleViewMode = () => {
-    setViewMode(prev => {
-      const next = prev === 'monthly' ? 'weekly' : 'monthly';
-      if (next === 'weekly') setFocusedDate(focusedDate ?? new Date());
-      return next;
-    });
   };
 
   // Handler when clicking a day header in weekly view
@@ -465,6 +453,53 @@ const Calendar: React.FC<CalendarProps> = ({ hideNavbar = false }) => {
   // Month grid data (for monthly view)
   const days = getDaysInMonth(currentDate);
 
+  /**
+   * Maps booking status to CSS background helper class.
+   * Defaults to booked when unknown but a booking exists.
+   */
+  const getStatusBgClass = (status?: string): string => {
+    const s = (status || '').toLowerCase();
+    if (s === 'pending') return 'bg-pending';
+    if (s === 'blocked') return 'bg-blocked';
+    if (s === 'available') return 'bg-available';
+    // Treat confirmed/ongoing/others with booking as booked
+    return 'bg-booked';
+  };
+
+  /**
+   * CalendarLegend
+   * Renders a compact legend indicating the meaning of calendar colors.
+   * Kept inline for locality with the calendar and to avoid cross-file coupling.
+   */
+  const CalendarLegend: React.FC = () => {
+    // Log when legend is rendered to trace calendar UI composition
+    useEffect(() => {
+      logger.info('Rendering CalendarLegend', {
+        statuses: ['Booked', 'Pending', 'Available', 'Blocked']
+      });
+    }, []);
+
+    const items: { label: string; className: string }[] = [
+      { label: 'Booked', className: 'bg-booked' },
+      { label: 'Pending', className: 'bg-pending' },
+      { label: 'Available', className: 'bg-available' },
+      { label: 'Blocked', className: 'bg-blocked' },
+    ];
+
+    return (
+      <div className="px-4 py-3 border-t border-gray-200 bg-white">
+        <div className="flex flex-wrap items-center gap-4" aria-label="Calendar legend">
+          {items.map((item) => (
+            <div key={item.label} className="flex items-center gap-2">
+              <span aria-hidden="true" className={`inline-block rounded ${item.className}`} style={{ width: 14, height: 14 }} />
+              <span className="text-sm text-gray-700" style={{ fontFamily: 'Poppins' }}>{item.label}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  };
+
   //
   // Mobile subcomponents (inline for convenience)
   //
@@ -515,7 +550,7 @@ const Calendar: React.FC<CalendarProps> = ({ hideNavbar = false }) => {
                       <button
                         key={`${b.title}-${i}`}
                         onClick={() => openSlideForDate(date)}
-                        className="absolute left-2 right-2 bg-[var(--booking-color)] text-white rounded-md p-2 text-left shadow"
+                        className={`absolute left-2 right-2 ${getStatusBgClass(b.status)} text-white rounded-md p-2 text-left shadow`}
                         style={{ top: 4, height: span * HOUR_ROW_PX - 8, zIndex: 10 }}
                         aria-label={`${b.title} ${b.time}`}
                       >
@@ -597,7 +632,7 @@ const Calendar: React.FC<CalendarProps> = ({ hideNavbar = false }) => {
 
                 {/* booking indicator: colored dot + small title preview when space allows */}
                 <div className="mt-1 flex items-center gap-2">
-                  {b && <span className="mobile-booking-indicator" aria-hidden="true" />}
+                  {b && <span className={`${getStatusBgClass(b.status)} inline-block rounded-full`} style={{ width: 8, height: 8 }} aria-hidden="true" />}
                   {b && <div className="text-xs text-gray-600 truncate">• {b.title}</div>}
                 </div>
               </button>
@@ -691,7 +726,8 @@ const Calendar: React.FC<CalendarProps> = ({ hideNavbar = false }) => {
           left: 8px;
           border-radius: 8px;
           padding: 6px 8px;
-          background: var(--booking-color);
+          /* background is set per booking status via class/inline */
+          background: transparent;
           color: #ffffff;
           display:flex;
           flex-direction:column;
@@ -702,14 +738,13 @@ const Calendar: React.FC<CalendarProps> = ({ hideNavbar = false }) => {
           cursor: pointer;
           overflow: hidden;
         }
-        .booking-block:hover { background: #F6C3CD; color: #000000; transform: translateY(-2px); }
+        .booking-block:hover { color: #000000; transform: translateY(-2px); }
         .bb-title { font-size: 12px; font-weight: 600; line-height: 1; margin-bottom: 4px; }
         .bb-time { font-size: 11px; opacity: 0.95; }
 
         .current-line { position: absolute; border-top: 2px solid #7CC6B0; opacity: 0.95; z-index: 50; }
         .current-dot { position: absolute; width: ${DOT_SIZE}px; height: ${DOT_SIZE}px; border-radius: 9999px; background: #0B5858; border: 2px solid white; transform: translateX(-50%); z-index: 51; animation: timePulse 1400ms infinite cubic-bezier(.4,0,.2,1); }
 
-        .day-header.focused { border-bottom: 4px solid #16A34A !important; }
         .muted { color: rgba(107,114,128,0.9); opacity: 0.64; }
 
         /* Mobile day/month booking indicator */
@@ -767,16 +802,16 @@ const Calendar: React.FC<CalendarProps> = ({ hideNavbar = false }) => {
           {/* header + controls */}
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center space-x-4">
-              <button onClick={() => navigateMonth('prev')} className="p-2 hover:bg-gray-100 rounded-full transition-colors" aria-label="Prev month">
-                <svg className="w-5 h-5 text-gray-600" fill="none" viewBox="0 0 24 24"><path stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" /></svg>
+              <button onClick={() => navigateMonth('prev')} className="p-2 hover-soft-teal rounded-full transition-colors" aria-label="Prev month">
+                <svg className="w-7 h-7 text-[#0B5858]" fill="none" viewBox="0 0 24 24"><path stroke="#0B5858" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" /></svg>
               </button>
 
               <h1 className={`text-2xl font-bold text-black uppercase ${headerAnimating ? 'header-pop-enter' : ''}`} style={{ fontFamily: 'Poppins' }}>
                 {monthNames[currentDate.getMonth()]} {currentDate.getFullYear()}
               </h1>
 
-              <button onClick={() => navigateMonth('next')} className="p-2 hover:bg-gray-100 rounded-full transition-colors" aria-label="Next month">
-                <svg className="w-5 h-5 text-gray-600" fill="none" viewBox="0 0 24 24"><path stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" /></svg>
+              <button onClick={() => navigateMonth('next')} className="p-2 hover-soft-teal rounded-full transition-colors" aria-label="Next month">
+                <svg className="w-7 h-7 text-[#0B5858]" fill="none" viewBox="0 0 24 24"><path stroke="#0B5858" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" /></svg>
               </button>
             </div>
 
@@ -788,18 +823,35 @@ const Calendar: React.FC<CalendarProps> = ({ hideNavbar = false }) => {
                 </div>
               )}
 
-              {/* restored hamburger toggle for desktop only */}
+              {/* View toggle button group for desktop */}
               {!isMobile && (
-                <button
-                  onClick={toggleViewMode}
-                  aria-label="Toggle calendar view"
-                  title="Switch calendar view"
-                  className="hidden sm:inline-flex p-2 hover:bg-gray-100 rounded-full transition-colors"
-                >
-                  <svg className="w-5 h-5 text-gray-600" fill="none" viewBox="0 0 24 24" aria-hidden="true">
-                    <path stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
-                  </svg>
-                </button>
+                <div className="flex gap-1 items-center bg-gray-100 p-1 rounded-lg">
+                  <button
+                    onClick={() => setViewMode('monthly')}
+                    className={`px-4 py-2 text-sm font-medium rounded-md transition-all ${
+                      viewMode === 'monthly'
+                        ? 'bg-white text-gray-900 shadow-sm'
+                        : 'text-gray-600 hover:text-gray-900'
+                    }`}
+                    style={{ fontFamily: 'Poppins' }}
+                  >
+                    Month
+                  </button>
+                  <button
+                    onClick={() => {
+                      setViewMode('weekly');
+                      if (!focusedDate) setFocusedDate(new Date());
+                    }}
+                    className={`px-4 py-2 text-sm font-medium rounded-md transition-all ${
+                      viewMode === 'weekly'
+                        ? 'bg-white text-gray-900 shadow-sm'
+                        : 'text-gray-600 hover:text-gray-900'
+                    }`}
+                    style={{ fontFamily: 'Poppins' }}
+                  >
+                    Week
+                  </button>
+                </div>
               )}
             </div>
           </div>
@@ -827,42 +879,50 @@ const Calendar: React.FC<CalendarProps> = ({ hideNavbar = false }) => {
               // Desktop: existing monthly / weekly experience
               <>
                 {viewMode === 'monthly' ? (
-                  <>
-                    <div className="grid grid-cols-7 bg-gray-50">
-                      {dayNames.map(d => (
-                        <div key={d} className="p-4 text-center text-sm font-medium text-gray-900 border-b border-gray-200 last:border-r-0">{d}</div>
+                  <div className="p-6">
+                    <div className="grid grid-cols-7 gap-3 mb-3">
+                      {dayNames.map((d) => (
+                        <div key={d} className="text-center text-sm font-medium text-gray-700 uppercase tracking-wide">{d}</div>
                       ))}
                     </div>
 
-                    <div className="grid grid-cols-7">
+                    <div className="grid grid-cols-7 gap-3">
                       {days.map((day, index) => {
                         const booking = getBookingForDate(day.fullDate);
                         const isCurrentMonth = day.isCurrentMonth;
 
+                        const bgClass = booking ? getStatusBgClass(booking.status) : 'bg-available';
                         return (
-                          <div key={index} className={`min-h-[120px] border-b border-gray-200 last:border-r-0 relative ${!isCurrentMonth ? 'bg-gray-50' : 'bg-white'} ${booking && isCurrentMonth ? 'cursor-pointer hover:bg-gray-50' : ''} transition-transform duration-200`} onClick={() => booking && isCurrentMonth && openSlideForDate(day.fullDate)} style={{ willChange: 'transform' }}>
-                            <div className="p-2 h-full flex flex-col">
-                              <div className={`text-lg font-medium mb-1 ${isCurrentMonth ? 'text-gray-900' : 'text-gray-400'}`}>{day.date}</div>
-
-                              {booking && isCurrentMonth && (
-                                <div className="flex-1 flex flex-col">
-                                  <div className="absolute left-0 top-0 bottom-0 w-1 bg-teal-500" />
-                                  <div className="ml-2 flex-1 flex flex-col justify-center">
-                                    <div className="text-sm font-medium text-gray-900 mb-1">• {booking.title}</div>
-                                    <div className="text-xs text-gray-500">{booking.time}</div>
-                                  </div>
-                                </div>
-                              )}
+                          <div 
+                            key={index} 
+                            className={`min-h-[140px] rounded-xl p-3 relative transition-all duration-200 ${
+                              isCurrentMonth ? `${bgClass} ${booking ? 'cursor-pointer' : ''}` : 'bg-gray-50/50'
+                            } hover:opacity-95`}
+                            onClick={() => booking && isCurrentMonth && openSlideForDate(day.fullDate)}
+                          >
+                            <div className={`text-sm font-semibold mb-2 ${isCurrentMonth ? 'text-gray-900' : 'text-gray-400'}`}>
+                              {day.date}
                             </div>
+
+                            {booking && isCurrentMonth && (
+                              <div className="mt-2 space-y-1">
+                                <div className="text-xs font-medium text-gray-900 line-clamp-2">
+                                  {booking.title}
+                                </div>
+                                <div className="text-xs text-gray-600">
+                                  {booking.time}
+                                </div>
+                              </div>
+                            )}
                           </div>
                         );
                       })}
                     </div>
-                  </>
+                  </div>
                 ) : (
                   <>
                     {/* Weekly view (desktop) */}
-                    <div className="relative">
+                    <div className="relative p-6">
                       <div
                         ref={weeklyScrollRef}
                         tabIndex={0}
@@ -873,10 +933,10 @@ const Calendar: React.FC<CalendarProps> = ({ hideNavbar = false }) => {
                         <div
                           ref={calendarGridRef}
                           className="calendar-grid"
-                          style={{ display: 'grid', gridTemplateColumns: '80px repeat(7, minmax(0, 1fr))' }}
+                          style={{ display: 'grid', gridTemplateColumns: '80px repeat(7, minmax(0, 1fr))', gap: '12px' }}
                         >
                           {/* Header row */}
-                          <div className="time-header p-4 text-center text-sm font-medium text-gray-900 border-b border-gray-200" aria-hidden="true" style={{ background: 'white' }} />
+                          <div className="time-header p-4 text-center text-sm font-medium text-gray-900" aria-hidden="true" style={{ background: 'transparent' }} />
 
                           {/* day headers (7-day window centered on focusedDate). clicking a header centers that date */}
                           {getCenteredWeekDays(focusedDate).map((day, idx) => {
@@ -889,7 +949,9 @@ const Calendar: React.FC<CalendarProps> = ({ hideNavbar = false }) => {
                                 key={idx}
                                 data-day-header-index={idx}
                                 data-day-date={day.toDateString()}
-                                className={`day-header p-4 text-center text-sm font-medium ${isFocused ? 'focused' : 'border-b border-gray-200'}`}
+                                className={`day-header p-4 rounded-t-xl bg-gray-50 text-center text-sm font-medium ${
+                                  isFocused ? 'bg-blue-100' : ''
+                                }`}
                                 onClick={() => handleHeaderClick(day)}
                                 role="button"
                                 style={{ cursor: 'pointer' }}
@@ -907,7 +969,7 @@ const Calendar: React.FC<CalendarProps> = ({ hideNavbar = false }) => {
                             const hourIdx = hours.indexOf(h);
                             return (
                               <React.Fragment key={h}>
-                                <div className={`hour-row ${hourIdx === now.getHours() ? 'bg-white' : 'bg-gray-50'}`} style={{ borderBottom: '1px solid rgba(229,231,235,1)' }}>
+                                <div className={`hour-row ${hourIdx === now.getHours() ? 'bg-white' : 'bg-transparent'}`}>
                                   <span className={hourIdx === now.getHours() ? 'time-label time-label-current' : 'time-label'}>{h}</span>
                                   {hourIdx === now.getHours() && <span className="time-dot time-dot-pulse" aria-hidden="true" />}
                                 </div>
@@ -928,8 +990,8 @@ const Calendar: React.FC<CalendarProps> = ({ hideNavbar = false }) => {
                                   return (
                                     <div
                                       key={`${hourIdx}-${dayIndex}`}
-                                      className={`col-cell ${isBooked ? 'booked' : ''} ${isBooked ? '' : 'bg-white'} ${mutedEmpty ? 'muted' : ''}`}
-                                      style={{ borderBottom: '1px solid rgba(229,231,235,1)', minHeight: `${HOUR_ROW_PX}px` }}
+                                      className={`col-cell ${isBooked ? '' : 'bg-available'} ${mutedEmpty ? 'muted' : ''}`}
+                                      style={{ minHeight: `${HOUR_ROW_PX}px` }}
                                     >
                                       {sortedBookings.map((booking, bIndex) => {
                                         const isStart = booking.startHour === hourIdx;
@@ -943,7 +1005,7 @@ const Calendar: React.FC<CalendarProps> = ({ hideNavbar = false }) => {
                                         return (
                                           <div
                                             key={`${booking.title}-${bIndex}`}
-                                            className="booking-block"
+                                            className={`booking-block ${getStatusBgClass(booking.status)}`}
                                             role="button"
                                             tabIndex={0}
                                             onClick={() => openSlideForDate(day)}
@@ -984,6 +1046,8 @@ const Calendar: React.FC<CalendarProps> = ({ hideNavbar = false }) => {
                 )}
               </>
             )}
+            {/* Legend pinned to the bottom of the calendar panel */}
+            {!loading && <CalendarLegend />}
           </div>
         </div>
       </div>

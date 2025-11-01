@@ -50,6 +50,20 @@ export class BookingService {
 
     if (!bookings) return [];
 
+    // Debug: Log raw booking data from database
+    console.log('🔍 Raw booking data from database (all bookings):');
+    bookings.forEach((booking, idx) => {
+      console.log(`Booking ${idx + 1}:`, {
+        id: booking.id,
+        check_in_date: booking.check_in_date,
+        check_out_date: booking.check_out_date,
+        check_in_type: typeof booking.check_in_date,
+        check_out_type: typeof booking.check_out_date,
+        has_time_in: booking.check_in_date?.includes('T'),
+        has_time_out: booking.check_out_date?.includes('T'),
+      });
+    });
+
     // Fetch listing and agent data for each booking
     const enrichedBookings = await Promise.all(
       bookings.map(async (booking) => {
@@ -124,6 +138,56 @@ export class BookingService {
     }
 
     return data || [];
+  }
+
+  // Get bookings for a specific listing with full details (for calendar view)
+  static async getBookingsByListingId(listingId: string): Promise<Booking[]> {
+    const { data: bookings, error } = await supabase
+      .from('booking')
+      .select('*')
+      .eq('listing_id', listingId)
+      .order('check_in_date', { ascending: true });
+
+    if (error) {
+      console.error('Error fetching bookings for listing:', error);
+      throw error;
+    }
+
+    if (!bookings) return [];
+
+    // Debug: Log raw booking data from database
+    console.log('🔍 Raw booking data from database:');
+    bookings.forEach((booking, idx) => {
+      console.log(`Booking ${idx + 1}:`, {
+        id: booking.id,
+        check_in_date: booking.check_in_date,
+        check_out_date: booking.check_out_date,
+        check_in_type: typeof booking.check_in_date,
+        check_out_type: typeof booking.check_out_date,
+        has_time_in: booking.check_in_date?.includes('T'),
+        has_time_out: booking.check_out_date?.includes('T'),
+      });
+    });
+
+    // Fetch listing, agent, and client data for each booking
+    const enrichedBookings = await Promise.all(
+      bookings.map(async (booking) => {
+        const [listingData, agentData, clientData] = await Promise.all([
+          supabase.from('listings').select('id, title, location, main_image_url').eq('id', booking.listing_id).single(),
+          supabase.from('users').select('fullname, email').eq('id', booking.assigned_agent).single(),
+          supabase.from('client_details').select('*').eq('booking_id', booking.id).single()
+        ]);
+
+        return {
+          ...booking,
+          listing: listingData.data,
+          agent: agentData.data,
+          client: clientData.data
+        } as Booking;
+      })
+    );
+
+    return enrichedBookings;
   }
 
   // Check if dates are available for a listing

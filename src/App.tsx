@@ -13,6 +13,7 @@ import ManageUsers from "./pages/manage-users";
 import UnitView from "./pages/unit-view";
 import Updates from "./pages/updates";
 import Calendar from "./pages/calendar";
+import UnitCalendar from "./pages/unit-calendar";
 import BookingDetails from "./pages/booking-details";
 import Listings from "./pages/listings";
 import HelpAndSupport from "./pages/help-and-support/help.support";
@@ -59,6 +60,7 @@ function App() {
           <Route path="/manageusers" element={<ManageUsers />} />
           <Route path="/updates" element={<Updates />} />
           <Route path="/calendar" element={<Calendar />} />
+          <Route path="/unit-calendar/:id" element={<UnitCalendar />} />
           <Route path="/booking-details/:id" element={<BookingDetails />} />
           <Route path="/listings" element={<Listings />} />
           <Route path="/help-and-support" element={<HelpAndSupport />} />
