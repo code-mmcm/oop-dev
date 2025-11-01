@@ -7,7 +7,7 @@ import type { Booking, BookingStatus } from '../../../types/booking';
 import { useAuth } from '../../../contexts/AuthContext';
 
 const BookingComponent: React.FC = () => {
-  const { user, isAdmin } = useAuth();
+  const { user } = useAuth();
   const navigate = useNavigate();
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [filteredBookings, setFilteredBookings] = useState<Booking[]>([]);
@@ -42,10 +42,8 @@ const BookingComponent: React.FC = () => {
       }
 
       // Fetch bookings from Supabase
-      // If admin, get all bookings; otherwise get user-specific bookings
-      const fetchedBookings = isAdmin
-        ? await BookingService.getAllBookings()
-        : await BookingService.getUserBookings(user.id);
+      // Always get user-specific bookings, even for admins
+      const fetchedBookings = await BookingService.getUserBookings(user.id);
       
       setBookings(fetchedBookings);
     } catch (error) {
