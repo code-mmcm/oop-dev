@@ -370,7 +370,7 @@ const LeftColumn: React.FC<LeftColumnProps> = ({
 
       {activeTab === 'location' && (
         <div id="MapSection" className="mt-4">
-          <div className="w-full h-64 md:h-67 border border-gray-200 rounded-lg overflow-hidden relative z-0 mt-2">
+          <div className="w-full h-64 md:h-94 border border-gray-200 rounded-lg overflow-hidden relative z-0 mt-2">
             {isClient && hasCoords ? (
               <iframe
                 title="Property location map"

@@ -4,6 +4,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { supabase } from '../../lib/supabase';
 import Navbar from '../../components/Navbar';
 import Footer from '../../components/Footer';
+import Calendar from '../calendar';
 import {
   LineChart,
   Line,
@@ -468,81 +469,14 @@ const AdminPanel: React.FC = React.memo(() => {
           </div>
         </div>
 
-        {/* Quick Actions */}
-        <div className="bg-gradient-to-br from-white to-gray-50 rounded-2xl shadow-xl p-8 border border-gray-100">
-          <div className="text-center mb-8">
-            <h3 className="text-2xl font-bold text-gray-900 mb-2" style={{fontFamily: 'Poppins'}}>Quick Actions</h3>
-            <p className="text-gray-600" style={{fontFamily: 'Poppins'}}>Access your most important tools instantly</p>
+        {/* Calendar Section */}
+        <div className="bg-white rounded-2xl shadow-xl overflow-hidden">
+          <div className="px-6 py-4 border-b border-gray-200">
+            <h3 className="text-2xl font-bold text-gray-900" style={{fontFamily: 'Poppins'}}>Upcoming Bookings Calendar</h3>
+            <p className="text-gray-600 mt-1" style={{fontFamily: 'Poppins'}}>View and manage all upcoming bookings</p>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            <button
-              onClick={() => navigate('/manageusers')}
-              className="group relative bg-gradient-to-br from-[#0B5858] to-[#0a4a4a] rounded-2xl p-8 hover:shadow-2xl transition-all duration-500 hover:scale-105 overflow-hidden cursor-pointer"
-            >
-              <div className="absolute inset-0 bg-gradient-to-br from-white/10 to-transparent group-hover:from-white/20 transition-all duration-300"></div>
-              <div className="relative z-10 text-center">
-                <div className="w-16 h-16 bg-white/20 backdrop-blur-sm rounded-2xl flex items-center justify-center mx-auto mb-6 group-hover:bg-white/30 transition-all duration-300">
-                  <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z" />
-                  </svg>
-                </div>
-                <h4 className="text-xl font-bold text-white mb-2" style={{fontFamily: 'Poppins'}}>Manage Users</h4>
-                <p className="text-white/80 text-sm" style={{fontFamily: 'Poppins'}}>View and manage user accounts</p>
-                <div className="mt-4 flex items-center justify-center">
-                  <span className="text-white/60 text-sm mr-2" style={{fontFamily: 'Poppins'}}>Go to users</span>
-                  <svg className="w-4 h-4 text-white/60 group-hover:translate-x-1 transition-transform duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                  </svg>
-                </div>
-              </div>
-              <div className="absolute -bottom-4 -right-4 w-24 h-24 bg-white/5 rounded-full group-hover:scale-110 transition-transform duration-500"></div>
-            </button>
-
-            <button
-              onClick={() => navigate('/booking')}
-              className="group relative bg-gradient-to-br from-yellow-400 to-yellow-500 rounded-2xl p-8 hover:shadow-2xl transition-all duration-500 hover:scale-105 overflow-hidden cursor-pointer"
-            >
-              <div className="absolute inset-0 bg-gradient-to-br from-white/20 to-transparent group-hover:from-white/30 transition-all duration-300"></div>
-              <div className="relative z-10 text-center">
-                <div className="w-16 h-16 bg-white/20 backdrop-blur-sm rounded-2xl flex items-center justify-center mx-auto mb-6 group-hover:bg-white/30 transition-all duration-300">
-                  <svg className="w-8 h-8 text-black" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-                  </svg>
-                </div>
-                <h4 className="text-xl font-bold text-black mb-2" style={{fontFamily: 'Poppins'}}>View Bookings</h4>
-                <p className="text-black/70 text-sm" style={{fontFamily: 'Poppins'}}>Check all reservations and bookings</p>
-                <div className="mt-4 flex items-center justify-center">
-                  <span className="text-black/60 text-sm mr-2" style={{fontFamily: 'Poppins'}}>Go to bookings</span>
-                  <svg className="w-4 h-4 text-black/60 group-hover:translate-x-1 transition-transform duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                  </svg>
-                </div>
-              </div>
-              <div className="absolute -bottom-4 -right-4 w-24 h-24 bg-white/10 rounded-full group-hover:scale-110 transition-transform duration-500"></div>
-            </button>
-
-            <button
-              onClick={() => navigate('/manage')}
-              className="group relative bg-gradient-to-br from-gray-600 to-gray-700 rounded-2xl p-8 hover:shadow-2xl transition-all duration-500 hover:scale-105 overflow-hidden cursor-pointer"
-            >
-              <div className="absolute inset-0 bg-gradient-to-br from-white/10 to-transparent group-hover:from-white/20 transition-all duration-300"></div>
-              <div className="relative z-10 text-center">
-                <div className="w-16 h-16 bg-white/20 backdrop-blur-sm rounded-2xl flex items-center justify-center mx-auto mb-6 group-hover:bg-white/30 transition-all duration-300">
-                  <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
-                  </svg>
-                </div>
-                <h4 className="text-xl font-bold text-white mb-2" style={{fontFamily: 'Poppins'}}>Manage Listings</h4>
-                <p className="text-white/80 text-sm" style={{fontFamily: 'Poppins'}}>View and manage all property listings</p>
-                <div className="mt-4 flex items-center justify-center">
-                  <span className="text-white/60 text-sm mr-2" style={{fontFamily: 'Poppins'}}>Go to listings</span>
-                  <svg className="w-4 h-4 text-white/60 group-hover:translate-x-1 transition-transform duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                  </svg>
-                </div>
-              </div>
-              <div className="absolute -bottom-4 -right-4 w-24 h-24 bg-white/5 rounded-full group-hover:scale-110 transition-transform duration-500"></div>
-            </button>
+          <div className="p-0">
+            <Calendar hideNavbar={true} />
           </div>
         </div>
       </div>

@@ -1,24 +1,41 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Navbar from '../../components/Navbar';
+import { BookingService } from '../../services/bookingService';
+import { useAuth } from '../../contexts/AuthContext';
+import type { Booking as BookingType } from '../../types/booking';
 
 type Booking = {
   date: Date;
+  checkInDate: Date;
+  checkOutDate: Date;
   title: string;
   time: string;
   startHour: number;
   endHour: number;
+  bookingId?: string;
+  status?: string;
+  totalAmount?: number;
+  mainImageUrl?: string;
 };
 
-const Calendar: React.FC = () => {
+interface CalendarProps {
+  hideNavbar?: boolean;
+}
+
+const Calendar: React.FC<CalendarProps> = ({ hideNavbar = false }) => {
   const navigate = useNavigate();
+  const { user, isAdmin } = useAuth();
 
   // default to today on load
   const [currentDate, setCurrentDate] = useState<Date>(() => new Date());
   const [viewMode, setViewMode] = useState<'monthly' | 'weekly'>('monthly');
   const [selectedDate, setSelectedDate] = useState<Date | null>(null); // for slide-over
   const [isSlideOpen, setIsSlideOpen] = useState(false);
+  const [isClosing, setIsClosing] = useState(false);
   const [now, setNow] = useState<Date>(() => new Date());
+  const [bookings, setBookings] = useState<Booking[]>([]);
+  const [loading, setLoading] = useState(true);
 
   // focusedDate is the "selected" date used to determine which 7-day window to show and centering
   const [focusedDate, setFocusedDate] = useState<Date>(() => new Date()); // defaults to today
@@ -37,6 +54,9 @@ const Calendar: React.FC = () => {
   // new: animation flags
   const [headerAnimating, setHeaderAnimating] = useState(false);
   const headerAnimTimer = useRef<number | null>(null);
+  
+  // Track if we've already fetched bookings to avoid refetching on focus
+  const hasFetchedBookings = useRef(false);
 
   // constants
   const HOUR_ROW_PX = 48; // tailwind h-12 equivalent
@@ -49,24 +69,6 @@ const Calendar: React.FC = () => {
 
   // Touch swipe for mobile day navigation
   const touchStartX = useRef<number | null>(null);
-
-  // Sample booking data (replace with backend data)
-  const bookings: Booking[] = [
-    {
-      date: new Date(2025, 8, 2), // Sep 2, 2025
-      title: 'Kelsey Deluxe',
-      time: '12:00 am - 11:59 pm',
-      startHour: 3,
-      endHour: 7
-    },
-    {
-      date: new Date(2025, 8, 7), // Sep 7, 2025
-      title: 'Kelsey Deluxe',
-      time: '12:00 am - 11:59 pm',
-      startHour: 2,
-      endHour: 7
-    }
-  ];
 
   const monthNames = [
     'JANUARY','FEBRUARY','MARCH','APRIL','MAY','JUNE',
@@ -150,6 +152,107 @@ const Calendar: React.FC = () => {
       window.removeEventListener('resize', update);
     };
   }, []);
+
+  // Fetch bookings from Supabase
+  useEffect(() => {
+    const fetchBookings = async () => {
+      if (!user) {
+        setBookings([]);
+        setLoading(false);
+        hasFetchedBookings.current = false;
+        return;
+      }
+
+      // Only fetch if we haven't already fetched for this user
+      if (hasFetchedBookings.current) {
+        return;
+      }
+
+      try {
+        setLoading(true);
+        let fetchedBookings: BookingType[];
+
+        if (isAdmin) {
+          // Admin gets all bookings
+          fetchedBookings = await BookingService.getAllBookings();
+        } else {
+          // Regular users get their assigned bookings
+          fetchedBookings = await BookingService.getUserBookings(user.id);
+        }
+
+        // Filter upcoming bookings only (check-in date is today or in the future)
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        
+        const upcomingBookings = fetchedBookings.filter((booking) => {
+          const checkInDate = new Date(booking.check_in_date);
+          checkInDate.setHours(0, 0, 0, 0);
+          return checkInDate >= today;
+        });
+
+        // Convert Supabase bookings to calendar format
+        const calendarBookings: Booking[] = upcomingBookings.map((booking) => {
+          // Parse dates from string format
+          const checkInDate = new Date(booking.check_in_date);
+          const checkOutDate = new Date(booking.check_out_date);
+          
+          // Format time string from date
+          const formatTime = (date: Date) => {
+            // Check if the date string has time information
+            const hasTime = booking.check_in_date.includes('T') && booking.check_in_date.includes(':');
+            
+            if (!hasTime) {
+              // If no time info, use default check-in/out times
+              return date.getTime() === checkInDate.getTime() ? '12:00 PM' : '11:00 AM';
+            }
+            
+            let hours = date.getHours();
+            const minutes = date.getMinutes();
+            const period = hours >= 12 ? 'PM' : 'AM';
+            hours = hours % 12 || 12;
+            return `${hours}:${minutes.toString().padStart(2, '0')} ${period}`;
+          };
+
+          const checkInTime = formatTime(checkInDate);
+          const checkOutTime = formatTime(checkOutDate);
+          const time = `${checkInTime} - ${checkOutTime}`;
+
+          // Use listing title or fallback
+          const title = booking.listing?.title || 'Unnamed Property';
+          const mainImageUrl = booking.listing?.main_image_url;
+
+          // Calculate end hour - default to 11 AM if no time info
+          const hasTime = booking.check_in_date.includes('T') && booking.check_in_date.includes(':');
+          const startHour = hasTime ? checkInDate.getHours() : 12;
+          const endHour = hasTime ? checkOutDate.getHours() : 11;
+
+          return {
+            date: checkInDate,
+            checkInDate,
+            checkOutDate,
+            title,
+            time,
+            startHour,
+            endHour,
+            bookingId: booking.id,
+            status: booking.status,
+            totalAmount: booking.total_amount,
+            mainImageUrl
+          };
+        });
+
+        setBookings(calendarBookings);
+        hasFetchedBookings.current = true;
+      } catch (error) {
+        console.error('Error fetching bookings:', error);
+        setBookings([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchBookings();
+  }, [user, isAdmin]);
 
   // initialize focusedDate on mount so weekly view centers on today by default
   useEffect(() => {
@@ -300,30 +403,19 @@ const Calendar: React.FC = () => {
     setIsSlideOpen(true);
   };
   const closeSlide = () => {
-    setIsSlideOpen(false);
-    setSelectedDate(null);
+    setIsClosing(true);
+    // Wait for animation to complete before removing from DOM
+    setTimeout(() => {
+      setIsSlideOpen(false);
+      setIsClosing(false);
+      setSelectedDate(null);
+    }, 300); // Match animation duration
   };
 
   //dummy info for booking details
-  const handleViewBooking = () => {
-    navigate('/booking-details', {
-      state: {
-        bookingData: {
-          transactionNumber: '#A221-092345-76',
-          title: 'Kelsey Deluxe Condominium',
-          location: 'Bajada, J.P. Laurel Ave, Poblacion District, Davao City, 8000 Davao del Sur',
-          price: 2000,
-          status: 'Confirmed Stay',
-          checkIn: '2025-01-15 - 1:00 pm',
-          checkOut: '2025-01-16 - 10:00 am',
-          clientName: 'Kelsey Guest',
-          clientEmail: 'guest@example.com',
-          clientPhone: '0915XXXXXXX',
-          agentName: 'Alyssa Argoncillo',
-          agentPhoto: '/heroimage.png'
-        }
-      }
-    });
+  const handleViewBooking = (booking: Booking) => {
+    if (!booking.bookingId) return;
+    navigate(`/booking-details/${booking.bookingId}`);
   };
 
   // Keyboard support for the days scroll container
@@ -521,7 +613,7 @@ const Calendar: React.FC = () => {
   //
   return (
     <div className="min-h-screen bg-white" style={{ ['--booking-color' as any]: '#E66E85' }}>
-      <Navbar />
+      {!hideNavbar && <Navbar />}
 
       <style>{`
         :root {
@@ -531,6 +623,58 @@ const Calendar: React.FC = () => {
         /* small in-file styles */
         @keyframes timePulse { 0% { transform: scale(1); opacity: .95 } 50% { transform: scale(1.4); opacity:.6 } 100% { transform: scale(1); opacity: .95 } }
         .time-dot-pulse { animation: timePulse 1400ms infinite cubic-bezier(.4,0,.2,1); }
+        
+        @keyframes slideInFromRight {
+          from {
+            transform: translateX(100%);
+            opacity: 0;
+          }
+          to {
+            transform: translateX(0);
+            opacity: 1;
+          }
+        }
+        .animate-panel-in {
+          animation: slideInFromRight 0.3s ease-out forwards;
+        }
+        
+        @keyframes slideOutToRight {
+          from {
+            transform: translateX(0);
+            opacity: 1;
+          }
+          to {
+            transform: translateX(100%);
+            opacity: 0;
+          }
+        }
+        .animate-panel-out {
+          animation: slideOutToRight 0.3s ease-in forwards;
+        }
+        
+        @keyframes fadeIn {
+          from {
+            opacity: 0;
+          }
+          to {
+            opacity: 1;
+          }
+        }
+        .animate-fade-in {
+          animation: fadeIn 0.2s ease-out forwards;
+        }
+        
+        @keyframes fadeOut {
+          from {
+            opacity: 1;
+          }
+          to {
+            opacity: 0;
+          }
+        }
+        .animate-fade-out {
+          animation: fadeOut 0.2s ease-in forwards;
+        }
 
         .scrollable::-webkit-scrollbar { height: 8px; width: 8px; }
         .scrollable::-webkit-scrollbar-thumb { background: rgba(107,114,128,.45); border-radius: 9999px; }
@@ -618,7 +762,7 @@ const Calendar: React.FC = () => {
         }
       `}</style>
 
-      <div className="pt-16">
+      <div className={hideNavbar ? "pt-4" : "pt-16"}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
           {/* header + controls */}
           <div className="flex items-center justify-between mb-4">
@@ -661,8 +805,15 @@ const Calendar: React.FC = () => {
           </div>
 
           <div className="bg-white border border-gray-200 rounded-lg overflow-hidden relative">
+            {/* Show loading indicator */}
+            {loading && (
+              <div className="flex items-center justify-center h-64">
+                <div className="text-gray-500">Loading bookings...</div>
+              </div>
+            )}
+            
             {/* Mobile view takes precedence when isMobile */}
-            {isMobile ? (
+            {!loading && isMobile ? (
               mobileViewMode === 'monthly' ? (
                 <div className="p-3">
                   <MobileMonth days={days} onDayPress={(d) => { setFocusedDate(d); setMobileViewMode('daily'); }} />
@@ -672,7 +823,7 @@ const Calendar: React.FC = () => {
                   <MobileDay date={focusedDate} bookingsForDay={getBookingsForDate(focusedDate)} />
                 </div>
               )
-            ) : (
+            ) : !loading && (
               // Desktop: existing monthly / weekly experience
               <>
                 {viewMode === 'monthly' ? (
@@ -839,8 +990,8 @@ const Calendar: React.FC = () => {
 
       {isSlideOpen && (
         <>
-          <div className="fixed inset-0 bg-black/30 z-40" onClick={closeSlide} />
-          <div className={`fixed inset-y-0 right-0 ${isMobile ? 'inset-x-0' : 'w-full sm:w-[640px]'} bg-white shadow-xl z-50 flex flex-col animate-panel-in`} role="dialog" aria-modal="true">
+          <div className={`fixed inset-0 bg-black/30 z-[100] ${isClosing ? 'animate-fade-out' : 'animate-fade-in'}`} onClick={closeSlide} />
+          <div className={`fixed inset-y-0 right-0 ${isMobile ? 'inset-x-0' : 'w-full sm:w-[640px]'} bg-white shadow-xl z-[110] flex flex-col ${isClosing ? 'animate-panel-out' : 'animate-panel-in'}`} role="dialog" aria-modal="true">
             <div className="px-6 py-5 border-b border-gray-200 flex items-center justify-between">
               <div>
                 <div className="text-xl font-semibold" style={{ color: '#0B5858', fontFamily: 'Poppins' }}>This Day’s Lineup</div>
@@ -855,28 +1006,36 @@ const Calendar: React.FC = () => {
               {selectedDate && getBookingsForDate(selectedDate).map((b, idx) => (
                 <div key={idx} className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 transform transition-transform duration-200 hover:-translate-y-1">
                   <div className="flex gap-6">
-                    <div className="flex-shrink-0"><img src={'/heroimage.png'} alt={b.title} className="w-40 h-28 object-cover rounded-lg" /></div>
+                    <div className="flex-shrink-0"><img src={b.mainImageUrl || '/heroimage.png'} alt={b.title} className="w-40 h-28 object-cover rounded-lg" /></div>
                     <div className="flex-1">
                       <h3 className="text-lg font-semibold text-gray-800 mb-1" style={{ fontFamily: 'Poppins' }}>{b.title}</h3>
-                      <p className="text-gray-600 mb-3" style={{ fontFamily: 'Poppins' }}>{b.time}</p>
+                      <p className="text-gray-600 mb-3" style={{ fontFamily: 'Poppins' }}>
+                        {b.checkInDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })} - {b.checkOutDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                      </p>
                       <div className="space-y-2">
                         <div className="flex items-center text-gray-500">
                           <svg className="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clipRule="evenodd"/></svg>
                           <span className="text-sm" style={{ fontFamily: 'Poppins' }}>Booked for Client</span>
                         </div>
-                        <div className="flex items-center text-gray-500">
-                          <svg className="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M4 4a2 2 0 00-2 2v8a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2H4zm2 6a1 1 0 011-1h6a1 1 0 110 2H7a1 1 0 01-1-1zm1 3a1 1 0 100 2h6a1 1 0 100-2H7z" clipRule="evenodd"/></svg>
-                          <span className="text-sm" style={{ fontFamily: 'Poppins' }}>Transaction No. #A221-092345-76</span>
-                        </div>
+                        {b.bookingId && (
+                          <div className="flex items-center text-gray-500">
+                            <svg className="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M4 4a2 2 0 00-2 2v8a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2H4zm2 6a1 1 0 011-1h6a1 1 0 110 2H7a1 1 0 01-1-1zm1 3a1 1 0 100 2h6a1 1 0 100-2H7z" clipRule="evenodd"/></svg>
+                            <span className="text-sm" style={{ fontFamily: 'Poppins' }}>Transaction No. {b.bookingId}</span>
+                          </div>
+                        )}
                       </div>
                     </div>
                     <div className="flex-shrink-0 text-right">
-                      <div className="mb-3"><span className="font-medium text-orange-500" style={{ fontFamily: 'Poppins' }}>On-going</span></div>
+                      <div className="mb-3">
+                        <span className="font-medium text-orange-500" style={{ fontFamily: 'Poppins' }}>
+                          {b.status === 'ongoing' ? 'On-going' : b.status === 'confirmed' ? 'Confirmed' : b.status || 'Pending'}
+                        </span>
+                      </div>
                       <div className="mb-4">
                         <p className="text-gray-500 text-sm mb-1" style={{ fontFamily: 'Poppins' }}>Total Bill</p>
-                        <p className="text-xl font-bold text-gray-800" style={{ fontFamily: 'Poppins' }}>₱ 2,095</p>
+                        <p className="text-xl font-bold text-gray-800" style={{ fontFamily: 'Poppins' }}>₱ {b.totalAmount?.toLocaleString() || '0'}</p>
                       </div>
-                      <button onClick={handleViewBooking} className="bg-teal-900 text-white px-6 py-2 rounded-lg font-medium hover:opacity-95 transition-colors" style={{ fontFamily: 'Poppins' }}>View</button>
+                      <button onClick={() => handleViewBooking(b)} className="bg-teal-900 text-white px-6 py-2 rounded-lg font-medium hover:opacity-95 transition-colors" style={{ fontFamily: 'Poppins' }}>View</button>
                     </div>
                   </div>
                 </div>
