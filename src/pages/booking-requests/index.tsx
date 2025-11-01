@@ -22,7 +22,6 @@ import Dropdown from '../../components/Dropdown';
 const BookingRequests: React.FC = () => {
   const navigate = useNavigate();
   const { user, isAdmin, loading: authLoading } = useAuth();
-  const [loading, setLoading] = useState(true);
   const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [isDrawerClosing, setIsDrawerClosing] = useState(false);
@@ -42,6 +41,9 @@ const BookingRequests: React.FC = () => {
   // Sort state
   const [sortBy, setSortBy] = useState('Newest first');
   const [statusFilter, setStatusFilter] = useState('All Status');
+  
+  // Track if we've already fetched bookings to avoid refetching on focus
+  const hasFetchedAllBookings = useRef(false);
 
   /**
    * Check authentication and admin status
@@ -64,13 +66,22 @@ const BookingRequests: React.FC = () => {
    */
   useEffect(() => {
     const fetchAllBookings = async () => {
-      if (!user || !isAdmin) return;
+      if (!user || !isAdmin) {
+        hasFetchedAllBookings.current = false;
+        return;
+      }
+
+      // Only fetch if we haven't already fetched for this user
+      if (hasFetchedAllBookings.current) {
+        return;
+      }
 
       try {
         setSummaryLoading(true);
         logger.info('Fetching all bookings for summary', { userId: user.id });
         const allBookingsData = await BookingService.getAllBookings();
         setAllBookings(allBookingsData);
+        hasFetchedAllBookings.current = true;
         logger.info('All bookings fetched successfully', { count: allBookingsData.length });
       } catch (error) {
         logger.error('Error fetching all bookings', { error });
@@ -83,30 +94,6 @@ const BookingRequests: React.FC = () => {
     fetchAllBookings();
   }, [user, isAdmin]);
 
-  /**
-   * Fetch pending bookings
-   */
-  useEffect(() => {
-    const fetchPendingBookings = async () => {
-      if (!user || !isAdmin) return;
-
-      try {
-        setLoading(true);
-        logger.info('Fetching pending bookings', { userId: user.id });
-        const pendingBookings = await BookingService.getBookingsByStatus('pending');
-        // Note: pendingBookings data is already included in allBookings from the summary fetch
-        logger.info('Pending bookings fetched successfully', { count: pendingBookings.length });
-      } catch (error) {
-        logger.error('Error fetching pending bookings', { error });
-        console.error('Error fetching pending bookings:', error);
-        showToast('Failed to load booking requests', 'error');
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchPendingBookings();
-  }, [user, isAdmin]);
 
   /**
    * Show toast notification
@@ -408,7 +395,7 @@ const BookingRequests: React.FC = () => {
   /**
    * Loading state - show skeleton instead of spinner
    */
-  if (authLoading || loading) {
+  if (authLoading || summaryLoading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
         <Navbar />
@@ -746,7 +733,7 @@ const BookingRequests: React.FC = () => {
         )}
 
         {/* Sort Dropdown */}
-        {!loading && allBookings.length > 0 && (
+        {!summaryLoading && allBookings.length > 0 && (
           <div className="mb-6 flex items-center gap-3">
             <span className="text-sm font-medium text-gray-700" style={{ fontFamily: 'Poppins' }}>Status:</span>
             <div className="w-full md:w-auto min-w-[160px]">
