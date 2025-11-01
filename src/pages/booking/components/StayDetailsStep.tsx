@@ -87,13 +87,21 @@ const StayDetailsStep: React.FC<StayDetailsStepProps> = ({ formData, listingId, 
     setSelectedDates({ start, end });
   }, [formData.checkInDate, formData.checkOutDate, minAllowedDate, onUpdate]);
 
+  // Helper to format a given hour/minute into 12-hour clock with AM/PM
+  const format12Hour = (hour24: number, minute: number) => {
+    const period = hour24 >= 12 ? 'PM' : 'AM';
+    let hour12 = hour24 % 12;
+    if (hour12 === 0) hour12 = 12;
+    const mm = String(minute).padStart(2, '0');
+    return `${hour12}:${mm} ${period}`;
+  };
+
+  // Generate time options in 12-hour format (e.g., "1:30 PM")
   const generateTimeOptions = (incrementMinutes = 30) => {
     const opts: string[] = [];
     for (let h = 0; h < 24; h++) {
       for (let m = 0; m < 60; m += incrementMinutes) {
-        const hh = String(h).padStart(2, '0');
-        const mm = String(m).padStart(2, '0');
-        opts.push(`${hh}:${mm}`);
+        opts.push(format12Hour(h, m));
       }
     }
     return opts;
@@ -919,3 +927,4 @@ const StayDetailsStep: React.FC<StayDetailsStepProps> = ({ formData, listingId, 
 };
 
 export default StayDetailsStep;
+

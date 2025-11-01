@@ -20,8 +20,6 @@ const isImageUrl = (url?: string) => {
   return IMAGE_EXTENSIONS.some(ext => lower.endsWith(ext));
 };
 
-
-// Small icon components used in detail rows
 const IconUser = ({ className = 'w-4 h-4' }: { className?: string }) => (
   <svg className={className} viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
     <path d="M12 12a5 5 0 100-10 5 5 0 000 10z"></path>
@@ -97,6 +95,37 @@ const limitToWords = (text: string | undefined, maxWords: number) => {
   return words.slice(0, maxWords).join(' ');
 };
 
+const ExpandableText: React.FC<{ text?: string; maxChars?: number; className?: string; ariaLabel?: string }> = ({ text, maxChars = 100, className = '', ariaLabel }) => {
+  const [expanded, setExpanded] = useState(false);
+  if (!text) return <span className={className}>—</span>;
+
+  const normalized = String(text);
+  const tooLong = normalized.length > maxChars;
+  const preview = tooLong ? normalized.slice(0, maxChars).trim() + '…' : normalized;
+
+  return (
+    <div className={className}>
+      <div
+        className="whitespace-pre-wrap break-words"
+        style={{ wordBreak: 'break-word' }}
+        aria-label={ariaLabel}
+      >
+        {expanded || !tooLong ? normalized : preview}
+      </div>
+      {tooLong && (
+        <button
+          type="button"
+          onClick={() => setExpanded(e => !e)}
+          className="mt-1 text-xs text-[#0B5858] hover:underline"
+          aria-expanded={expanded}
+        >
+          {expanded ? 'Show less' : 'Show more'}
+        </button>
+      )}
+    </div>
+  );
+};
+
 const ConfirmationStep: React.FC<ConfirmationStepProps> = ({
   formData,
   onConfirm,
@@ -107,18 +136,18 @@ const ConfirmationStep: React.FC<ConfirmationStepProps> = ({
   const [isProcessing, setIsProcessing] = useState(false);
   const [status, setStatus] = useState<'idle' | 'processing' | 'success' | 'error'>('idle');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  
+
   // Get current user for assigned agent
   const { user, userProfile } = useAuth();
-  
+
   // State for listing data
   const [listing, setListing] = useState<Listing | null>(null);
-  
+
   // Fetch listing data if listingId is available
   useEffect(() => {
     const fetchListing = async () => {
       if (!formData.listingId) return;
-      
+
       try {
         const listingData = await ListingService.getListingById(formData.listingId);
         setListing(listingData);
@@ -126,7 +155,7 @@ const ConfirmationStep: React.FC<ConfirmationStepProps> = ({
         console.error('Error fetching listing:', error);
       }
     };
-    
+
     fetchListing();
   }, [formData.listingId]);
 
@@ -153,14 +182,13 @@ const ConfirmationStep: React.FC<ConfirmationStepProps> = ({
   const extraGuests = formData.extraGuests ?? 0;
   const totalGuests = primaryGuests + extraGuests;
 
-  // Use listing price from formData instead of hardcoded value
-  const pricePerNight = formData.pricePerNight ?? 2000;
-  const extraGuestFeePerPerson = formData.extraGuestFeePerPerson ?? 250;
+  // Use listing price from formData instead of hardcoded value if available
+  const pricePerNight = formData.pricePerNight ?? (listing as any)?.price_per_night ?? 2000;
+  const extraGuestFeePerPerson = formData.extraGuestFeePerPerson ?? formData.extraGuestRate ?? 250;
   const baseGuests = formData.baseGuests ?? 2;
 
   const extraGuestChargeTotal = useMemo(() => {
     if (!extraGuests || extraGuests <= 0 || nights <= 0) return 0;
-    // per-night fee (extraGuests × rate × nights)
     return extraGuests * extraGuestFeePerPerson * nights;
   }, [extraGuests, extraGuestFeePerPerson, nights]);
 
@@ -169,7 +197,7 @@ const ConfirmationStep: React.FC<ConfirmationStepProps> = ({
     const unitCharge = pricePerNight;
     const amenitiesCharge = services.reduce((total, service) => total + (service.quantity * service.charge), 0);
     const serviceCharge = 100.0; // Fixed service charge
-    const discount = 0.0; // No discount for now
+    const discount = 0.0;
     const totalCharges = (unitCharge * Math.max(1, nights)) + amenitiesCharge + extraGuestChargeTotal + serviceCharge - discount;
 
     return {
@@ -219,11 +247,11 @@ const ConfirmationStep: React.FC<ConfirmationStepProps> = ({
 
   // Location details (structured) - use listing data if available
   const location = {
-    address: listing?.location || formData.locationAddress || 'Bajada, J.P. Laurel Ave, Poblacion District, Davao City, 8000 Davao del Sur',
-    landmark: formData.locationLandmark || 'Near SM Lanang Premier / Abreeza Mall',
-    parking: formData.locationParking || 'On-site parking available (paid)',
-    coords: listing?.latitude && listing?.longitude 
-      ? `${listing.latitude}, ${listing.longitude}` 
+    address: (listing as any)?.location || formData.locationAddress || 'Bajada, J.P. Laurel Ave, Poblacion District, Davao City, 8000 Davao del Sur',
+    landmark: formData.locationLandmark || (listing as any)?.landmark || 'Near SM Lanang Premier / Abreeza Mall',
+    parking: formData.locationParking || (listing as any)?.parking_info || 'On-site parking available (paid)',
+    coords: listing?.latitude && listing?.longitude
+      ? `${listing.latitude}, ${listing.longitude}`
       : formData.locationCoords || '7.0764, 125.6132',
     checkInInstructions: formData.checkInInstructions || 'Meet at the lobby. Photo ID required on check-in.',
     additionalNotes: formData.locationNotes || ''
@@ -252,10 +280,10 @@ const ConfirmationStep: React.FC<ConfirmationStepProps> = ({
   const notesTruncated = useMemo(() => countWords(rawNotes) > MAX_NOTES_WORDS, [rawNotes]);
 
   // --- Design tweak: compact, well-aligned property header layout ---
-  const propertyType = listing?.property_type || formData.propertyType || 'Condominium';
-  const propertyTitle = listing?.title || formData.propertyTitle || 'Kelsey Deluxe Condominium';
-  const propertyLocationShort = listing?.location || formData.propertyLocationShort || 'Bajada, J.P. Laurel Ave, Poblacion District, Davao City, 8000 Davao del Sur';
-  const propertyImage = listing?.main_image_url || formData.propertyImage || '/heroimage.png';
+  const propertyType = (listing as any)?.property_type || formData.propertyType || 'Condominium';
+  const propertyTitle = (listing as any)?.title || formData.propertyTitle || 'Kelsey Deluxe Condominium';
+  const propertyLocationShort = (listing as any)?.location || formData.propertyLocationShort || 'Bajada, J.P. Laurel Ave, Poblacion District, Davao City, 8000 Davao del Sur';
+  const propertyImage = (listing as any)?.main_image_url || formData.propertyImage || '/heroimage.png';
 
   // Payment display helpers: show details based on formData.paymentMethod
   const paymentMethodLabel = (method?: string) => {
@@ -290,9 +318,7 @@ const ConfirmationStep: React.FC<ConfirmationStepProps> = ({
       }
 
       // Create the booking record
-      // assigned_agent is the current logged-in user (the agent creating the booking)
-      // Note: There is NO user_id field in the booking table - only assigned_agent
-      const bookingData = {
+      const bookingData: any = {
         listing_id: formData.listingId,
         check_in_date: toIsoFromDateAndTime(formData.checkInDate, formData.checkInTime) || formData.checkInDate,
         check_out_date: toIsoFromDateAndTime(formData.checkOutDate, formData.checkOutTime) || formData.checkOutDate,
@@ -309,7 +335,7 @@ const ConfirmationStep: React.FC<ConfirmationStepProps> = ({
         total_amount: summary.totalCharges,
         currency: 'PHP',
         status: 'pending',
-        assigned_agent: user.id, // Current logged-in user is the assigned agent
+        assigned_agent: user.id,
         landmark: formData.locationLandmark,
         parking_info: formData.locationParking,
         notes: formData.requestDescription,
@@ -325,7 +351,6 @@ const ConfirmationStep: React.FC<ConfirmationStepProps> = ({
         listingId: formData.listingId
       });
 
-      // Insert booking into Supabase
       const { data: booking, error: bookingError } = await supabase
         .from('booking')
         .insert([bookingData])
@@ -365,10 +390,8 @@ const ConfirmationStep: React.FC<ConfirmationStepProps> = ({
 
       if (clientError) {
         console.error('Error creating client details:', clientError);
-        // Don't throw - booking was created successfully
       }
 
-      // Insert payment record based on selected payment method
       const paymentStatus = (() => {
         switch (formData.paymentMethod) {
           case 'credit_card':
@@ -427,36 +450,31 @@ const ConfirmationStep: React.FC<ConfirmationStepProps> = ({
 
       if (paymentError) {
         console.error('Error creating payment record:', paymentError);
-        // Do not throw; booking and client details succeeded
       }
 
       setStatus('success');
 
-      // Keep the processing modal open to show success state
-      // Redirect after showing success - don't call onConfirm as it closes the form
       setTimeout(() => {
-        // Redirect to booking details page after showing success
         window.location.href = `/booking-details/${booking.id}`;
       }, 2000);
     } catch (err: any) {
       setStatus('error');
       setErrorMessage(err?.message || 'An error occurred while confirming your booking.');
-      // keep modal visible so user can retry or cancel
     }
   };
 
   return (
-    <div className="w-full max-w-[1200px] mx-auto">
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 space-y-6">
+    <div className="w-full max-w-[1200px] mx-auto px-4 sm:px-6">
+      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 sm:p-6 space-y-6">
         {/* Top: heading + help */}
         <div className="flex items-start justify-between gap-4">
           <div className="flex items-start gap-4">
-            <div className="w-1.5 h-8 bg-[#0B5858] rounded" />
+            <div className="w-1.5 h-6 sm:h-8 bg-[#0B5858] rounded" />
             <div>
-              <h2 className="text-xl font-semibold text-[#0B5858]" style={{ fontFamily: 'Poppins' }}>
+              <h2 className="text-base sm:text-xl font-semibold text-[#0B5858]" style={{ fontFamily: 'Poppins' }}>
                 You're almost done!
               </h2>
-              <p className="text-sm text-gray-600 mt-1" style={{ fontFamily: 'Poppins' }}>
+              <p className="text-xs sm:text-sm text-gray-600 mt-1" style={{ fontFamily: 'Poppins' }}>
                 Double-check your booking details below — make sure everything looks good before finalizing.
               </p>
             </div>
@@ -483,9 +501,9 @@ const ConfirmationStep: React.FC<ConfirmationStepProps> = ({
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Left: main content (col-span-2) */}
           <div className="lg:col-span-2 space-y-6">
-            {/* Redesigned property header */}
-            <div className="flex items-center gap-4 border border-gray-200 rounded-lg p-4">
-              <div className="w-36 h-24 flex-shrink-0 overflow-hidden rounded-md">
+            {/* Redesigned property header - responsive stacking on mobile */}
+            <div className="flex flex-col sm:flex-row items-start gap-4 border border-gray-200 rounded-lg p-3">
+              <div className="w-24 h-16 sm:w-36 sm:h-24 flex-shrink-0 overflow-hidden rounded-md">
                 <img
                   src={propertyImage}
                   alt={propertyTitle}
@@ -500,16 +518,21 @@ const ConfirmationStep: React.FC<ConfirmationStepProps> = ({
                   </span>
                 </div>
 
-                <h3 className="text-lg font-semibold text-gray-800 truncate" style={{ fontFamily: 'Poppins' }}>
+                <h3 className="text-base sm:text-lg font-semibold text-gray-800" style={{ fontFamily: 'Poppins' }}>
                   {propertyTitle}
                 </h3>
 
-                <p className="text-sm text-gray-500 mt-1 truncate" style={{ fontFamily: 'Poppins' }}>
-                  {propertyLocationShort}
-                </p>
+                <div className="mt-1">
+                  <ExpandableText
+                    text={propertyLocationShort}
+                    maxChars={100}
+                    className="text-xs sm:text-sm text-gray-500"
+                    ariaLabel="Property location short"
+                  />
+                </div>
 
                 {/* guest summary only */}
-                <div className="mt-3 flex flex-wrap items-center gap-3 text-xs text-gray-600" style={{ fontFamily: 'Poppins' }}>
+                <div className="mt-2 sm:mt-3 flex flex-wrap items-center gap-3 text-xs text-gray-600" style={{ fontFamily: 'Poppins' }}>
                   <div className="flex items-center gap-2">
                     <svg className="w-4 h-4 text-gray-400" viewBox="0 0 24 24" fill="none" aria-hidden="true">
                       <path d="M12 2v6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"></path>
@@ -521,8 +544,8 @@ const ConfirmationStep: React.FC<ConfirmationStepProps> = ({
                 </div>
               </div>
 
-              {/* right: compact meta card */}
-              <div className="ml-2 w-44 flex-shrink-0">
+              {/* right: compact meta card - moves under on small screens */}
+              <div className="mt-3 sm:mt-0 ml-0 sm:ml-2 w-full sm:w-44 flex-shrink-0">
                 <div className="border border-gray-100 rounded-lg p-3 bg-gray-50 text-sm" style={{ fontFamily: 'Poppins' }}>
                   <div className="text-xs text-gray-500">Booking Reference</div>
                   <div className="font-semibold text-gray-800 mt-1 break-words" style={{ wordBreak: 'break-word' }}>{bookingRef}</div>
@@ -583,7 +606,6 @@ const ConfirmationStep: React.FC<ConfirmationStepProps> = ({
               </div>
             </div>
 
-            {/* Service details moved to its own card, directly below Charges Summary */}
             {addedServices.length > 0 && (
               <div className="border border-gray-200 rounded-lg p-4">
                 <h5 className="text-sm font-semibold mb-2" style={{ fontFamily: 'Poppins' }}>Service details</h5>
@@ -598,9 +620,7 @@ const ConfirmationStep: React.FC<ConfirmationStepProps> = ({
               </div>
             )}
 
-            {/* Bottom row: Client / Payment / Agent */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              {/* Client Info */}
               <div className="border border-gray-200 rounded-lg p-4">
                 <h5 className="text-sm font-semibold text-gray-800 mb-3" style={{ fontFamily: 'Poppins' }}>Client Information</h5>
 
@@ -639,7 +659,6 @@ const ConfirmationStep: React.FC<ConfirmationStepProps> = ({
                 </div>
               </div>
 
-              {/* Payment Method - header icon removed per request; icons remain for each detail row */}
               <div className="border border-gray-200 rounded-lg p-4">
                 <h5 className="text-sm font-semibold mb-3" style={{ fontFamily: 'Poppins' }}>
                   Payment Method
@@ -652,7 +671,6 @@ const ConfirmationStep: React.FC<ConfirmationStepProps> = ({
                     subtitle="Payment type"
                   />
 
-                  {/* Credit card details */}
                   {formData.paymentMethod === 'credit_card' && (
                     <>
                       <FieldRow
@@ -669,7 +687,6 @@ const ConfirmationStep: React.FC<ConfirmationStepProps> = ({
                     </>
                   )}
 
-                  {/* Bank transfer details */}
                   {formData.paymentMethod === 'bank_transfer' && (
                     <>
                       <FieldRow
@@ -700,7 +717,7 @@ const ConfirmationStep: React.FC<ConfirmationStepProps> = ({
                           <div className="mt-2">
                             {isImageUrl(formData.bankReceiptUrl) ? (
                               <a href={formData.bankReceiptUrl} target="_blank" rel="noopener noreferrer" title="Open receipt">
-                                <img src={formData.bankReceiptUrl} alt={formData.bankReceiptFileName || 'Receipt'} className="w-28 h-20 object-cover rounded border cursor-pointer" />
+                                <img src={formData.bankReceiptUrl} alt={formData.bankReceiptFileName || 'Receipt'} className="w-24 h-16 sm:w-28 sm:h-20 object-cover rounded border cursor-pointer" />
                               </a>
                             ) : (
                               <a
@@ -722,7 +739,6 @@ const ConfirmationStep: React.FC<ConfirmationStepProps> = ({
                     </>
                   )}
 
-                  {/* Company billing details */}
                   {formData.paymentMethod === 'company_account' && (
                     <>
                       <FieldRow
@@ -753,7 +769,7 @@ const ConfirmationStep: React.FC<ConfirmationStepProps> = ({
                           <div className="mt-2">
                             {isImageUrl(formData.billingDocumentUrl) ? (
                               <a href={formData.billingDocumentUrl} target="_blank" rel="noopener noreferrer" title="Open document">
-                                <img src={formData.billingDocumentUrl} alt={formData.billingDocumentFileName || 'Document'} className="w-28 h-20 object-cover rounded border cursor-pointer" />
+                                <img src={formData.billingDocumentUrl} alt={formData.billingDocumentFileName || 'Document'} className="w-24 h-16 sm:w-28 sm:h-20 object-cover rounded border cursor-pointer" />
                               </a>
                             ) : (
                               <a
@@ -776,7 +792,6 @@ const ConfirmationStep: React.FC<ConfirmationStepProps> = ({
                     </>
                   )}
 
-                  {/* Cash details */}
                   {formData.paymentMethod === 'cash' && (
                     <>
                       <FieldRow
@@ -800,13 +815,11 @@ const ConfirmationStep: React.FC<ConfirmationStepProps> = ({
                 </div>
               </div>
 
-              {/* Assigned Agent - use logged-in user */}
               <div className="border border-gray-200 rounded-lg p-4">
                 <h5 className="text-sm font-semibold mb-3" style={{ fontFamily: 'Poppins' }}>Assigned Agent</h5>
                 <div className="flex items-start gap-3">
                   <div className="w-10 h-10 rounded-full bg-[#E8F8F7] text-[#0B5858] flex items-center justify-center font-semibold" style={{ fontFamily: 'Poppins' }}>
                     {(() => {
-                      // Use logged-in user's name, fallback to formData or default
                       const name = userProfile?.fullname || formData.assignedAgentName || user?.email || 'Agent';
                       const parts = name.split(' ').filter(Boolean);
                       const initials = parts.length >= 2 ? (parts[0][0] + parts[1][0]) : (parts[0] ? parts[0].slice(0,2) : 'AG');
@@ -868,8 +881,7 @@ const ConfirmationStep: React.FC<ConfirmationStepProps> = ({
                     <iframe
                       title="Booking location map"
                       src={mapSrc}
-                      width="100%"
-                      height={200}
+                      className="w-full h-36 sm:h-48"
                       style={{ border: 0 }}
                       loading="lazy"
                       referrerPolicy="no-referrer-when-downgrade"
@@ -879,8 +891,7 @@ const ConfirmationStep: React.FC<ConfirmationStepProps> = ({
                   <div className="text-xs text-gray-500">Map not available. Coordinates missing.</div>
                 )}
 
-                {/* details stacked under the map with extra spacing */}
-                <div className="mt-4 space-y-3 text-sm text-gray-700" style={{ fontFamily: 'Poppins' }}>
+                <div className="mt-3 sm:mt-4 space-y-3 text-sm text-gray-700" style={{ fontFamily: 'Poppins' }}>
                   <div className="flex items-start gap-2">
                     <svg className="w-4 h-4 text-gray-400 mt-0.5" viewBox="0 0 24 24" fill="none" aria-hidden="true">
                       <path d="M12 2C8 2 5 5 5 9c0 5 7 13 7 13s7-8 7-13c0-4-3-7-7-7z" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"></path>
@@ -899,7 +910,7 @@ const ConfirmationStep: React.FC<ConfirmationStepProps> = ({
                     </svg>
                     <div>
                       <div className="text-xs text-gray-500">Landmark</div>
-                      <div className="font-medium text-gray-800 break-words" style={{ wordBreak: 'break-word' }}>{location.landmark}</div>
+                      <ExpandableText text={location.landmark} maxChars={80} className="font-medium text-gray-800" ariaLabel="Landmark" />
                     </div>
                   </div>
 
@@ -910,7 +921,7 @@ const ConfirmationStep: React.FC<ConfirmationStepProps> = ({
                     </svg>
                     <div>
                       <div className="text-xs text-gray-500">Parking</div>
-                      <div className="font-medium text-gray-800 break-words" style={{ wordBreak: 'break-word' }}>{location.parking}</div>
+                      <ExpandableText text={location.parking} maxChars={80} className="font-medium text-gray-800" ariaLabel="Parking" />
                     </div>
                   </div>
 
@@ -967,29 +978,29 @@ const ConfirmationStep: React.FC<ConfirmationStepProps> = ({
         </div>
 
         {/* Footer / actions */}
-        <div className="pt-4 border-t border-gray-200 flex items-center justify-between">
+        <div className="pt-4 border-t border-gray-200 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
           <p className="text-sm text-gray-600" style={{ fontFamily: 'Poppins' }}>
             Once confirmed, your booking will be saved and can no longer be edited without assistance.
           </p>
 
-          <div className="flex items-center gap-3">
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full sm:w-auto">
             <button
               onClick={onCancel}
-              className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 text-sm"
+              className="w-full sm:w-auto px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 text-sm"
               style={{ fontFamily: 'Poppins' }}
             >
               Cancel
             </button>
             <button
               onClick={onBack}
-              className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 text-sm"
+              className="w-full sm:w-auto px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 text-sm"
               style={{ fontFamily: 'Poppins' }}
             >
               Back
             </button>
             <button
               onClick={handleConfirm}
-              className="px-6 py-2 bg-[#0B5858] text-white rounded-lg hover:bg-[#0a4a4a] transition-colors text-sm"
+              className="w-full sm:w-auto px-6 py-2 bg-[#0B5858] text-white rounded-lg hover:bg-[#0a4a4a] transition-colors text-sm"
               style={{ fontFamily: 'Poppins' }}
               aria-disabled={status === 'processing'}
               disabled={status === 'processing'}
@@ -1009,24 +1020,18 @@ const ConfirmationStep: React.FC<ConfirmationStepProps> = ({
         >
           <div className="absolute inset-0 bg-black opacity-30" onClick={() => { /* ignore clicks behind modal */ }} />
 
-          <div className="relative bg-white rounded-lg shadow-lg max-w-sm w-full text-center p-8">
-            {/* animated icon */}
+          <div className="relative bg-white rounded-lg shadow-lg max-w-sm w-full text-center p-6 sm:p-8">
             <div aria-hidden className="flex items-center justify-center mb-6">
-              {/* spinner with outer green arc and inner dot */}
               {status === 'processing' && (
-                <div className="w-24 h-24 flex items-center justify-center">
-                  <svg viewBox="0 0 60 60" className="w-24 h-24">
+                <div className="w-20 h-20 flex items-center justify-center">
+                  <svg viewBox="0 0 60 60" className="w-20 h-20">
                     <defs>
                       <linearGradient id="g" x1="0" x2="1">
                         <stop offset="0%" stopColor="#22c55e" />
                         <stop offset="100%" stopColor="#08912a" />
                       </linearGradient>
                     </defs>
-
-                    {/* faint full circle */}
                     <circle cx="30" cy="30" r="22" stroke="#e6e6e6" strokeWidth="6" fill="none" />
-
-                    {/* animated arc */}
                     <g style={{ transformOrigin: '30px 30px', animation: 'spin 1.4s linear infinite' }}>
                       <path
                         d="M8 30a22 22 0 0 0 44 0"
@@ -1036,16 +1041,14 @@ const ConfirmationStep: React.FC<ConfirmationStepProps> = ({
                         fill="none"
                       />
                     </g>
-
-                    {/* inner dot */}
                     <circle cx="30" cy="30" r="7" fill="#16a34a" />
                   </svg>
                 </div>
               )}
 
               {status === 'success' && (
-                <div className="w-24 h-24 flex items-center justify-center">
-                  <svg viewBox="0 0 64 64" className="w-24 h-24">
+                <div className="w-20 h-20 flex items-center justify-center">
+                  <svg viewBox="0 0 64 64" className="w-20 h-20">
                     <circle cx="32" cy="32" r="30" fill="#ecfdf5" />
                     <circle cx="32" cy="32" r="14" fill="#16a34a" />
                     <path d="M20 33l6 6 18-18" stroke="#ffffff" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" fill="none" />
@@ -1054,8 +1057,8 @@ const ConfirmationStep: React.FC<ConfirmationStepProps> = ({
               )}
 
               {status === 'error' && (
-                <div className="w-24 h-24 flex items-center justify-center">
-                  <svg viewBox="0 0 64 64" className="w-24 h-24">
+                <div className="w-20 h-20 flex items-center justify-center">
+                  <svg viewBox="0 0 64 64" className="w-20 h-20">
                     <circle cx="32" cy="32" r="30" fill="#fff1f2" />
                     <path d="M20 20l24 24M44 20L20 44" stroke="#ef4444" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" />
                   </svg>
@@ -1063,7 +1066,6 @@ const ConfirmationStep: React.FC<ConfirmationStepProps> = ({
               )}
             </div>
 
-            {/* text */}
             <h3 className="text-lg font-medium text-gray-800 mb-2" style={{ fontFamily: 'Poppins' }}>
               {status === 'processing' && 'Confirming booking'}
               {status === 'success' && 'Booking confirmed'}
@@ -1075,7 +1077,6 @@ const ConfirmationStep: React.FC<ConfirmationStepProps> = ({
               {status === 'error' && (errorMessage ?? 'Unable to confirm booking. Please try again.')}
             </p>
 
-            {/* actions for error or close on success */}
             <div className="flex items-center justify-center gap-3">
               {status === 'error' ? (
                 <>
@@ -1093,10 +1094,8 @@ const ConfirmationStep: React.FC<ConfirmationStepProps> = ({
 
                   <button
                     onClick={() => {
-                      // retry
                       setStatus('processing');
                       setErrorMessage(null);
-                      // re-run confirm
                       (async () => {
                         try {
                           const res = onConfirm();
@@ -1120,26 +1119,22 @@ const ConfirmationStep: React.FC<ConfirmationStepProps> = ({
                     Retry
                   </button>
                 </>
-              ) : status === 'success' ? (
-                <div className="text-sm text-gray-500" style={{ fontFamily: 'Poppins' }}>
-                  Redirecting...
-                </div>
               ) : (
                 <button
                   onClick={() => {
+                    if (status === 'processing') return;
                     setIsProcessing(false);
                     setStatus('idle');
                   }}
                   className="px-4 py-2 bg-[#0B5858] text-white rounded text-sm"
                   style={{ fontFamily: 'Poppins' }}
                 >
-                  Close
+                  {status === 'processing' ? 'Processing...' : 'Close'}
                 </button>
               )}
             </div>
           </div>
 
-          {/* inline keyframes for spin */}
           <style>{`
             @keyframes spin {
               from { transform: rotate(0deg); }
