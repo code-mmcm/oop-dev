@@ -22,7 +22,6 @@ import Dropdown from '../../components/Dropdown';
 const BookingRequests: React.FC = () => {
   const navigate = useNavigate();
   const { user, isAdmin, loading: authLoading } = useAuth();
-  const [bookings, setBookings] = useState<Booking[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
@@ -95,7 +94,7 @@ const BookingRequests: React.FC = () => {
         setLoading(true);
         logger.info('Fetching pending bookings', { userId: user.id });
         const pendingBookings = await BookingService.getBookingsByStatus('pending');
-        setBookings(pendingBookings);
+        // Note: pendingBookings data is already included in allBookings from the summary fetch
         logger.info('Pending bookings fetched successfully', { count: pendingBookings.length });
       } catch (error) {
         logger.error('Error fetching pending bookings', { error });
@@ -192,8 +191,7 @@ const BookingRequests: React.FC = () => {
       // Create updated booking with new status
       const updatedBooking = { ...booking, status: 'confirmed' as const };
       
-      // Remove from pending list and update allBookings
-      setBookings(prev => prev.filter(b => b.id !== booking.id));
+      // Update allBookings with the new status
       setAllBookings(prev => prev.map(b => b.id === booking.id ? updatedBooking : b));
       
       // Update selectedBooking if drawer is open for this booking
@@ -226,8 +224,7 @@ const BookingRequests: React.FC = () => {
       // Create updated booking with new status
       const updatedBooking = { ...pendingBooking, status: 'declined' as const };
       
-      // Remove from pending list and update allBookings
-      setBookings(prev => prev.filter(b => b.id !== pendingBooking.id));
+      // Update allBookings with the new status
       setAllBookings(prev => prev.map(b => b.id === pendingBooking.id ? updatedBooking : b));
       
       // Update selectedBooking if drawer is open for this booking
