@@ -303,23 +303,33 @@ const AdminPanel: React.FC = React.memo(() => {
                 Welcome back! Here's what's happening with your platform.
               </p>
             </div>
-            <div className="flex gap-3">
+            <div className="flex gap-2 flex-wrap">
               <button
-                onClick={() => navigate('/manage-users')}
-                className="bg-[#0B5858] text-white px-6 py-3 rounded-lg hover:bg-[#0a4a4a] transition-all duration-200 flex items-center shadow-lg hover:shadow-xl cursor-pointer"
+                onClick={() => navigate('/booking-requests')}
+                className="bg-gradient-to-br from-[#F1C40F] to-[#F39C12] text-white px-4 py-2 rounded-lg hover:from-[#F39C12] hover:to-[#E67E22] transition-all duration-200 flex items-center shadow-md hover:shadow-lg cursor-pointer text-sm"
                 style={{fontFamily: 'Poppins'}}
               >
-                <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+                Booking Requests
+              </button>
+              <button
+                onClick={() => navigate('/manage-users')}
+                className="bg-[#0B5858] text-white px-4 py-2 rounded-lg hover:bg-[#0a4a4a] transition-all duration-200 flex items-center shadow-md hover:shadow-lg cursor-pointer text-sm"
+                style={{fontFamily: 'Poppins'}}
+              >
+                <svg className="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z" />
                 </svg>
                 Manage Users
               </button>
               <button
                 onClick={() => navigate('/manage-listings')}
-                className="bg-gradient-to-br from-gray-600 to-gray-700 text-white px-6 py-3 rounded-lg hover:from-gray-700 hover:to-gray-800 transition-all duration-200 flex items-center shadow-lg hover:shadow-xl cursor-pointer"
+                className="bg-gradient-to-br from-gray-600 to-gray-700 text-white px-4 py-2 rounded-lg hover:from-gray-700 hover:to-gray-800 transition-all duration-200 flex items-center shadow-md hover:shadow-lg cursor-pointer text-sm"
                 style={{fontFamily: 'Poppins'}}
               >
-                <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
                 </svg>
                 Manage Listings

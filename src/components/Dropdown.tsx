@@ -593,12 +593,12 @@ const Dropdown: React.FC<DropdownProps> = ({
         onKeyDown={handleKeyDown}
         className={`
           w-full flex items-center justify-between px-4 py-3 border rounded-lg
-          transition-shadow duration-150 focus:outline-none focus:ring-2 focus:ring-offset-2
+          transition-shadow duration-150 outline-none focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:border-transparent
           ${disabled
             ? 'bg-gray-50 text-gray-400 cursor-not-allowed border-gray-200'
-            : 'bg-white text-slate-800 border-[#d1d5db] hover:shadow-sm focus:border-transparent cursor-pointer'
+            : 'bg-white text-slate-800 border-[#d1d5db] hover:shadow-sm cursor-pointer'
           }
-          ${isOpen ? 'ring-2 ring-offset-2' : ''}
+          ${isOpen ? 'ring-2 ring-offset-2 border-transparent' : ''}
         `}
         style={{ 
           fontFamily: 'Poppins',
