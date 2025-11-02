@@ -16,7 +16,7 @@ import ProfileSkeleton from './components/ProfileSkeleton';
 //hi
 const ProfileCard: React.FC = () => {
   const navigate = useNavigate();
-  const { user, loading: authLoading } = useAuth();
+  const { user, loading: authLoading, refreshUserData } = useAuth();
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -42,7 +42,7 @@ const ProfileCard: React.FC = () => {
         const { data: profileData, error: profileError } = await UserService.getUserProfile(user.id);
 
         if (profileError || !profileData) {
-          // Fallback: Direct Supabase query
+          // Fallback: Direct Supabase query - select all fields including profile_photo
           const { data: directData, error: directError } = await supabase
             .from('users')
             .select('*')
@@ -89,6 +89,14 @@ const ProfileCard: React.FC = () => {
 
   const handleEditAccount = () => {
     console.log('Edit account clicked');
+  };
+
+  const handleProfileUpdate = async (updatedProfile: UserProfile) => {
+    setProfile(updatedProfile);
+    // Refresh user data in AuthContext to update navbar
+    if (refreshUserData) {
+      await refreshUserData();
+    }
   };
 
   const handleEditSection = () => {
@@ -150,10 +158,10 @@ const ProfileCard: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen bg-white">
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
       <Navbar />
       <div className="h-16" />
-      <div className="max-w-6xl mx-auto px-4 py-4 sm:py-6">
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
         {isLoading ? (
           <ProfileSkeleton />
         ) : error ? (
@@ -187,7 +195,8 @@ const ProfileCard: React.FC = () => {
           <>
             <ProfileHeader 
               profile={profile} 
-              onEditAccount={handleEditAccount} 
+              onEditAccount={handleEditAccount}
+              onProfileUpdate={handleProfileUpdate}
             />
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 sm:gap-4">

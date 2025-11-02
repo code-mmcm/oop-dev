@@ -121,4 +121,75 @@ export class ImageService {
     const i = Math.floor(Math.log(bytes) / Math.log(k));
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
   }
+
+  // Upload profile photo
+  static async uploadProfilePhoto(file: File, userId: string): Promise<string> {
+    // Validate file
+    if (!this.isValidFile(file)) {
+      throw new Error('Invalid file type or size. Please upload a JPEG, PNG, WebP, or AVIF image under 20MB.');
+    }
+
+    // Generate unique filename for profile photo - use simpler path structure
+    const fileExt = file.name.split('.').pop();
+    const fileName = `${userId}/profile-${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExt}`;
+
+    try {
+      // Check if user is authenticated
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        throw new Error('You must be logged in to upload profile photos.');
+      }
+
+      // Upload to Supabase Storage with user context
+      const { error } = await supabase.storage
+        .from(this.BUCKET_NAME)
+        .upload(fileName, file, {
+          cacheControl: '3600',
+          upsert: false,
+          contentType: file.type
+        });
+
+      if (error) {
+        // Check if it's an RLS policy error
+        if (error.message.includes('row-level security') || error.message.includes('policy')) {
+          throw new Error('Upload failed due to permissions. Please contact support or check your storage bucket policies.');
+        }
+        throw new Error(`Upload failed: ${error.message}`);
+      }
+
+      // Get public URL
+      const { data: urlData } = supabase.storage
+        .from(this.BUCKET_NAME)
+        .getPublicUrl(fileName);
+
+      return urlData.publicUrl;
+    } catch (error) {
+      console.error('Error uploading profile photo:', error);
+      throw error;
+    }
+  }
+
+  // Delete old profile photo if it exists
+  static async deleteProfilePhoto(photoUrl: string): Promise<void> {
+    try {
+      // Extract path from URL
+      const urlParts = photoUrl.split('/');
+      const pathIndex = urlParts.findIndex(part => part === this.BUCKET_NAME);
+      if (pathIndex === -1) return;
+      
+      const filePath = urlParts.slice(pathIndex + 1).join('/');
+      
+      const { error } = await supabase.storage
+        .from(this.BUCKET_NAME)
+        .remove([filePath]);
+
+      if (error) {
+        console.error('Error deleting old profile photo:', error);
+        // Don't throw - it's okay if old photo deletion fails
+      }
+    } catch (error) {
+      console.error('Error deleting profile photo:', error);
+      // Don't throw - it's okay if deletion fails
+    }
+  }
 }

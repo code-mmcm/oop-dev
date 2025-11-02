@@ -22,7 +22,7 @@ export class BookingService {
       bookings.map(async (booking) => {
         const [listingData, agentData] = await Promise.all([
           supabase.from('listings').select('id, title, location, main_image_url').eq('id', booking.listing_id).single(),
-          supabase.from('users').select('fullname, email').eq('id', booking.assigned_agent).single()
+          supabase.from('users').select('fullname, email, profile_photo').eq('id', booking.assigned_agent).single()
         ]);
 
         return {
@@ -64,18 +64,20 @@ export class BookingService {
       });
     });
 
-    // Fetch listing and agent data for each booking
+    // Fetch listing, agent, and client data for each booking
     const enrichedBookings = await Promise.all(
       bookings.map(async (booking) => {
-        const [listingData, agentData] = await Promise.all([
+        const [listingData, agentData, clientData] = await Promise.all([
           supabase.from('listings').select('id, title, location, main_image_url').eq('id', booking.listing_id).single(),
-          supabase.from('users').select('fullname, email').eq('id', booking.assigned_agent).single()
+          supabase.from('users').select('fullname, email, profile_photo').eq('id', booking.assigned_agent).single(),
+          supabase.from('client_details').select('*').eq('booking_id', booking.id).single()
         ]);
 
         return {
           ...booking,
           listing: listingData.data,
-          agent: agentData.data
+          agent: agentData.data,
+          client: clientData.data
         } as Booking;
       })
     );
@@ -103,7 +105,7 @@ export class BookingService {
       bookings.map(async (booking) => {
         const [listingData, agentData, clientData, paymentData] = await Promise.all([
           supabase.from('listings').select('id, title, location, main_image_url').eq('id', booking.listing_id).single(),
-          supabase.from('users').select('fullname, email, contact_number').eq('id', booking.assigned_agent).single(),
+          supabase.from('users').select('fullname, email, contact_number, profile_photo').eq('id', booking.assigned_agent).single(),
           supabase.from('client_details').select('*').eq('booking_id', booking.id).single(),
           supabase.from('payment').select('billing_document_url, proof_of_payment_url').eq('booking_id', booking.id).single()
         ]);

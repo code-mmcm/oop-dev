@@ -4,16 +4,21 @@ import React from 'react';
 const ProfileSkeleton: React.FC = () => (
   <>
     {/* Top profile header skeleton */}
-    <div className="bg-white rounded-xl shadow border border-gray-200 px-4 sm:px-5 py-6 sm:py-7 mb-4 sm:mb-6">
-      <div className="flex items-start gap-3 sm:gap-4">
-        <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-gray-300 animate-pulse"></div>
-        <div className="flex-1">
-          <div className="flex items-center justify-between mb-2">
-            <div className="space-y-2">
-              <div className="h-6 bg-gray-300 rounded animate-pulse w-48"></div>
-              <div className="h-4 bg-gray-300 rounded animate-pulse w-32"></div>
+    <div className="bg-white rounded-xl shadow-lg border border-gray-200 px-4 sm:px-5 py-6 sm:py-7 mb-4 sm:mb-6">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 sm:gap-6">
+        {/* Profile Picture Section */}
+        <div className="flex flex-col items-center">
+          <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-full bg-gray-300 animate-pulse shadow-md"></div>
+          <div className="mt-2 h-4 bg-gray-300 rounded animate-pulse w-20"></div>
+        </div>
+        {/* Profile Info Section */}
+        <div className="flex-1 w-full">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4 mb-3">
+            <div className="flex-1 space-y-2">
+              <div className="h-8 sm:h-9 bg-gray-300 rounded animate-pulse w-48"></div>
+              <div className="h-5 bg-gray-300 rounded animate-pulse w-64"></div>
             </div>
-            <div className="h-8 bg-gray-300 rounded animate-pulse w-24"></div>
+            <div className="h-10 bg-gray-300 rounded-lg animate-pulse w-32"></div>
           </div>
           <div className="space-y-2">
             <div className="h-4 bg-gray-300 rounded animate-pulse w-full"></div>
@@ -28,12 +33,12 @@ const ProfileSkeleton: React.FC = () => (
       {/* Left column skeleton */}
       <div className="lg:col-span-2 space-y-4">
         {/* Personal information card skeleton */}
-        <div className="bg-white rounded-xl shadow border border-gray-200">
+        <div className="bg-white rounded-xl shadow-lg border border-gray-200">
           <div className="flex items-center justify-between px-4 sm:px-5 py-3 sm:py-4 border-b border-gray-100">
             <div className="h-5 bg-gray-300 rounded animate-pulse w-48"></div>
             <div className="h-6 bg-gray-300 rounded animate-pulse w-16"></div>
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6 px-4 sm:px-5 py-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6 px-4 sm:px-5 py-5 sm:py-6">
             {[1, 2, 3, 4].map((i) => (
               <div key={i} className="space-y-2">
                 <div className="h-4 bg-gray-300 rounded animate-pulse w-32"></div>
@@ -44,7 +49,7 @@ const ProfileSkeleton: React.FC = () => (
         </div>
 
         {/* Previous bookings skeleton */}
-        <div className="bg-white rounded-xl shadow border border-gray-200">
+        <div className="bg-white rounded-xl shadow-lg border border-gray-200">
           <div className="flex items-center justify-between px-4 sm:px-5 py-3 sm:py-4 border-b border-gray-100">
             <div className="h-5 bg-gray-300 rounded animate-pulse w-40"></div>
             <div className="h-6 bg-gray-300 rounded animate-pulse w-24"></div>
@@ -70,12 +75,12 @@ const ProfileSkeleton: React.FC = () => (
       {/* Right column skeleton */}
       <div className="space-y-4">
         {/* Contact information card skeleton */}
-        <div className="bg-white rounded-xl shadow border border-gray-200">
+        <div className="bg-white rounded-xl shadow-lg border border-gray-200">
           <div className="flex items-center justify-between px-4 sm:px-5 py-3 sm:py-4 border-b border-gray-100">
             <div className="h-5 bg-gray-300 rounded animate-pulse w-40"></div>
             <div className="h-6 bg-gray-300 rounded animate-pulse w-16"></div>
           </div>
-          <div className="px-4 sm:px-5 py-4 space-y-4">
+          <div className="px-4 sm:px-5 py-5 sm:py-6 space-y-4 sm:space-y-5">
             {[1, 2, 3, 4].map((i) => (
               <div key={i} className="space-y-2">
                 <div className="h-4 bg-gray-300 rounded animate-pulse w-48"></div>

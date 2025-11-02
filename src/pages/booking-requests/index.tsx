@@ -42,8 +42,34 @@ const BookingRequests: React.FC = () => {
   const [sortBy, setSortBy] = useState('Newest first');
   const [statusFilter, setStatusFilter] = useState('All Status');
   
+  // Track image errors for profile photos
+  const [imageErrors, setImageErrors] = useState<Record<string, boolean>>({});
+  
   // Track if we've already fetched bookings to avoid refetching on focus
   const hasFetchedAllBookings = useRef(false);
+
+  // Get user initials for default avatar
+  const getInitials = (firstName: string, lastName?: string) => {
+    if (lastName) {
+      return (firstName.charAt(0) + lastName.charAt(0)).toUpperCase();
+    }
+    return firstName.charAt(0).toUpperCase();
+  };
+
+  // Check if we have a valid photo URL
+  const hasValidPhoto = (photoUrl?: string, errorKey?: string) => {
+    if (!photoUrl) return false;
+    if (typeof photoUrl !== 'string') return false;
+    const trimmed = photoUrl.trim();
+    if (trimmed === '' || trimmed === 'null' || trimmed === 'undefined') return false;
+    if (errorKey && imageErrors[errorKey]) return false;
+    return true;
+  };
+
+  // Handle image error
+  const handleImageError = (errorKey: string) => {
+    setImageErrors(prev => ({ ...prev, [errorKey]: true }));
+  };
 
   /**
    * Check authentication and admin status
@@ -500,8 +526,31 @@ const BookingRequests: React.FC = () => {
         <div className="flex items-center gap-4 relative z-10">
           {/* Guest Avatar */}
           <div className="flex-shrink-0">
-            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[#0B5858] to-[#0a4a4a] flex items-center justify-center text-white font-semibold text-sm">
-              {guestName.charAt(0).toUpperCase()}
+            <div 
+              className="w-10 h-10 rounded-full flex items-center justify-center overflow-hidden"
+              style={{
+                background: hasValidPhoto(booking.client?.profile_photo, `client-${booking.id}`)
+                  ? 'transparent'
+                  : 'linear-gradient(to bottom right, #14b8a6, #0d9488)'
+              }}
+            >
+              {hasValidPhoto(booking.client?.profile_photo, `client-${booking.id}`) ? (
+                <img
+                  src={booking.client?.profile_photo}
+                  alt={guestName}
+                  className="w-full h-full object-cover"
+                  onError={() => handleImageError(`client-${booking.id}`)}
+                />
+              ) : (
+                <span 
+                  className="text-white text-sm font-bold" 
+                  style={{ fontFamily: 'Poppins', fontWeight: 700 }}
+                >
+                  {booking.client 
+                    ? getInitials(booking.client.first_name, booking.client.last_name)
+                    : guestName.charAt(0).toUpperCase()}
+                </span>
+              )}
             </div>
           </div>
 
@@ -872,8 +921,29 @@ const BookingRequests: React.FC = () => {
                   </h3>
                   {selectedBooking.client ? (
                     <div className="flex items-start gap-3 p-4 bg-gradient-to-br from-gray-50 to-gray-100 rounded-xl border border-gray-200">
-                      <div className="w-12 h-12 rounded-full bg-gradient-to-br from-[#0B5858] to-[#0a4a4a] flex items-center justify-center text-white font-bold text-lg flex-shrink-0">
-                        {`${selectedBooking.client.first_name.charAt(0)}${selectedBooking.client.last_name.charAt(0)}`}
+                      <div 
+                        className="w-12 h-12 rounded-full flex items-center justify-center overflow-hidden flex-shrink-0"
+                        style={{
+                          background: hasValidPhoto(selectedBooking.client?.profile_photo, `drawer-client-${selectedBooking.id}`)
+                            ? 'transparent'
+                            : 'linear-gradient(to bottom right, #14b8a6, #0d9488)'
+                        }}
+                      >
+                        {hasValidPhoto(selectedBooking.client?.profile_photo, `drawer-client-${selectedBooking.id}`) ? (
+                          <img
+                            src={selectedBooking.client.profile_photo}
+                            alt={`${selectedBooking.client.first_name} ${selectedBooking.client.last_name}`}
+                            className="w-full h-full object-cover"
+                            onError={() => handleImageError(`drawer-client-${selectedBooking.id}`)}
+                          />
+                        ) : (
+                          <span 
+                            className="text-white text-lg font-bold" 
+                            style={{ fontFamily: 'Poppins', fontWeight: 700 }}
+                          >
+                            {getInitials(selectedBooking.client.first_name, selectedBooking.client.last_name)}
+                          </span>
+                        )}
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 mb-0.5">
@@ -920,8 +990,37 @@ const BookingRequests: React.FC = () => {
                   </h3>
                   {selectedBooking.agent ? (
                     <div className="flex items-start gap-3 p-4 bg-gradient-to-br from-gray-50 to-gray-100 rounded-xl border border-gray-200">
-                      <div className="w-12 h-12 rounded-full bg-gradient-to-br from-[#0B5858] to-[#0a4a4a] flex items-center justify-center text-white font-bold text-lg flex-shrink-0">
-                        {selectedBooking.agent.fullname ? selectedBooking.agent.fullname.charAt(0).toUpperCase() : 'A'}
+                      <div 
+                        className="w-12 h-12 rounded-full flex items-center justify-center overflow-hidden flex-shrink-0"
+                        style={{
+                          background: hasValidPhoto(selectedBooking.agent?.profile_photo, `drawer-agent-${selectedBooking.id}`)
+                            ? 'transparent'
+                            : 'linear-gradient(to bottom right, #14b8a6, #0d9488)'
+                        }}
+                      >
+                        {hasValidPhoto(selectedBooking.agent?.profile_photo, `drawer-agent-${selectedBooking.id}`) ? (
+                          <img
+                            src={selectedBooking.agent.profile_photo}
+                            alt={selectedBooking.agent.fullname || 'Agent'}
+                            className="w-full h-full object-cover"
+                            onError={() => handleImageError(`drawer-agent-${selectedBooking.id}`)}
+                          />
+                        ) : (
+                          <span 
+                            className="text-white text-lg font-bold" 
+                            style={{ fontFamily: 'Poppins', fontWeight: 700 }}
+                          >
+                            {selectedBooking.agent.fullname 
+                              ? (() => {
+                                  const names = selectedBooking.agent.fullname.trim().split(/\s+/);
+                                  if (names.length >= 2) {
+                                    return (names[0][0] + names[names.length - 1][0]).toUpperCase();
+                                  }
+                                  return names[0][0].toUpperCase();
+                                })()
+                              : 'A'}
+                          </span>
+                        )}
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 mb-0.5">
