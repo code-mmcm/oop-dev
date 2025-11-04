@@ -862,11 +862,11 @@ const ConfirmationStep: React.FC<ConfirmationStepProps> = ({
               <div className="text-sm text-gray-700 space-y-2" style={{ fontFamily: 'Poppins' }}>
                 <div>
                   <div className="text-xs text-gray-500">Check-in</div>
-                  <div className="break-words" style={{ wordBreak: 'break-word' }}>{formatDate(formData.checkInDate)} • {formatTime(formData.checkInTime)}</div>
+                  <div className="break-words" style={{ wordBreak: 'break-word' }}>{formatDate(formData.checkInDate)} • {formatTime(listing?.check_in_time || formData.checkInTime)}</div>
                 </div>
                 <div>
                   <div className="text-xs text-gray-500">Check-out</div>
-                  <div className="break-words" style={{ wordBreak: 'break-word' }}>{formatDate(formData.checkOutDate)} • {formatTime(formData.checkOutTime)}</div>
+                  <div className="break-words" style={{ wordBreak: 'break-word' }}>{formatDate(formData.checkOutDate)} • {formatTime(listing?.check_out_time || formData.checkOutTime)}</div>
                 </div>
               </div>
             </div>
@@ -969,7 +969,7 @@ const ConfirmationStep: React.FC<ConfirmationStepProps> = ({
               <h5 className="text-sm font-semibold mb-2" style={{ fontFamily: 'Poppins' }}>Important</h5>
               <ul className="text-xs text-gray-600 space-y-1" style={{ fontFamily: 'Poppins' }}>
                 <li>• Free cancellation up to 48 hours before check-in.</li>
-                <li>• Check-in time: {formData.checkInTime ?? '—'}. Check-out time: {formData.checkOutTime ?? '—'}.</li>
+                <li>• Check-in time: {formatTime(listing?.check_in_time || formData.checkInTime)}. Check-out time: {formatTime(listing?.check_out_time || formData.checkOutTime)}.</li>
                 <li>• Photo ID required at check-in.</li>
                 <li>• For special requests, contact support after confirming booking.</li>
               </ul>

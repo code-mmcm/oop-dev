@@ -1,11 +1,16 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import Navbar from '../../components/Navbar';
+import Tooltip from '../../components/Tooltip';
 import { BookingService } from '../../services/bookingService';
 import { ListingService } from '../../services/listingService';
+import { CalendarService } from '../../services/calendarService';
 import type { Listing } from '../../types/listing';
+import type { Booking as BookingType } from '../../types/booking';
+import type { BlockedDateRange, SpecialPricingRule } from '../../services/calendarService';
 import { useAuth } from '../../contexts/AuthContext';
 import { logger } from '../../lib/logger';
+import CalendarSettingsModal from './components/CalendarSettingsModal';
 
 /**
  * Type for calendar booking representation
@@ -61,6 +66,28 @@ const UnitCalendar: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [listing, setListing] = useState<Listing | null>(null);
   const [listingLoading, setListingLoading] = useState(true);
+  
+  // Calendar settings state (blocked dates and special pricing)
+  const [blockedRanges, setBlockedRanges] = useState<BlockedDateRange[]>([]);
+  const [pricingRules, setPricingRules] = useState<SpecialPricingRule[]>([]);
+  
+  // Settings modal state
+  const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
+  
+  // Drawer state for timeline booking details
+  const [selectedBooking, setSelectedBooking] = useState<BookingType | null>(null);
+  const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+  const [isDrawerClosing, setIsDrawerClosing] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
+  
+  // Confirmation modal state for decline action
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
+  const [confirmModalActive, setConfirmModalActive] = useState(false);
+  const [pendingBooking, setPendingBooking] = useState<BookingType | null>(null);
+  
+  // Toast notification state
+  const [toast, setToast] = useState({ visible: false, message: '', type: 'success' as 'success' | 'error' });
+  const toastRef = useRef<HTMLDivElement>(null);
 
   // focusedDate is the "selected" date used to determine which 7-day window to show and centering
   const [focusedDate, setFocusedDate] = useState<Date>(() => new Date()); // defaults to today
@@ -114,18 +141,6 @@ const UnitCalendar: React.FC = () => {
     return c;
   };
 
-  /**
-   * Returns the hour (0-23) of a Date in a specified IANA timezone.
-   */
-  const getHourInTimeZone = (date: Date, timeZone: string): number => {
-    const parts = new Intl.DateTimeFormat('en-US', {
-      hour: '2-digit',
-      hour12: false,
-      timeZone,
-    }).formatToParts(date);
-    const hourPart = parts.find(p => p.type === 'hour');
-    return hourPart ? parseInt(hourPart.value, 10) : date.getHours();
-  };
 
   // centered-week helper (7-day window with focusedDate in the middle)
   const getCenteredWeekDays = (d: Date) => {
@@ -180,6 +195,149 @@ const UnitCalendar: React.FC = () => {
   const getBookingForDate = (date: Date) => bookings.find(b => isDateInStay(date, b));
   const getBookingsForDate = (date: Date) => bookings.filter(b => isDateInStay(date, b));
 
+  /**
+   * Check if a date is blocked (from calendar settings)
+   * Includes both unit-specific and global blocked dates
+   */
+  const [globalBlockedRanges, setGlobalBlockedRanges] = useState<BlockedDateRange[]>([]);
+  
+  // Load global blocked dates
+  useEffect(() => {
+    const loadGlobalBlockedDates = async () => {
+      try {
+        const globalBlocked = await CalendarService.getBlockedRanges('global');
+        setGlobalBlockedRanges(globalBlocked);
+        logger.info('Global blocked dates loaded', { count: globalBlocked.length });
+      } catch (error) {
+        logger.error('Error loading global blocked dates', { error });
+        setGlobalBlockedRanges([]);
+      }
+    };
+    
+    if (id) {
+      loadGlobalBlockedDates();
+    }
+  }, [id]);
+  
+  const isDateBlocked = (date: Date): boolean => {
+    const dateStr = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+    const checkDate = new Date(dateStr);
+    checkDate.setHours(0, 0, 0, 0);
+    
+    // Check both unit-specific and global blocked dates
+    const allBlockedRanges = [...blockedRanges, ...globalBlockedRanges];
+    
+    return allBlockedRanges.some(range => {
+      const startDate = new Date(range.start_date);
+      const endDate = new Date(range.end_date);
+      startDate.setHours(0, 0, 0, 0);
+      endDate.setHours(0, 0, 0, 0);
+      
+      return checkDate >= startDate && checkDate <= endDate;
+    });
+  };
+  
+  /**
+   * Get blocked date range info for tooltip (for unit calendar)
+   * Returns the range and whether it's from global calendar
+   */
+  const getBlockedDateInfo = (date: Date): { range: BlockedDateRange | null; isGlobal: boolean } => {
+    const dateStr = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+    const checkDate = new Date(dateStr);
+    checkDate.setHours(0, 0, 0, 0);
+    
+    // Check unit-specific blocked dates first
+    for (const range of blockedRanges) {
+      const startDate = new Date(range.start_date);
+      const endDate = new Date(range.end_date);
+      startDate.setHours(0, 0, 0, 0);
+      endDate.setHours(0, 0, 0, 0);
+      
+      if (checkDate >= startDate && checkDate <= endDate) {
+        return { range, isGlobal: false };
+      }
+    }
+    
+    // Check global blocked dates
+    for (const range of globalBlockedRanges) {
+      const startDate = new Date(range.start_date);
+      const endDate = new Date(range.end_date);
+      startDate.setHours(0, 0, 0, 0);
+      endDate.setHours(0, 0, 0, 0);
+      
+      if (checkDate >= startDate && checkDate <= endDate) {
+        return { range, isGlobal: true };
+      }
+    }
+    
+    return { range: null, isGlobal: false };
+  };
+  
+  /**
+   * Get tooltip text for blocked date (for unit calendar)
+   */
+  const getBlockedDateTooltip = (date: Date): string => {
+    const { range, isGlobal } = getBlockedDateInfo(date);
+    if (!range) return '';
+    
+    const reason = range.reason || 'No reason provided';
+    
+    if (isGlobal) {
+      return `${reason}\n\n(Set from global calendar)`;
+    } else {
+      return reason;
+    }
+  };
+
+  /**
+   * Get special pricing for a specific date (if any)
+   */
+  const getPriceForDate = (date: Date): number | null => {
+    const dateStr = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+    const checkDate = new Date(dateStr);
+    checkDate.setHours(0, 0, 0, 0);
+    
+    // Find pricing rules that apply to this date, sorted by created_at (most recent first)
+    const applicableRules = pricingRules
+      .filter(pr => {
+        const ruleStart = new Date(pr.start_date);
+        const ruleEnd = new Date(pr.end_date);
+        ruleStart.setHours(0, 0, 0, 0);
+        ruleEnd.setHours(0, 0, 0, 0);
+        
+        return checkDate >= ruleStart && checkDate <= ruleEnd;
+      })
+      .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+    
+    // Return the price from the most recent applicable rule
+    return applicableRules.length > 0 ? applicableRules[0].price : null;
+  };
+
+  /**
+   * Get unique bookings for a day (grouped by booking ID to avoid duplicates)
+   */
+  const getUniqueBookingsForDay = (day: Date, allBookings: Booking[]): Booking[] => {
+    const currentDay = new Date(day.getFullYear(), day.getMonth(), day.getDate());
+    const seenIds = new Set<string>();
+    const uniqueBookings: Booking[] = [];
+    
+    allBookings.forEach(booking => {
+      const startDay = new Date(booking.checkInDate.getFullYear(), booking.checkInDate.getMonth(), booking.checkInDate.getDate());
+      const endDay = new Date(booking.checkOutDate.getFullYear(), booking.checkOutDate.getMonth(), booking.checkOutDate.getDate());
+      
+      // Include if this day is within the booking range
+      if (currentDay >= startDay && currentDay <= endDay) {
+        const bookingKey = booking.bookingId || `${booking.checkInDate.getTime()}-${booking.checkOutDate.getTime()}`;
+        if (!seenIds.has(bookingKey)) {
+          seenIds.add(bookingKey);
+          uniqueBookings.push(booking);
+        }
+      }
+    });
+    
+    return uniqueBookings;
+  };
+
   // Mobile detection
   useEffect(() => {
     const mq = window.matchMedia('(max-width: 640px)');
@@ -194,6 +352,60 @@ const UnitCalendar: React.FC = () => {
       window.removeEventListener('resize', update);
     };
   }, []);
+
+  /**
+   * Converts 24-hour time (HH:mm) to 12-hour format with AM/PM
+   */
+  const formatTime12Hour = (time24?: string | null): string => {
+    if (!time24) return '';
+    const [hours, minutes] = time24.split(':');
+    const h = parseInt(hours || '0', 10);
+    const ampm = h >= 12 ? 'PM' : 'AM';
+    const displayHour = h % 12 || 12;
+    return `${displayHour}:${minutes || '00'} ${ampm}`;
+  };
+
+  /**
+   * Gets default check-in time from listing or falls back to hardcoded default
+   */
+  const getDefaultCheckInTime = (): string => {
+    if (listing?.check_in_time) {
+      return formatTime12Hour(listing.check_in_time);
+    }
+    return '2:00 PM';
+  };
+
+  /**
+   * Gets default check-out time from listing or falls back to hardcoded default
+   */
+  const getDefaultCheckOutTime = (): string => {
+    if (listing?.check_out_time) {
+      return formatTime12Hour(listing.check_out_time);
+    }
+    return '11:00 AM';
+  };
+
+  /**
+   * Gets default check-in hour (0-23) from listing or falls back to hardcoded default
+   */
+  const getDefaultCheckInHour = (): number => {
+    if (listing?.check_in_time) {
+      const [hours] = listing.check_in_time.split(':');
+      return parseInt(hours || '14', 10);
+    }
+    return 14; // 2 PM default
+  };
+
+  /**
+   * Gets default check-out hour (0-23) from listing or falls back to hardcoded default
+   */
+  const getDefaultCheckOutHour = (): number => {
+    if (listing?.check_out_time) {
+      const [hours] = listing.check_out_time.split(':');
+      return parseInt(hours || '11', 10);
+    }
+    return 11; // 11 AM default
+  };
 
   // Fetch listing details
   useEffect(() => {
@@ -222,6 +434,43 @@ const UnitCalendar: React.FC = () => {
     fetchListing();
   }, [id]);
 
+  // Fetch calendar settings (blocked dates and special pricing)
+  useEffect(() => {
+    const fetchCalendarSettings = async () => {
+      if (!id) {
+        setBlockedRanges([]);
+        setPricingRules([]);
+        return;
+      }
+
+      try {
+        logger.info('Fetching calendar settings', { listingId: id });
+        
+        // Fetch blocked dates and special pricing
+        const [blockedData, pricingData] = await Promise.all([
+          CalendarService.getBlockedRanges(id),
+          CalendarService.getPricingRules(id)
+        ]);
+        
+        setBlockedRanges(blockedData);
+        setPricingRules(pricingData);
+        
+        logger.info('Calendar settings loaded', { 
+          listingId: id, 
+          blockedCount: blockedData.length, 
+          pricingCount: pricingData.length 
+        });
+      } catch (error) {
+        logger.error('Error fetching calendar settings', { error, listingId: id });
+        // Set empty arrays on error
+        setBlockedRanges([]);
+        setPricingRules([]);
+      }
+    };
+
+    fetchCalendarSettings();
+  }, [id]);
+
   // Fetch bookings from Supabase for specific listing
   useEffect(() => {
     const fetchBookings = async () => {
@@ -236,9 +485,35 @@ const UnitCalendar: React.FC = () => {
         logger.info('Fetching bookings for listing', { listingId: id });
 
         // Fetch bookings for this specific listing
-        const fetchedBookings = await BookingService.getBookingsByListingId(id);
+        let fetchedBookings = await BookingService.getBookingsByListingId(id);
 
         logger.info('Bookings fetched successfully', { listingId: id, count: fetchedBookings.length });
+
+        // Automatically decline overlapping pending bookings if there are confirmed bookings
+        // This ensures only confirmed bookings are shown for overlapping date ranges
+        const confirmedBookings = fetchedBookings.filter(b => 
+          b.status === 'confirmed' || b.status === 'ongoing' || b.status === 'completed'
+        );
+        
+        if (confirmedBookings.length > 0) {
+          for (const confirmedBooking of confirmedBookings) {
+            try {
+              await BookingService.declineOverlappingPendingBookings(
+                confirmedBooking.id,
+                confirmedBooking.listing_id,
+                confirmedBooking.check_in_date,
+                confirmedBooking.check_out_date
+              );
+            } catch (error) {
+              logger.error('Error declining overlapping bookings', { error, confirmedBookingId: confirmedBooking.id });
+              // Continue processing even if decline fails
+            }
+          }
+          
+          // Re-fetch bookings after declining overlaps to get updated statuses
+          fetchedBookings = await BookingService.getBookingsByListingId(id);
+          logger.info('Re-fetched bookings after declining overlaps', { count: fetchedBookings.length });
+        }
 
         // Convert Supabase bookings to calendar format
         const calendarBookings: Booking[] = fetchedBookings.map((booking) => {
@@ -246,48 +521,20 @@ const UnitCalendar: React.FC = () => {
           const checkInDate = new Date(booking.check_in_date);
           const checkOutDate = new Date(booking.check_out_date);
           
-          // Check if the date string has time information before formatting
-          const hasTimeInString = booking.check_in_date.includes('T') && booking.check_in_date.includes(':');
-          const hasTimeOutString = booking.check_out_date.includes('T') && booking.check_out_date.includes(':');
-          
-          // Even if time exists in string, check if it's effectively "default/midnight" time
-          // If UTC midnight (00:00:00Z) or local midnight, treat as "no time specified"
-          const getHourInManila = (date: Date) => getHourInTimeZone(date, 'Asia/Manila');
-          const checkInHour = hasTimeInString ? getHourInManila(checkInDate) : null;
-          const checkOutHour = hasTimeOutString ? getHourInManila(checkOutDate) : null;
-          
-          // Treat midnight (0) or UTC midnight converted to Manila (8 AM) as "no time specified"
-          // Also check if it's exactly 00:00:00 in the original string (likely a default value)
-          const isDefaultTime = (dateString: string, hour: number | null) => {
-            if (!hour) return true;
-            // If hour is 0 (midnight) or 8 (UTC midnight converted), treat as default
-            // Also if the time part is 00:00:00, it's likely a default value
-            const timeMatch = dateString.match(/T(\d{2}):(\d{2}):(\d{2})/);
-            if (timeMatch && timeMatch[1] === '00' && timeMatch[2] === '00' && timeMatch[3] === '00') {
-              return true; // Exactly midnight time
-            }
-            return hour === 0 || hour === 8; // Midnight or UTC midnight converted
-          };
-          
-          const useDefaultCheckIn = !hasTimeInString || isDefaultTime(booking.check_in_date, checkInHour);
-          const useDefaultCheckOut = !hasTimeOutString || isDefaultTime(booking.check_out_date, checkOutHour);
-          
-          // Use default times if no time information is stored or if it's default/midnight time
-          const checkInTime = useDefaultCheckIn 
-            ? '2:00 PM'
-            : new Intl.DateTimeFormat('en-US', { hour: 'numeric', minute: '2-digit', hour12: true, timeZone: 'Asia/Manila' }).format(checkInDate);
-          const checkOutTime = useDefaultCheckOut
-            ? '12:00 PM'
-            : new Intl.DateTimeFormat('en-US', { hour: 'numeric', minute: '2-digit', hour12: true, timeZone: 'Asia/Manila' }).format(checkOutDate);
-          const time = `${checkInTime} - ${checkOutTime}`;
+          // Always use listing default times for display in booking blocks
+          // This ensures consistency across all bookings for a listing
+          const checkInTime = getDefaultCheckInTime();
+          const checkOutTime = getDefaultCheckOutTime();
+          const time = `${checkInTime} to ${checkOutTime}`;
 
           // Use listing title or fallback
           const title = booking.listing?.title || 'Unnamed Property';
           const mainImageUrl = booking.listing?.main_image_url;
 
-          // Calculate end hour - default to 2 PM check-in and 12 PM check-out if no time info or default time
-          const startHour = useDefaultCheckIn ? 14 : checkInHour!; // 2 PM default
-          const endHour = useDefaultCheckOut ? 12 : checkOutHour!; // 12 PM default
+          // Always use listing defaults for positioning on the time grid
+          // This ensures all booking blocks are positioned consistently according to listing defaults
+          const startHour = getDefaultCheckInHour();
+          const endHour = getDefaultCheckOutHour();
 
           // Derive guest first name where available; fallback to user fullname first token or "Guest"
           const clientFirstName = (booking.client?.first_name || 'Guest');
@@ -310,7 +557,95 @@ const UnitCalendar: React.FC = () => {
           };
         });
 
-        setBookings(calendarBookings);
+        // Filter out overlapping bookings - prefer confirmed/ongoing/completed over pending
+        // Status priority: confirmed/ongoing/completed > pending
+        const filteredBookings = calendarBookings.filter((booking, index) => {
+          // Keep all confirmed/ongoing/completed bookings
+          if (booking.status === 'confirmed' || booking.status === 'ongoing' || booking.status === 'completed') {
+            return true;
+          }
+          
+          // For pending bookings, check if they overlap with any confirmed booking
+          const overlapsWithConfirmed = calendarBookings.some((otherBooking, otherIndex) => {
+            if (index === otherIndex) return false;
+            if (otherBooking.status !== 'confirmed' && otherBooking.status !== 'ongoing' && otherBooking.status !== 'completed') {
+              return false; // Only check against confirmed bookings
+            }
+            
+            // Check date overlap (normalize to date only, ignore time)
+            const normalizeDate = (date: Date) => {
+              const d = new Date(date);
+              d.setHours(0, 0, 0, 0);
+              return d;
+            };
+            
+            const checkIn1 = normalizeDate(booking.checkInDate);
+            const checkOut1 = normalizeDate(booking.checkOutDate);
+            const checkIn2 = normalizeDate(otherBooking.checkInDate);
+            const checkOut2 = normalizeDate(otherBooking.checkOutDate);
+            
+            // Check if dates overlap: start1 < end2 AND end1 > start2
+            return checkIn1 < checkOut2 && checkOut1 > checkIn2;
+          });
+          
+          // If pending booking overlaps with confirmed, filter it out
+          return !overlapsWithConfirmed;
+        });
+
+        // Also filter out overlapping confirmed bookings - keep the first one (by check-in date)
+        const finalBookings: Booking[] = [];
+        
+        filteredBookings
+          .sort((a, b) => {
+            // Sort by status priority first (confirmed before pending), then by check-in date
+            const statusPriority = (status?: string) => {
+              if (status === 'confirmed' || status === 'ongoing' || status === 'completed') return 0;
+              if (status === 'pending') return 1;
+              return 2;
+            };
+            
+            const priorityDiff = statusPriority(a.status) - statusPriority(b.status);
+            if (priorityDiff !== 0) return priorityDiff;
+            
+            return a.checkInDate.getTime() - b.checkInDate.getTime();
+          })
+          .forEach(booking => {
+            // Create a unique key for the date range
+            const normalizeDate = (date: Date) => {
+              const d = new Date(date);
+              d.setHours(0, 0, 0, 0);
+              return d.toISOString().split('T')[0];
+            };
+            
+            const rangeKey = `${normalizeDate(booking.checkInDate)}-${normalizeDate(booking.checkOutDate)}`;
+            
+            // Check if this booking overlaps with any already added booking
+            const overlapsWithAdded = finalBookings.some(addedBooking => {
+              const checkIn1 = normalizeDate(booking.checkInDate);
+              const checkOut1 = normalizeDate(booking.checkOutDate);
+              const checkIn2 = normalizeDate(addedBooking.checkInDate);
+              const checkOut2 = normalizeDate(addedBooking.checkOutDate);
+              
+              // Check if dates overlap: start1 < end2 AND end1 > start2
+              return checkIn1 < checkOut2 && checkOut1 > checkIn2;
+            });
+            
+            if (!overlapsWithAdded) {
+              finalBookings.push(booking);
+            } else {
+              logger.info('Filtered out overlapping booking', { 
+                bookingId: booking.bookingId, 
+                status: booking.status,
+                dateRange: rangeKey 
+              });
+            }
+          });
+
+        setBookings(finalBookings);
+        logger.info('Bookings filtered for overlaps', { 
+          originalCount: calendarBookings.length, 
+          filteredCount: finalBookings.length 
+        });
       } catch (error) {
         logger.error('Error fetching bookings', { error, listingId: id });
         console.error('Error fetching bookings:', error);
@@ -476,12 +811,6 @@ const UnitCalendar: React.FC = () => {
   const currentLineTop = (minutesIntoDay / 60) * HOUR_ROW_PX;
 
   // slide-over and booking navigation
-  const openSlideForDate = (date: Date) => {
-    const has = getBookingsForDate(date).length > 0;
-    if (!has) return;
-    setSelectedDate(date);
-    setIsSlideOpen(true);
-  };
   const closeSlide = () => {
     setIsClosing(true);
     // Wait for animation to complete before removing from DOM
@@ -492,10 +821,259 @@ const UnitCalendar: React.FC = () => {
     }, 300); // Match animation duration
   };
 
-  // navigate to booking details page
+  /**
+   * Handle booking card click in timeline - open drawer with full booking details
+   */
+  const handleTimelineBookingClick = async (booking: Booking) => {
+    try {
+      // Fetch full booking details using bookingId
+      if (booking.bookingId) {
+        logger.info('Fetching full booking details', { bookingId: booking.bookingId });
+        const fullBooking = await BookingService.getBookingById(booking.bookingId);
+        if (fullBooking) {
+          setSelectedBooking(fullBooking);
+          setIsDrawerClosing(false);
+          setIsDrawerOpen(true);
+          logger.info('Opening booking details drawer', { bookingId: fullBooking.id });
+        }
+      } else {
+        logger.warn('Booking card clicked but no bookingId available', { booking });
+      }
+    } catch (error) {
+      logger.error('Error fetching booking details', { error, bookingId: booking.bookingId });
+      console.error('Error fetching booking details:', error);
+    }
+  };
+
+  /**
+   * Close drawer with slide-out animation
+   */
+  const closeDrawer = () => {
+    setIsDrawerClosing(true);
+    setTimeout(() => {
+      setIsDrawerOpen(false);
+      setIsDrawerClosing(false);
+      setSelectedBooking(null);
+    }, 300);
+  };
+
+  /**
+   * Show toast notification
+   */
+  const showToast = (message: string, type: 'success' | 'error') => {
+    setToast({ visible: true, message, type });
+    // Double rAF to ensure DOM paint before adding the enter class
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        const el = toastRef.current;
+        if (!el) return;
+        el.classList.remove('toast--exit');
+        // eslint-disable-next-line @typescript-eslint/no-unused-expressions
+        el.offsetHeight;
+        el.classList.add('toast--enter');
+      });
+    });
+    // Slide out after ~2200ms
+    window.setTimeout(() => {
+      const el = toastRef.current;
+      if (!el) return;
+      el.classList.remove('toast--enter');
+      el.classList.add('toast--exit');
+    }, 2200);
+  };
+
+  /**
+   * Open confirmation modal for decline action
+   */
+  const openConfirmModal = (booking: BookingType) => {
+    setPendingBooking(booking);
+    setShowConfirmModal(true);
+    requestAnimationFrame(() => setConfirmModalActive(true));
+  };
+
+  /**
+   * Close confirmation modal
+   */
+  const closeConfirmModal = () => {
+    setConfirmModalActive(false);
+    setTimeout(() => {
+      setShowConfirmModal(false);
+      setPendingBooking(null);
+    }, 250);
+  };
+
+  /**
+   * Handle approve action (direct, no confirmation)
+   */
+  const handleApprove = async (booking: BookingType) => {
+    try {
+      setIsProcessing(true);
+      logger.info('Approving booking', { bookingId: booking.id });
+      await BookingService.updateBookingStatus(booking.id, 'confirmed');
+      
+      // Decline all overlapping pending bookings for the same unit
+      await BookingService.declineOverlappingPendingBookings(
+        booking.id,
+        booking.listing_id,
+        booking.check_in_date,
+        booking.check_out_date
+      );
+      
+      // Create updated booking with new status
+      const updatedBooking = { ...booking, status: 'confirmed' as const };
+      
+      // Update selectedBooking if drawer is open for this booking
+      if (isDrawerOpen && selectedBooking?.id === booking.id) {
+        setSelectedBooking(updatedBooking);
+      }
+      
+      // Refresh bookings list
+      const fetchBookings = async () => {
+        if (!user || !id) {
+          setBookings([]);
+          setLoading(false);
+          return;
+        }
+
+        try {
+          setLoading(true);
+          let fetchedBookings = await BookingService.getBookingsByListingId(id!);
+          
+          // Convert Supabase bookings to calendar format
+          const calendarBookings: Booking[] = fetchedBookings.map((b) => {
+            const checkInDate = new Date(b.check_in_date);
+            const checkOutDate = new Date(b.check_out_date);
+            
+            // Always use listing defaults for positioning and display
+            const startHour = getDefaultCheckInHour();
+            const endHour = getDefaultCheckOutHour();
+            const time = `${getDefaultCheckInTime()} to ${getDefaultCheckOutTime()}`;
+            
+            return {
+              date: checkInDate,
+              checkInDate,
+              checkOutDate,
+              checkInDateString: b.check_in_date,
+              checkOutDateString: b.check_out_date,
+              title: b.listing?.title || 'Unknown Unit',
+              time,
+              startHour,
+              endHour,
+              bookingId: b.id,
+              status: b.status,
+              totalAmount: b.total_amount,
+              mainImageUrl: b.listing?.main_image_url,
+              clientFirstName: b.client?.first_name
+            };
+          });
+
+          setBookings(calendarBookings);
+        } catch (error) {
+          logger.error('Error refreshing bookings after approve', { error });
+          console.error('Error refreshing bookings:', error);
+        } finally {
+          setLoading(false);
+        }
+      };
+      
+      await fetchBookings();
+      
+      logger.info('Booking approved successfully', { bookingId: booking.id });
+      showToast('Booking request approved successfully', 'success');
+    } catch (error) {
+      logger.error('Error approving booking', { error, bookingId: booking.id });
+      console.error('Error approving booking:', error);
+      showToast('Failed to approve booking request', 'error');
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  /**
+   * Handle decline action (called after confirmation)
+   */
+  const handleDecline = async () => {
+    if (!pendingBooking) return;
+
+    try {
+      setIsProcessing(true);
+      logger.info('Declining booking', { bookingId: pendingBooking.id });
+      await BookingService.updateBookingStatus(pendingBooking.id, 'declined');
+      
+      // Close confirmation modal
+      closeConfirmModal();
+      
+      // Close drawer if this is the selected booking
+      if (isDrawerOpen && selectedBooking?.id === pendingBooking.id) {
+        closeDrawer();
+      }
+      
+      // Refresh bookings list
+      const fetchBookings = async () => {
+        if (!user || !id) {
+          setBookings([]);
+          setLoading(false);
+          return;
+        }
+
+        try {
+          setLoading(true);
+          let fetchedBookings = await BookingService.getBookingsByListingId(id!);
+          
+          // Convert Supabase bookings to calendar format
+          const calendarBookings: Booking[] = fetchedBookings.map((b) => {
+            const checkInDate = new Date(b.check_in_date);
+            const checkOutDate = new Date(b.check_out_date);
+            
+            // Always use listing defaults for positioning and display
+            const startHour = getDefaultCheckInHour();
+            const endHour = getDefaultCheckOutHour();
+            const time = `${getDefaultCheckInTime()} to ${getDefaultCheckOutTime()}`;
+            
+            return {
+              date: checkInDate,
+              checkInDate,
+              checkOutDate,
+              checkInDateString: b.check_in_date,
+              checkOutDateString: b.check_out_date,
+              title: b.listing?.title || 'Unknown Unit',
+              time,
+              startHour,
+              endHour,
+              bookingId: b.id,
+              status: b.status,
+              totalAmount: b.total_amount,
+              mainImageUrl: b.listing?.main_image_url,
+              clientFirstName: b.client?.first_name
+            };
+          });
+
+          setBookings(calendarBookings);
+        } catch (error) {
+          logger.error('Error refreshing bookings after decline', { error });
+          console.error('Error refreshing bookings:', error);
+        } finally {
+          setLoading(false);
+        }
+      };
+      
+      await fetchBookings();
+      
+      logger.info('Booking declined successfully', { bookingId: pendingBooking.id });
+      showToast('Booking request declined', 'success');
+    } catch (error) {
+      logger.error('Error declining booking', { error, bookingId: pendingBooking.id });
+      console.error('Error declining booking:', error);
+      showToast('Failed to decline booking request', 'error');
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  // navigate to booking details page (for slide panel "View" button - kept for backward compatibility)
   const handleViewBooking = (booking: Booking) => {
     if (!booking.bookingId) return;
-    navigate(`/booking-details/${booking.bookingId}`);
+    handleTimelineBookingClick(booking);
   };
 
   // Keyboard support for the days scroll container
@@ -569,33 +1147,6 @@ const UnitCalendar: React.FC = () => {
       : `${startMonth} ${startDay} – ${endMonth} ${endDay}`;
   };
 
-  /**
-   * Formats check-in time string, defaulting when time component is missing or is midnight/default.
-   * Uses original date string to properly detect if time information exists and if it's a default value.
-   */
-  const formatCheckInTime = (checkInDateString: string, checkIn: Date): string => {
-    const hasTime = checkInDateString.includes('T') && checkInDateString.includes(':');
-    if (!hasTime) return '2:00 PM check-in';
-    
-    // Check if the time is effectively "default/midnight" time
-    const hourInManila = getHourInTimeZone(checkIn, 'Asia/Manila');
-    
-    // Treat midnight (0) or UTC midnight converted to Manila (8 AM) as "no time specified"
-    // Also check if it's exactly 00:00:00 in the original string
-    const timeMatch = checkInDateString.match(/T(\d{2}):(\d{2}):(\d{2})/);
-    const isMidnightTime = timeMatch && timeMatch[1] === '00' && timeMatch[2] === '00' && timeMatch[3] === '00';
-    const isDefaultTime = isMidnightTime || hourInManila === 0 || hourInManila === 8;
-    
-    if (isDefaultTime) return '2:00 PM check-in';
-    
-    const label = new Intl.DateTimeFormat('en-US', {
-      hour: 'numeric',
-      minute: '2-digit',
-      hour12: true,
-      timeZone: 'Asia/Manila',
-    }).format(checkIn);
-    return `${label} check-in`;
-  };
 
   /**
    * CalendarLegend
@@ -647,9 +1198,10 @@ const UnitCalendar: React.FC = () => {
       // Mobile day view (time-grid): include checkout day (<= endDay)
       if (!(dayOnly >= startDay && dayOnly <= endDay)) return;
       const isStartDay = dayOnly.getTime() === startDay.getTime();
-      const isSameDayCheckout = startDay.getTime() === endDay.getTime();
+      const isEndDay = dayOnly.getTime() === endDay.getTime();
       const segStart = isStartDay ? b.startHour : 0;
-      const segEnd = isSameDayCheckout ? b.endHour : 24;
+      // On checkout day, extend only to checkout time; otherwise extend to end of day
+      const segEnd = isEndDay ? b.endHour : 24;
       const arr = startsByHour.get(segStart) || [];
       arr.push({ booking: b, segStart, segEnd });
       startsByHour.set(segStart, arr);
@@ -686,16 +1238,56 @@ const UnitCalendar: React.FC = () => {
                 <div key={h} style={{ height: HOUR_ROW_PX }} className="border-b border-gray-100 relative">
                   {starts.map(({ booking: b, segStart, segEnd }, i) => {
                     const span = Math.max(1, segEnd - segStart);
+                    
+                    // Status color mapping for left border (darker solid colors)
+                    const statusColorMap: Record<string, string> = {
+                      'bg-booked': '#B84C4C',
+                      'bg-pending': '#F6D658',
+                      'bg-available': '#558B8B',
+                      'bg-blocked': '#4D504E'
+                    };
+                    const statusClass = getStatusBgClass(b.status);
+                    const borderColor = statusColorMap[statusClass] || '#B84C4C';
+                    
+                    // Format date range for display
+                    const checkInFormatted = b.checkInDate.toLocaleDateString('en-US', { 
+                      month: 'short', 
+                      day: 'numeric'
+                    });
+                    const checkOutFormatted = b.checkOutDate.toLocaleDateString('en-US', { 
+                      month: 'short', 
+                      day: 'numeric'
+                    });
+                    const dateRange = checkInFormatted === checkOutFormatted 
+                      ? checkInFormatted 
+                      : `${checkInFormatted} - ${checkOutFormatted}`;
+                    
                     return (
                       <button
                         key={`${b.title}-${i}`}
-                        onClick={() => openSlideForDate(date)}
-                        className={`absolute left-2 right-2 ${getStatusBgClass(b.status)} text-white rounded-md p-2 text-left shadow`}
-                        style={{ top: 4, height: span * HOUR_ROW_PX - 8, zIndex: 10 }}
+                        onClick={() => handleTimelineBookingClick(b)}
+                        className={`absolute left-2 right-2 ${statusClass} rounded-md p-3 text-left shadow cursor-pointer hover:shadow-md transition-shadow`}
+                        style={{ 
+                          top: 8, 
+                          height: span * HOUR_ROW_PX - 16, 
+                          zIndex: 10,
+                          borderLeft: `4px solid ${borderColor}`, // Status-colored left border
+                          fontFamily: 'Poppins'
+                        }}
                         aria-label={`${b.title} ${b.time}`}
                       >
-                        <div className="font-semibold text-sm">{b.clientFirstName || 'Guest'}</div>
-                        <div className="text-xs opacity-90">{formatCheckInTime(b.checkInDateString, b.checkInDate)}</div>
+                        {/* Guest name - black, increased font weight */}
+                        <div className="font-bold text-sm text-black" style={{ fontFamily: 'Poppins' }}>
+                          {b.clientFirstName || 'Guest'}
+                        </div>
+                        {/* Date range - grey */}
+                        <div className="text-xs text-gray-600 mt-0.5" style={{ fontFamily: 'Poppins' }}>
+                          {dateRange}
+                        </div>
+                        {/* Time - grey - shows listing default check-in and check-out times */}
+                        <div className="text-xs text-gray-600 mt-0.5" style={{ fontFamily: 'Poppins' }}>
+                          {b.time}
+                        </div>
                       </button>
                     );
                   })}
@@ -755,28 +1347,51 @@ const UnitCalendar: React.FC = () => {
         <div className="grid grid-cols-7 gap-1 mt-2">
           {days.map((dayObj, idx) => {
             const b = getBookingForDate(dayObj.fullDate);
-            return (
+            const isBlocked = isDateBlocked(dayObj.fullDate);
+            const specialPrice = getPriceForDate(dayObj.fullDate);
+            const blockedTooltip = isBlocked ? getBlockedDateTooltip(dayObj.fullDate) : '';
+            const dayButton = (
               <button
                 key={idx}
                 onClick={() => {
-                  onDayPress(dayObj.fullDate);
-                  setMobileViewMode('daily');
+                  if (!isBlocked) {
+                    onDayPress(dayObj.fullDate);
+                    setMobileViewMode('daily');
+                  }
                 }}
-                className={`day-button p-2 rounded-md text-left ${dayObj.isCurrentMonth ? 'bg-white' : 'bg-gray-50'}`}
-                aria-label={`Day ${dayObj.date}${dayObj.isToday ? ' today' : ''}`}
+                className={`day-button p-2 rounded-md text-left ${dayObj.isCurrentMonth ? 'bg-white' : 'bg-gray-50'} ${isBlocked ? 'opacity-50 cursor-not-allowed' : ''}`}
+                aria-label={`Day ${dayObj.date}${dayObj.isToday ? ' today' : ''}${isBlocked ? ' blocked' : ''}`}
+                disabled={isBlocked}
               >
                 <div className="flex items-center justify-between">
                   <div className={`date-number ${b ? 'has-booking' : ''} text-xs font-medium`}>{dayObj.date}</div>
-                  {dayObj.isToday && <div className="text-xs text-green-600">•</div>}
+                  <div className="flex items-center gap-1">
+                    {dayObj.isToday && <div className="text-xs text-green-600">•</div>}
+                  </div>
                 </div>
 
                 {/* booking indicator: colored dot + small guest name preview to match unit calendar spec */}
                 <div className="mt-1 flex items-center gap-2">
                   {b && <span className={`${getStatusBgClass(b.status)} inline-block rounded-full`} style={{ width: 8, height: 8 }} aria-hidden="true" />}
                   {b && <div className="text-xs text-gray-600 truncate">• {(b.clientFirstName || 'Guest')}</div>}
+                  {!b && listing && (
+                    <div className="text-xs text-black font-medium truncate">
+                      {specialPrice ? (
+                        `₱ ${specialPrice.toLocaleString()}`
+                      ) : ((listing as any).base_price || listing.price) ? (
+                        `₱ ${((listing as any).base_price || listing.price).toLocaleString()}`
+                      ) : null}
+                    </div>
+                  )}
                 </div>
               </button>
             );
+            
+            return blockedTooltip ? (
+              <Tooltip key={idx} content={blockedTooltip}>
+                {dayButton}
+              </Tooltip>
+            ) : dayButton;
           })}
         </div>
       </div>
@@ -1067,42 +1682,97 @@ const UnitCalendar: React.FC = () => {
                   </button>
                 </div>
               )}
+
+              {/* Settings button */}
+              <button
+                onClick={() => {
+                  logger.info('Opening calendar settings modal');
+                  setIsSettingsModalOpen(true);
+                }}
+                className="p-2 hover:bg-gray-100 rounded-lg transition-colors cursor-pointer"
+                aria-label="Calendar settings"
+                title="Calendar settings"
+              >
+                <svg 
+                  className="w-6 h-6 text-gray-600 hover:text-gray-900" 
+                  fill="none" 
+                  viewBox="0 0 24 24" 
+                  stroke="currentColor" 
+                  strokeWidth={2}
+                >
+                  <path 
+                    strokeLinecap="round" 
+                    strokeLinejoin="round" 
+                    d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" 
+                  />
+                  <path 
+                    strokeLinecap="round" 
+                    strokeLinejoin="round" 
+                    d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" 
+                  />
+                </svg>
+              </button>
             </div>
           </div>
 
           <div className="bg-white border border-gray-200 rounded-lg overflow-hidden relative flex flex-col">
-            {/* Show loading indicator */}
-            {loading && (
-              <div className="flex items-center justify-center h-64">
-                <div className="text-gray-500">Loading bookings...</div>
+            {/* Show loading skeleton */}
+            {loading ? (
+              <div className="p-6 animate-pulse">
+                {/* Header with month/year and controls */}
+                <div className="flex items-center justify-between mb-6">
+                  <div className="h-8 bg-gray-300 rounded w-48"></div>
+                  <div className="flex gap-2">
+                    <div className="h-10 w-10 bg-gray-300 rounded"></div>
+                    <div className="h-10 w-10 bg-gray-300 rounded"></div>
+                  </div>
+                </div>
+                {/* Day names */}
+                <div className="grid grid-cols-7 gap-3 mb-3">
+                  {Array.from({ length: 7 }).map((_, i) => (
+                    <div key={i} className="h-4 bg-gray-200 rounded"></div>
+                  ))}
+                </div>
+                {/* Calendar grid */}
+                <div className="grid grid-cols-7 gap-3">
+                  {Array.from({ length: 35 }).map((_, i) => (
+                    <div key={i} className="min-h-[140px] rounded-xl bg-gray-100 p-3">
+                      <div className="h-5 bg-gray-300 rounded w-8 mb-2"></div>
+                      <div className="space-y-2">
+                        <div className="h-6 bg-gray-300 rounded"></div>
+                        <div className="h-6 bg-gray-300 rounded w-3/4"></div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
               </div>
-            )}
-            
-            {/* Mobile view takes precedence when isMobile */}
-            {!loading && isMobile ? (
-              mobileViewMode === 'monthly' ? (
-                <div className="p-3">
-                  <MobileMonth days={days} onDayPress={(d) => { setFocusedDate(d); setMobileViewMode('daily'); }} />
-                </div>
-              ) : (
-                <div className="p-0">
-                  <MobileDay 
-                    date={focusedDate} 
-                    bookingsForDay={bookings.filter(booking => {
-                      // Mobile day view (time-grid): include checkout day (<= endDay)
-                      const currentDay = new Date(focusedDate.getFullYear(), focusedDate.getMonth(), focusedDate.getDate());
-                      const startDay = new Date(booking.checkInDate.getFullYear(), booking.checkInDate.getMonth(), booking.checkInDate.getDate());
-                      const endDay = new Date(booking.checkOutDate.getFullYear(), booking.checkOutDate.getMonth(), booking.checkOutDate.getDate());
-                      return currentDay >= startDay && currentDay <= endDay;
-                    })}
-                  />
-                </div>
-              )
-            ) : !loading && (
-              // Desktop: existing monthly / weekly experience
+            ) : (
               <>
-                {viewMode === 'monthly' ? (
-                  <div className="p-6">
+                {/* Mobile view takes precedence when isMobile */}
+                {isMobile ? (
+                  mobileViewMode === 'monthly' ? (
+                    <div className="p-3">
+                      <MobileMonth days={days} onDayPress={(d) => { setFocusedDate(d); setMobileViewMode('daily'); }} />
+                    </div>
+                  ) : (
+                    <div className="p-0">
+                      <MobileDay 
+                        date={focusedDate} 
+                        bookingsForDay={bookings.filter(booking => {
+                          // Mobile day view (time-grid): include checkout day (<= endDay)
+                          const currentDay = new Date(focusedDate.getFullYear(), focusedDate.getMonth(), focusedDate.getDate());
+                          const startDay = new Date(booking.checkInDate.getFullYear(), booking.checkInDate.getMonth(), booking.checkInDate.getDate());
+                          const endDay = new Date(booking.checkOutDate.getFullYear(), booking.checkOutDate.getMonth(), booking.checkOutDate.getDate());
+                          return currentDay >= startDay && currentDay <= endDay;
+                        })}
+                      />
+                    </div>
+                  )
+                ) : (
+                  // Desktop: existing monthly / weekly experience
+                  <>
+                    {viewMode === 'monthly' ? (
+                      <div className="p-6">
                     <div className="grid grid-cols-7 gap-3 mb-3">
                       {dayNames.map((d) => (
                         <div key={d} className="text-center text-sm font-medium text-gray-700 tracking-wide">{d}</div>
@@ -1113,29 +1783,39 @@ const UnitCalendar: React.FC = () => {
                       {days.map((day, index) => {
                         const booking = getBookingForDate(day.fullDate);
                         const isCurrentMonth = day.isCurrentMonth;
+                        const isBlocked = isDateBlocked(day.fullDate);
+                        const specialPrice = getPriceForDate(day.fullDate);
 
-                        const bgClass = booking ? getStatusBgClass(booking.status) : 'bg-available';
-                        return (
+                        // Blocked dates override booking status
+                        const bgClass = isBlocked 
+                          ? 'bg-blocked' 
+                          : booking 
+                            ? getStatusBgClass(booking.status) 
+                            : 'bg-available';
+                        const blockedTooltip = isBlocked ? getBlockedDateTooltip(day.fullDate) : '';
+                        
+                        const dayCard = (
                           <div 
                             key={index} 
                             className={`min-h-[140px] rounded-xl p-3 relative transition-all duration-200 flex flex-col ${
                               isCurrentMonth ? `${bgClass} cursor-pointer` : 'bg-gray-50/50'
                             } hover:opacity-95`}
                             onClick={() => {
-                              if (isCurrentMonth) {
+                              if (isCurrentMonth && !isBlocked) {
                                 // Set focusedDate when clicking a day in month view (for week view centering)
                                 setFocusedDate(day.fullDate);
-                                // If there's a booking, also open the slide panel
+                                // If there's a booking, open the drawer with booking details
                                 if (booking) {
-                                  openSlideForDate(day.fullDate);
+                                  handleTimelineBookingClick(booking);
                                 }
                               }
                             }}
                           >
-                            <div className={`text-sm font-semibold mb-2 ${isCurrentMonth ? 'text-gray-900' : 'text-gray-400'}`}>
-                              {day.date}
-                            </div>
-
+                <div className="flex items-center justify-between mb-2">
+                  <div className={`text-sm font-semibold ${isCurrentMonth ? 'text-gray-900' : 'text-gray-400'}`}>
+                    {day.date}
+                  </div>
+                </div>
                             {booking && isCurrentMonth && (
                               <div className="mt-2 flex flex-col flex-1 space-y-0.5">
                                 <div>
@@ -1146,21 +1826,33 @@ const UnitCalendar: React.FC = () => {
                                     {formatStayRange(booking.checkInDate, booking.checkOutDate)}
                                   </div>
                                   <div className="text-xs text-gray-600 line-clamp-1">
-                                    {formatCheckInTime(booking.checkInDateString, booking.checkInDate)}
+                                    {getDefaultCheckInTime()} check-in
                                   </div>
                                 </div>
                                 {/* Don't show price for booked days - day is not sellable */}
                               </div>
                             )}
-                            {!booking && isCurrentMonth && listing && ((listing as any).base_price || listing.price) && (
+                            {!booking && isCurrentMonth && listing && (
                               <div className="mt-auto text-right">
-                                <div className="text-xs text-black font-medium">
-                                  ₱ {((listing as any).base_price || listing.price).toLocaleString()}
-                                </div>
+                                {specialPrice ? (
+                                  <div className="text-xs text-black font-medium">
+                                    ₱ {specialPrice.toLocaleString()}
+                                  </div>
+                                ) : ((listing as any).base_price || listing.price) ? (
+                                  <div className="text-xs text-black font-medium">
+                                    ₱ {((listing as any).base_price || listing.price).toLocaleString()}
+                                  </div>
+                                ) : null}
                               </div>
                             )}
                           </div>
                         );
+                        
+                        return blockedTooltip ? (
+                          <Tooltip key={index} content={blockedTooltip}>
+                            {dayCard}
+                          </Tooltip>
+                        ) : dayCard;
                       })}
                     </div>
                   </div>
@@ -1274,37 +1966,38 @@ const UnitCalendar: React.FC = () => {
                                   <span>{h}</span>
                                 </div>
 
-                                {/* Day columns for this hour */}
+                                {/* Day columns for this hour - with full-height booking blocks */}
                                 {weekDays.map((day, dayIndex) => {
-                                  const currentDay = new Date(day.getFullYear(), day.getMonth(), day.getDate());
                                   const isInSelectedMonth = day.getMonth() === currentDate.getMonth() && day.getFullYear() === currentDate.getFullYear();
                                   const isLastDay = dayIndex === weekDays.length - 1;
                                   const isLastHour = hourIdx === hours.length - 1;
 
-                                  // Find bookings that should render a segment starting at this hour
-                                  // Week view includes checkout day (currentDay <= endDay) unlike month view
-                                  const bookingsToRender = bookings
-                                    .filter(booking => {
-                                      const startDay = new Date(booking.checkInDate.getFullYear(), booking.checkInDate.getMonth(), booking.checkInDate.getDate());
-                                      const endDay = new Date(booking.checkOutDate.getFullYear(), booking.checkOutDate.getMonth(), booking.checkOutDate.getDate());
-                                      
-                                      // Week view: include checkout day (<= endDay)
-                                      const isInRange = currentDay >= startDay && currentDay <= endDay;
-                                      if (!isInRange) return false;
-                                      
-                                      const isStartDay = currentDay.getTime() === startDay.getTime();
-                                      const segStart = isStartDay ? booking.startHour : 0;
-                                      
-                                      return hourIdx === segStart;
-                                    })
-                                    .sort((a, b) => {
-                                      // Sort by start hour, then by booking order
-                                      const aStart = currentDay.getTime() === new Date(a.checkInDate.getFullYear(), a.checkInDate.getMonth(), a.checkInDate.getDate()).getTime() 
-                                        ? a.startHour : 0;
-                                      const bStart = currentDay.getTime() === new Date(b.checkInDate.getFullYear(), b.checkInDate.getMonth(), b.checkInDate.getDate()).getTime()
-                                        ? b.startHour : 0;
-                                      return aStart - bStart;
-                                    });
+                                  // Get all bookings for this day (including multi-day bookings)
+                                  const dayBookings = getUniqueBookingsForDay(day, bookings);
+                                  
+                                  // Map bookings by their start hour for this day
+                                  const startsByHour = new Map<number, Array<{ booking: Booking; segStart: number; segEnd: number }>>();
+                                  dayBookings.forEach(booking => {
+                                    const dayOnly = new Date(day.getFullYear(), day.getMonth(), day.getDate());
+                                    const startDay = new Date(booking.checkInDate.getFullYear(), booking.checkInDate.getMonth(), booking.checkInDate.getDate());
+                                    const endDay = new Date(booking.checkOutDate.getFullYear(), booking.checkOutDate.getMonth(), booking.checkOutDate.getDate());
+                                    
+                                    // Check if booking overlaps with this day (include checkout day)
+                                    if (!(dayOnly >= startDay && dayOnly <= endDay)) return;
+                                    
+                                    const isStartDay = dayOnly.getTime() === startDay.getTime();
+                                    const isEndDay = dayOnly.getTime() === endDay.getTime();
+                                    const segStart = isStartDay ? booking.startHour : 0;
+                                    // On checkout day, extend only to checkout time; otherwise extend to end of day
+                                    const segEnd = isEndDay ? booking.endHour : 24;
+                                    
+                                    const arr = startsByHour.get(segStart) || [];
+                                    arr.push({ booking, segStart, segEnd });
+                                    startsByHour.set(segStart, arr);
+                                  });
+
+                                  // Get bookings that start at this hour
+                                  const starts = startsByHour.get(hourIdx) || [];
 
                                   return (
                                     <div
@@ -1318,22 +2011,11 @@ const UnitCalendar: React.FC = () => {
                                         backgroundColor: !isInSelectedMonth ? '#F9FAFB' : '#FFFFFF'
                                       }}
                                     >
-                                      {bookingsToRender.map((booking, bIndex) => {
-                                        const startDay = new Date(booking.checkInDate.getFullYear(), booking.checkInDate.getMonth(), booking.checkInDate.getDate());
-                                        const endDay = new Date(booking.checkOutDate.getFullYear(), booking.checkOutDate.getMonth(), booking.checkOutDate.getDate());
-                                        const isStartDay = currentDay.getTime() === startDay.getTime();
-                                        const isCheckOutDay = currentDay.getTime() === endDay.getTime();
+                                      {/* Full-height booking blocks - positioned absolutely based on start/end times */}
+                                      {starts.map(({ booking, segStart, segEnd }, i) => {
+                                        const span = Math.max(1, segEnd - segStart);
                                         
-                                        const segStart = isStartDay ? booking.startHour : 0;
-                                        const segEnd = isCheckOutDay ? booking.endHour : 24;
-                                        const segmentHours = segEnd - segStart;
-                                        
-                                        // Calculate position and height with spacing
-                                        const spacing = 4; // 4px spacing between events and borders
-                                        const topOffset = spacing;
-                                        const blockHeight = segmentHours * HOUR_ROW_PX - (spacing * 2);
-
-                                        // Get status color for border (apply to all segments)
+                                        // Status color mapping for left border (darker solid colors)
                                         const statusColorMap: Record<string, string> = {
                                           'bg-booked': '#B84C4C',
                                           'bg-pending': '#F6D658',
@@ -1342,53 +2024,47 @@ const UnitCalendar: React.FC = () => {
                                         };
                                         const statusClass = getStatusBgClass(booking.status);
                                         const borderColor = statusColorMap[statusClass] || '#B84C4C';
-
+                                        
+                                        // Format date range for display
+                                        const checkInFormatted = booking.checkInDate.toLocaleDateString('en-US', { 
+                                          month: 'short', 
+                                          day: 'numeric'
+                                        });
+                                        const checkOutFormatted = booking.checkOutDate.toLocaleDateString('en-US', { 
+                                          month: 'short', 
+                                          day: 'numeric'
+                                        });
+                                        const dateRange = checkInFormatted === checkOutFormatted 
+                                          ? checkInFormatted 
+                                          : `${checkInFormatted} - ${checkOutFormatted}`;
+                                        
                                         return (
-                                          <div
-                                            key={`${booking.bookingId || booking.title}-${dayIndex}-${bIndex}`}
-                                            className={`event-block ${statusClass}`}
-                                            onClick={() => openSlideForDate(day)}
-                                            onMouseDown={(e) => e.preventDefault()} // Prevent focus outline on click
-                                            style={{
-                                              position: 'absolute',
-                                              left: `${spacing}px`,
-                                              right: `${spacing}px`,
-                                              top: `${topOffset}px`,
-                                              height: `${blockHeight}px`,
-                                              zIndex: 10 + bIndex,
-                                              borderRadius: '8px',
-                                              boxShadow: '0 1px 2px rgba(0,0,0,0.08)',
-                                              padding: '6px 8px',
-                                              display: 'flex',
-                                              flexDirection: 'column',
-                                              justifyContent: 'center',
-                                              alignItems: 'flex-start',
-                                              textAlign: 'left',
-                                              color: '#111827',
-                                              borderLeft: `3px solid ${borderColor}`, // Show accent on all segments
-                                              borderTop: 'none',
-                                              borderRight: 'none',
-                                              borderBottom: 'none',
-                                              cursor: 'pointer',
-                                              transition: 'all 150ms ease',
-                                              outline: 'none', // Remove default focus outline
+                                          <button
+                                            key={`${booking.bookingId || booking.title}-${hourIdx}-${dayIndex}-${i}`}
+                                            onClick={() => handleTimelineBookingClick(booking)}
+                                            className={`absolute left-2 right-2 ${statusClass} rounded-md p-3 text-left shadow cursor-pointer hover:shadow-md transition-shadow`}
+                                            style={{ 
+                                              top: 8, 
+                                              height: span * HOUR_ROW_PX - 16, 
+                                              zIndex: 10,
+                                              borderLeft: `4px solid ${borderColor}`, // Status-colored left border
+                                              fontFamily: 'Poppins'
                                             }}
-                                            tabIndex={-1} // Prevent keyboard focus
-                                            aria-label={`${booking.clientFirstName || 'Guest'} - ${formatStayRange(booking.checkInDate, booking.checkOutDate)}`}
+                                            aria-label={`${booking.title} ${booking.time}`}
                                           >
-                                            {/* Show booking info on all event segments */}
-                                            <div className="space-y-0.5">
-                                              <div className="text-xs font-semibold text-gray-900 line-clamp-1">
-                                                {booking.clientFirstName || 'Guest'}
-                                              </div>
-                                              <div className="text-xs text-gray-700 line-clamp-1">
-                                                {formatStayRange(booking.checkInDate, booking.checkOutDate)}
-                                              </div>
-                                              <div className="text-xs text-gray-600 line-clamp-1">
-                                                {formatCheckInTime(booking.checkInDateString, booking.checkInDate)}
-                                              </div>
+                                            {/* Guest name - black, increased font weight */}
+                                            <div className="font-bold text-sm text-black" style={{ fontFamily: 'Poppins' }}>
+                                              {booking.clientFirstName || 'Guest'}
                                             </div>
-                                          </div>
+                                            {/* Date range - grey */}
+                                            <div className="text-xs text-gray-600 mt-0.5" style={{ fontFamily: 'Poppins' }}>
+                                              {dateRange}
+                                            </div>
+                                            {/* Time - grey - shows listing default check-in and check-out times */}
+                                            <div className="text-xs text-gray-600 mt-0.5" style={{ fontFamily: 'Poppins' }}>
+                                              {booking.time}
+                                            </div>
+                                          </button>
                                         );
                                       })}
                                     </div>
@@ -1450,9 +2126,11 @@ const UnitCalendar: React.FC = () => {
                   </>
                 )}
               </>
+              )}
+              {/* Legend pinned to the bottom of the calendar panel */}
+              {!loading && <CalendarLegend />}
+            </>
             )}
-            {/* Legend pinned to the bottom of the calendar panel */}
-            {!loading && <CalendarLegend />}
           </div>
         </div>
       </div>
@@ -1515,6 +2193,460 @@ const UnitCalendar: React.FC = () => {
           </div>
         </>
       )}
+
+      {/* Timeline Booking Details Drawer */}
+      {isDrawerOpen && selectedBooking && (
+        <>
+          {/* Overlay */}
+          <div
+            className="fixed inset-0 z-40 cursor-pointer"
+            style={{
+              backdropFilter: 'blur(4px)',
+              backgroundColor: 'rgba(0, 0, 0, 0.25)',
+              transition: 'background-color 0.25s ease'
+            }}
+            onClick={closeDrawer}
+          />
+
+          {/* Drawer */}
+          <div className={`fixed inset-y-0 right-0 w-full sm:w-[640px] bg-white shadow-xl z-50 flex flex-col ${isDrawerClosing ? 'animate-slide-out' : 'animate-slide-in'}`}>
+            {/* Drawer Header */}
+            <div className="px-6 py-6 pb-6">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-2xl font-bold text-gray-900" style={{ fontFamily: 'Poppins' }}>
+                  Booking Details
+                </h2>
+                <button
+                  onClick={closeDrawer}
+                  className="p-2 rounded-full hover:bg-gray-100 active:bg-gray-200 transition-all duration-200 cursor-pointer"
+                >
+                  <svg className="w-6 h-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+              {/* Booking Status */}
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <span className="text-base font-bold text-gray-900" style={{ fontFamily: 'Poppins' }}>Status:</span>
+                  <span className="text-base font-semibold text-gray-900" style={{ fontFamily: 'Poppins' }}>
+                    {(() => {
+                      const status = selectedBooking.status;
+                      if (status === 'pending') return 'Pending';
+                      if (status === 'confirmed' || status === 'ongoing' || status === 'completed') return 'Approved';
+                      if (status === 'declined' || status === 'cancelled') return 'Declined';
+                      // Fallback: capitalize first letter of status string
+                      const statusStr = String(status);
+                      return statusStr.charAt(0).toUpperCase() + statusStr.slice(1);
+                    })()}
+                  </span>
+                </div>
+                {selectedBooking.status === 'pending' && (
+                  <button
+                    onClick={() => {
+                      if (selectedBooking) {
+                        navigate(`/booking-details/${selectedBooking.id}`);
+                      }
+                    }}
+                    className="text-sm font-semibold transition-all duration-200 cursor-pointer hover:scale-105 active:scale-100 relative group"
+                    style={{ fontFamily: 'Poppins', color: '#0B5858' }}
+                  >
+                    <span className="relative inline-block">
+                      [ View Full Details ]
+                      <span className="absolute bottom-0 left-0 w-0 h-0.5 bg-[#0B5858] transition-all duration-300 group-hover:w-full"></span>
+                    </span>
+                  </button>
+                )}
+              </div>
+            </div>
+            {/* Divider */}
+            <div className="border-b border-gray-200"></div>
+
+            {/* Drawer Content */}
+            <div className="flex-1 overflow-y-auto p-6">
+              {/* Client and Agent Info */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                {/* Client Details */}
+                <div>
+                  <h3 className="text-base font-bold text-gray-900 mb-3" style={{ fontFamily: 'Poppins' }}>
+                    Client Information
+                  </h3>
+                  {selectedBooking.client ? (
+                    <div className="flex items-start gap-3 p-4 bg-gradient-to-br from-gray-50 to-gray-100 rounded-xl border border-gray-200">
+                      <div className="w-12 h-12 rounded-full bg-gradient-to-br from-[#0B5858] to-[#0a4a4a] flex items-center justify-center text-white font-bold text-lg flex-shrink-0">
+                        {`${selectedBooking.client.first_name.charAt(0)}${selectedBooking.client.last_name.charAt(0)}`}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-0.5">
+                          <svg className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                          </svg>
+                          <h4 className="text-xs text-gray-900" style={{ fontFamily: 'Poppins' }}>
+                            {`${selectedBooking.client.first_name} ${selectedBooking.client.last_name}`}
+                          </h4>
+                        </div>
+                        {selectedBooking.client.email && (
+                          <div className="flex items-center gap-2 mb-0.5">
+                            <svg className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                            </svg>
+                            <p className="text-xs text-gray-900 truncate" style={{ fontFamily: 'Poppins' }}>
+                              {selectedBooking.client.email}
+                            </p>
+                          </div>
+                        )}
+                        {selectedBooking.client.contact_number && (
+                          <div className="flex items-center gap-2">
+                            <svg className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
+                            </svg>
+                            <p className="text-xs text-gray-900" style={{ fontFamily: 'Poppins' }}>
+                              {selectedBooking.client.contact_number}
+                            </p>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="p-4 bg-gray-50 rounded-xl border border-gray-200">
+                      <p className="text-xs text-gray-500" style={{ fontFamily: 'Poppins' }}>No client information available</p>
+                    </div>
+                  )}
+                </div>
+
+                {/* Assigned Agent */}
+                <div>
+                  <h3 className="text-base font-bold text-gray-900 mb-3" style={{ fontFamily: 'Poppins' }}>
+                    Assigned Agent
+                  </h3>
+                  {selectedBooking.agent ? (
+                    <div className="flex items-start gap-3 p-4 bg-gradient-to-br from-gray-50 to-gray-100 rounded-xl border border-gray-200">
+                      <div className="w-12 h-12 rounded-full bg-gradient-to-br from-[#0B5858] to-[#0a4a4a] flex items-center justify-center text-white font-bold text-lg flex-shrink-0">
+                        {selectedBooking.agent.fullname ? selectedBooking.agent.fullname.charAt(0).toUpperCase() : 'A'}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-0.5">
+                          <svg className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                          </svg>
+                          <h4 className="text-xs text-gray-900" style={{ fontFamily: 'Poppins' }}>
+                            {selectedBooking.agent.fullname || 'Unknown Agent'}
+                          </h4>
+                        </div>
+                        {selectedBooking.agent.email && (
+                          <div className="flex items-center gap-2 mb-0.5">
+                            <svg className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                            </svg>
+                            <p className="text-xs text-gray-900 truncate" style={{ fontFamily: 'Poppins' }}>
+                              {selectedBooking.agent.email}
+                            </p>
+                          </div>
+                        )}
+                        {selectedBooking.agent.contact_number && (
+                          <div className="flex items-center gap-2">
+                            <svg className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
+                            </svg>
+                            <p className="text-xs text-gray-900" style={{ fontFamily: 'Poppins' }}>
+                              {selectedBooking.agent.contact_number}
+                            </p>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="p-4 bg-gray-50 rounded-xl border border-gray-200">
+                      <p className="text-xs text-gray-500" style={{ fontFamily: 'Poppins' }}>No agent assigned</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Booking Details */}
+              <div className="mb-6">
+                <h3 className="text-base font-bold text-gray-900 mb-3" style={{ fontFamily: 'Poppins' }}>
+                  Booking Details
+                </h3>
+                <div className="space-y-0 p-4 bg-gradient-to-br from-gray-50 to-gray-100 rounded-xl border border-gray-200">
+                  <div className="flex items-start py-1">
+                    <span className="text-xs font-medium text-gray-600 w-[30%]" style={{ fontFamily: 'Poppins' }}>Unit</span>
+                    <span className="text-xs text-gray-900 ml-4 flex-1" style={{ fontFamily: 'Poppins' }}>
+                      {selectedBooking.listing?.title || 'Unknown Unit'}
+                    </span>
+                  </div>
+                  <div className="flex items-start py-1">
+                    <span className="text-xs font-medium text-gray-600 w-[30%]" style={{ fontFamily: 'Poppins' }}>Location</span>
+                    <span className="text-xs text-gray-900 ml-4 flex-1" style={{ fontFamily: 'Poppins' }}>
+                      {selectedBooking.listing?.location || 'N/A'}
+                    </span>
+                  </div>
+                  <div className="flex items-start py-1">
+                    <span className="text-xs font-medium text-gray-600 w-[30%]" style={{ fontFamily: 'Poppins' }}>Check-in</span>
+                    <span className="text-xs text-gray-900 ml-4 flex-1" style={{ fontFamily: 'Poppins' }}>
+                      {new Date(selectedBooking.check_in_date).toLocaleDateString('en-US', {
+                        month: 'short',
+                        day: 'numeric',
+                        year: 'numeric'
+                      })}
+                    </span>
+                  </div>
+                  <div className="flex items-start py-1">
+                    <span className="text-xs font-medium text-gray-600 w-[30%]" style={{ fontFamily: 'Poppins' }}>Check-out</span>
+                    <span className="text-xs text-gray-900 ml-4 flex-1" style={{ fontFamily: 'Poppins' }}>
+                      {new Date(selectedBooking.check_out_date).toLocaleDateString('en-US', {
+                        month: 'short',
+                        day: 'numeric',
+                        year: 'numeric'
+                      })}
+                    </span>
+                  </div>
+                  {((selectedBooking.num_guests && selectedBooking.num_guests > 0) || (selectedBooking.extra_guests && selectedBooking.extra_guests > 0)) && (
+                    <div className="flex items-start py-1">
+                      <span className="text-xs font-medium text-gray-600 w-[30%]" style={{ fontFamily: 'Poppins' }}>Guest count</span>
+                      <span className="text-xs text-gray-900 ml-4 flex-1" style={{ fontFamily: 'Poppins' }}>
+                        {(() => {
+                          const adults = selectedBooking.num_guests || 0;
+                          const children = selectedBooking.extra_guests || 0;
+                          const parts = [];
+                          if (adults > 0) parts.push(`${adults} ${adults === 1 ? 'adult' : 'adults'}`);
+                          if (children > 0) parts.push(`${children} ${children === 1 ? 'child' : 'children'}`);
+                          return parts.join(', ');
+                        })()}
+                      </span>
+                    </div>
+                  )}
+                  <div className="flex items-start py-1">
+                    <span className="text-xs font-medium text-gray-600 w-[30%]" style={{ fontFamily: 'Poppins' }}>Total Price</span>
+                    <span className="text-xs text-gray-900 ml-4 flex-1" style={{ fontFamily: 'Poppins' }}>
+                      ₱ {selectedBooking.total_amount?.toLocaleString() || '0'}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Special Request */}
+              {selectedBooking.request_description && (
+                <div className="mb-6">
+                  <h3 className="text-base font-bold text-gray-900 mb-3" style={{ fontFamily: 'Poppins' }}>
+                    Special Request
+                  </h3>
+                  <div className="p-4 bg-gradient-to-br from-gray-50 to-gray-100 rounded-xl border border-gray-200">
+                    <p className="text-xs leading-relaxed text-gray-700" style={{ fontFamily: 'Poppins' }}>
+                      {selectedBooking.request_description}
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {/* Proof of Payment */}
+              {(selectedBooking as any).billing_document_url && (
+                <div className="mb-6">
+                  <h3 className="text-sm font-bold text-gray-900 uppercase tracking-wide mb-3" style={{ fontFamily: 'Poppins' }}>
+                    Proof of Payment
+                  </h3>
+                  <div className="p-4 bg-gray-50 border border-gray-200 rounded-xl">
+                    {(() => {
+                      const url = (selectedBooking as any).billing_document_url;
+                      const isImage = /\.(jpg|jpeg|png|gif|webp)$/i.test(url);
+                      return isImage ? (
+                        <img
+                          src={url}
+                          alt="Proof of payment"
+                          className="w-full max-h-96 object-contain rounded-lg border border-gray-300 shadow-sm"
+                        />
+                      ) : (
+                        <a
+                          href={url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-2 px-4 py-2 bg-[#0B5858] text-white rounded-lg hover:bg-[#0a4a4a] transition-colors font-medium text-sm"
+                          style={{ fontFamily: 'Poppins' }}
+                        >
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                          </svg>
+                          View Document
+                        </a>
+                      );
+                    })()}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Drawer Actions */}
+            <div className="px-6 py-5 border-t border-gray-200 flex gap-3">
+              <button
+                onClick={closeDrawer}
+                disabled={isProcessing}
+                className="flex-1 px-6 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-all duration-200 active:scale-95 cursor-pointer font-medium disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100"
+                style={{ fontFamily: 'Poppins' }}
+              >
+                Close
+              </button>
+              {selectedBooking.status === 'pending' && (
+                <>
+                  <button
+                    onClick={() => selectedBooking && openConfirmModal(selectedBooking)}
+                    disabled={isProcessing}
+                    className="flex-1 px-6 py-3 text-white rounded-lg transition-all duration-200 hover:opacity-90 hover:scale-105 active:scale-95 cursor-pointer font-medium disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 disabled:active:scale-100"
+                    style={{ fontFamily: 'Poppins', backgroundColor: '#B84C4C' }}
+                  >
+                    Decline
+                  </button>
+                  <button
+                    onClick={() => selectedBooking && handleApprove(selectedBooking)}
+                    disabled={isProcessing}
+                    className="flex-1 px-6 py-3 text-white rounded-lg transition-all duration-200 hover:opacity-90 hover:scale-105 active:scale-95 cursor-pointer font-medium disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 disabled:active:scale-100"
+                    style={{ fontFamily: 'Poppins', backgroundColor: '#05807E' }}
+                  >
+                    Approve
+                  </button>
+                </>
+              )}
+              {selectedBooking.status !== 'pending' && (
+                <button
+                  onClick={() => {
+                    if (selectedBooking) {
+                      navigate(`/booking-details/${selectedBooking.id}`);
+                    }
+                  }}
+                  className="flex-1 px-6 py-3 text-white rounded-lg transition-all duration-200 hover:opacity-90 hover:scale-105 active:scale-95 cursor-pointer font-medium"
+                  style={{ fontFamily: 'Poppins', backgroundColor: '#0B5858' }}
+                >
+                  View Full Details
+                </button>
+              )}
+            </div>
+          </div>
+        </>
+      )}
+
+      {/* Toast Notification */}
+      {toast.visible && (
+        <div
+          className="fixed bottom-6 right-6 z-[200] pointer-events-none"
+          style={{ fontFamily: 'Poppins' }}
+        >
+          <div
+            ref={toastRef}
+            className="toast-base px-4 py-3 rounded-lg pointer-events-auto"
+            style={{
+              background: '#FFFFFF',
+              boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
+              minWidth: '280px',
+              maxWidth: '400px',
+              borderLeft: `6px solid ${toast.type === 'success' ? '#0B5858' : '#B84C4C'}`
+            }}
+            onTransitionEnd={(e) => {
+              const el = e.currentTarget;
+              if (el.classList.contains('toast--exit')) {
+                setToast({ visible: false, message: '', type: 'success' });
+                el.classList.remove('toast--exit');
+              }
+            }}
+          >
+            {toast.message}
+          </div>
+        </div>
+      )}
+
+      {/* Confirmation Modal for Decline */}
+      {showConfirmModal && (
+        <div 
+          className="fixed inset-0 flex items-center justify-center z-[60]"
+          style={{
+            backdropFilter: 'blur(4px)',
+            backgroundColor: 'rgba(0, 0, 0, 0.25)',
+            transition: 'background-color 0.25s ease'
+          }}
+          onClick={closeConfirmModal}
+        >
+          <div 
+            className="max-w-md w-full mx-4"
+            style={{
+              background: '#FFFFFF',
+              borderRadius: 16,
+              boxShadow: '0 10px 40px rgba(0, 0, 0, 0.25)',
+              transform: confirmModalActive ? 'scale(1)' : 'scale(0.95)',
+              opacity: confirmModalActive ? 1 : 0,
+              transition: 'all 0.25s ease'
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="p-6">
+              <h3 className="text-lg font-semibold mb-2" style={{fontFamily: 'Poppins'}}>
+                Decline Booking Request
+              </h3>
+              <p className="text-gray-700 mb-5" style={{fontFamily: 'Poppins'}}>
+                Are you sure you want to decline this booking request? This action cannot be undone.
+              </p>
+              <div className="flex justify-end space-x-3">
+                <button
+                  onClick={closeConfirmModal}
+                  className="px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-all duration-200 active:scale-95 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100"
+                  style={{fontFamily: 'Poppins'}}
+                  disabled={isProcessing}
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleDecline}
+                  disabled={isProcessing}
+                  className="px-4 py-2 text-white rounded-lg transition-all duration-200 hover:opacity-90 hover:scale-105 active:scale-95 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 disabled:active:scale-100"
+                  style={{
+                    backgroundColor: '#B84C4C',
+                    fontFamily: 'Poppins'
+                  }}
+                >
+                  {isProcessing ? 'Processing...' : 'Decline'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Toast Styles */}
+      <style>{`
+        .toast-base { transform: translateX(100%); opacity: 0; transition: transform .28s ease-out, opacity .28s ease-out; will-change: transform, opacity; }
+        .toast--enter { transform: translateX(0); opacity: 1; }
+        .toast--exit { transform: translateX(100%); opacity: 0; }
+      `}</style>
+
+      {/* Slide-in and slide-out animations for drawer */}
+      <style>{`
+        @keyframes slide-in {
+          from {
+            transform: translateX(100%);
+          }
+          to {
+            transform: translateX(0);
+          }
+        }
+        @keyframes slide-out {
+          from {
+            transform: translateX(0);
+          }
+          to {
+            transform: translateX(100%);
+          }
+        }
+        .animate-slide-in {
+          animation: slide-in 0.3s ease-out;
+        }
+        .animate-slide-out {
+          animation: slide-out 0.3s ease-out;
+        }
+      `}</style>
+
+      {/* Calendar Settings Modal */}
+      <CalendarSettingsModal
+        isOpen={isSettingsModalOpen}
+        onClose={() => setIsSettingsModalOpen(false)}
+        unitId={id}
+      />
     </div>
   );
 };

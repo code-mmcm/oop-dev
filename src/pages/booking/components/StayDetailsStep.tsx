@@ -1,10 +1,13 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import type { BookingFormData, BookingAvailability } from '../../../types/booking';
+import type { Listing } from '../../../types/listing';
 import { BookingService } from '../../../services/bookingService';
+import { CalendarService } from '../../../services/calendarService';
 
 interface StayDetailsStepProps {
   formData: BookingFormData;
   listingId?: string;
+  listing?: Listing | null;
   onUpdate: (data: Partial<BookingFormData>) => void;
   onNext: () => void;
   onCancel: () => void;
@@ -12,7 +15,7 @@ interface StayDetailsStepProps {
 
 const WEEK_DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
-const StayDetailsStep: React.FC<StayDetailsStepProps> = ({ formData, listingId, onUpdate, onNext, onCancel }) => {
+const StayDetailsStep: React.FC<StayDetailsStepProps> = ({ formData, listingId, listing, onUpdate, onNext, onCancel }) => {
   const parseYMD = (s?: string): Date | null => {
     if (!s) return null;
     const [y, m, d] = s.split('-').map(Number);
@@ -30,6 +33,8 @@ const StayDetailsStep: React.FC<StayDetailsStepProps> = ({ formData, listingId, 
 
   const [showLeadNotice, setShowLeadNotice] = useState<boolean>(true);
   const [existingBookings, setExistingBookings] = useState<BookingAvailability[]>([]);
+  const [isDateRangeBlocked, setIsDateRangeBlocked] = useState<boolean>(false);
+  const [blockedDateError, setBlockedDateError] = useState<string>('');
 
   const initialStart = toDateOnly(parseYMD(formData.checkInDate));
   const initialEnd = toDateOnly(parseYMD(formData.checkOutDate));
@@ -45,8 +50,35 @@ const StayDetailsStep: React.FC<StayDetailsStepProps> = ({ formData, listingId, 
   const [isDateModalOpen, setDateModalOpen] = useState(false);
   const [dateModalField, setDateModalField] = useState<'checkIn' | 'checkOut' | null>(null);
 
-  const [activeTimeField, setActiveTimeField] = useState<'checkInTime' | 'checkOutTime' | null>(null);
-  const [isTimeSheetOpen, setTimeSheetOpen] = useState(false);
+  /**
+   * Convert HH:mm format (24-hour) to 12-hour format with AM/PM
+   * @param time24 - Time in HH:mm format (e.g., "14:00")
+   * @returns Formatted time string (e.g., "2:00 PM")
+   */
+  const formatTime12Hour = (time24?: string): string => {
+    if (!time24) return 'Not set';
+    const [hours, minutes] = time24.split(':').map(Number);
+    if (isNaN(hours) || isNaN(minutes)) return 'Not set';
+    const period = hours >= 12 ? 'PM' : 'AM';
+    let hour12 = hours % 12;
+    if (hour12 === 0) hour12 = 12;
+    const mm = String(minutes).padStart(2, '0');
+    return `${hour12}:${mm} ${period}`;
+  };
+
+  // Get default times from listing
+  const defaultCheckInTime = listing?.check_in_time || '14:00';
+  const defaultCheckOutTime = listing?.check_out_time || '12:00';
+
+  // Automatically set times from listing when dates are selected
+  useEffect(() => {
+    if (formData.checkInDate && !formData.checkInTime) {
+      onUpdate({ checkInTime: defaultCheckInTime });
+    }
+    if (formData.checkOutDate && !formData.checkOutTime) {
+      onUpdate({ checkOutTime: defaultCheckOutTime });
+    }
+  }, [formData.checkInDate, formData.checkOutDate, defaultCheckInTime, defaultCheckOutTime, onUpdate]);
 
   useEffect(() => {
     const fetchBookings = async () => {
@@ -64,6 +96,38 @@ const StayDetailsStep: React.FC<StayDetailsStepProps> = ({ formData, listingId, 
     };
     fetchBookings();
   }, [listingId]);
+
+  // Check if selected date range is blocked
+  useEffect(() => {
+    const checkBlockedDates = async () => {
+      if (!listingId || !formData.checkInDate || !formData.checkOutDate) {
+        setIsDateRangeBlocked(false);
+        setBlockedDateError('');
+        return;
+      }
+
+      try {
+        const isBlocked = await CalendarService.isDateRangeBlocked(
+          listingId,
+          formData.checkInDate,
+          formData.checkOutDate
+        );
+        
+        setIsDateRangeBlocked(isBlocked);
+        if (isBlocked) {
+          setBlockedDateError('Selected dates include blocked dates. Please choose different dates.');
+        } else {
+          setBlockedDateError('');
+        }
+      } catch (error) {
+        console.error('Error checking blocked dates:', error);
+        setIsDateRangeBlocked(false);
+        setBlockedDateError('');
+      }
+    };
+
+    checkBlockedDates();
+  }, [listingId, formData.checkInDate, formData.checkOutDate]);
 
   useEffect(() => {
     const start = toDateOnly(parseYMD(formData.checkInDate));
@@ -87,29 +151,6 @@ const StayDetailsStep: React.FC<StayDetailsStepProps> = ({ formData, listingId, 
     setSelectedDates({ start, end });
   }, [formData.checkInDate, formData.checkOutDate, minAllowedDate, onUpdate]);
 
-  // Helper to format a given hour/minute into 12-hour clock with AM/PM
-  const format12Hour = (hour24: number, minute: number) => {
-    const period = hour24 >= 12 ? 'PM' : 'AM';
-    let hour12 = hour24 % 12;
-    if (hour12 === 0) hour12 = 12;
-    const mm = String(minute).padStart(2, '0');
-    return `${hour12}:${mm} ${period}`;
-  };
-
-  // Generate time options in 12-hour format (e.g., "1:30 PM")
-  const generateTimeOptions = (incrementMinutes = 30) => {
-    const opts: string[] = [];
-    for (let h = 0; h < 24; h++) {
-      for (let m = 0; m < 60; m += incrementMinutes) {
-        opts.push(format12Hour(h, m));
-      }
-    }
-    return opts;
-  };
-  const timeOptions = useMemo(() => generateTimeOptions(30), []);
-  const handleTimeChange = (field: 'checkInTime' | 'checkOutTime', value: string) => {
-    onUpdate({ [field]: value });
-  };
 
   const baseGuests: number = (formData as any).baseGuests ?? 2;
   const handleGuestChange = (field: 'numberOfGuests' | 'extraGuests', value: number) => {
@@ -149,8 +190,8 @@ const StayDetailsStep: React.FC<StayDetailsStepProps> = ({ formData, listingId, 
       formData.checkInDate &&
       formData.checkOutDate &&
       (formData.numberOfGuests ?? 0) > 0 &&
-      formData.checkInTime &&
-      formData.checkOutTime
+      !isDateRangeBlocked &&
+      !blockedDateError
     );
 
   const firstDayOfMonth = (y: number, m: number) => new Date(y, m, 1);
@@ -166,6 +207,69 @@ const StayDetailsStep: React.FC<StayDetailsStepProps> = ({ formData, listingId, 
       if (!bookingStart || !bookingEnd) return false;
       return checkDate.getTime() >= bookingStart.getTime() && checkDate.getTime() < bookingEnd.getTime();
     });
+  };
+
+  /**
+   * Check if a date is blocked (from calendar settings)
+   * This is a synchronous check using a cached list would be better, but for now we'll use async
+   */
+  const [blockedDatesCache, setBlockedDatesCache] = useState<Set<string>>(new Set());
+  
+  useEffect(() => {
+    const loadBlockedDates = async () => {
+      if (!listingId) {
+        setBlockedDatesCache(new Set());
+        return;
+      }
+      
+      try {
+        // Load both listing-specific and global blocked dates
+        const [listingBlockedRanges, globalBlockedRanges] = await Promise.all([
+          CalendarService.getBlockedRanges(listingId),
+          CalendarService.getBlockedRanges('global')
+        ]);
+        
+        const blockedSet = new Set<string>();
+        
+        // Add listing-specific blocked dates
+        listingBlockedRanges.forEach(range => {
+          const start = new Date(range.start_date);
+          const end = new Date(range.end_date);
+          const current = new Date(start);
+          
+          while (current <= end) {
+            const dateStr = formatYMD(current);
+            blockedSet.add(dateStr);
+            current.setDate(current.getDate() + 1);
+          }
+        });
+        
+        // Add global blocked dates (apply to all listings)
+        globalBlockedRanges.forEach(range => {
+          const start = new Date(range.start_date);
+          const end = new Date(range.end_date);
+          const current = new Date(start);
+          
+          while (current <= end) {
+            const dateStr = formatYMD(current);
+            blockedSet.add(dateStr);
+            current.setDate(current.getDate() + 1);
+          }
+        });
+        
+        setBlockedDatesCache(blockedSet);
+      } catch (error) {
+        console.error('Error loading blocked dates:', error);
+        setBlockedDatesCache(new Set());
+      }
+    };
+    
+    loadBlockedDates();
+  }, [listingId]);
+
+  const isDateBlocked = (date: Date): boolean => {
+    const dateStr = formatYMD(date);
+    return blockedDatesCache.has(dateStr);
   };
 
   const generateCalendarDays = () => {
@@ -195,7 +299,8 @@ const StayDetailsStep: React.FC<StayDetailsStepProps> = ({ formData, listingId, 
       const date = new Date(calendarYear, calendarMonth, d);
       const isBeforeMinDate = minAllowedDate ? date.getTime() < minAllowedDate.getTime() : false;
       const isBooked = isDateBooked(date);
-      const isDisabled = isBeforeMinDate || isBooked;
+      const isBlocked = isDateBlocked(date);
+      const isDisabled = isBeforeMinDate || isBooked || isBlocked;
       const isSelected = !!(startOnly && endOnly && date >= startOnly && date <= endOnly);
       const isStart = !!(startOnly && date.getTime() === startOnly.getTime());
       const isEnd = !!(endOnly && date.getTime() === endOnly.getTime());
@@ -285,7 +390,7 @@ const StayDetailsStep: React.FC<StayDetailsStepProps> = ({ formData, listingId, 
     }
   };
 
-  const pricePerNight = formData.pricePerNight ?? 2000;
+  const basePricePerNight = formData.pricePerNight ?? 2000;
   const extraGuestFeePerPerson = formData.extraGuestFeePerPerson ?? 250;
   const extraGuests = Math.max(0, Math.floor(formData.extraGuests ?? 0));
 
@@ -298,7 +403,66 @@ const StayDetailsStep: React.FC<StayDetailsStepProps> = ({ formData, listingId, 
     return Math.max(0, diff);
   }, [formData.checkInDate, formData.checkOutDate]);
 
-  const subtotal = useMemo(() => nights * pricePerNight, [nights, pricePerNight]);
+  // Calculate subtotal using special pricing per night
+  const [pricingRulesCache, setPricingRulesCache] = useState<Map<string, number>>(new Map());
+  
+  useEffect(() => {
+    const loadPricingRules = async () => {
+      if (!listingId) {
+        setPricingRulesCache(new Map());
+        return;
+      }
+      
+      try {
+        const rules = await CalendarService.getPricingRules(listingId);
+        const pricingMap = new Map<string, number>();
+        
+        rules.forEach(rule => {
+          const start = new Date(rule.start_date);
+          const end = new Date(rule.end_date);
+          const current = new Date(start);
+          
+          while (current <= end) {
+            const dateStr = formatYMD(current);
+            // Use the most recent rule if multiple rules apply to the same date
+            if (!pricingMap.has(dateStr) || new Date(rule.created_at) > new Date(rules.find(r => pricingMap.get(dateStr) === r.price)?.created_at || '')) {
+              pricingMap.set(dateStr, rule.price);
+            }
+            current.setDate(current.getDate() + 1);
+          }
+        });
+        
+        setPricingRulesCache(pricingMap);
+      } catch (error) {
+        console.error('Error loading pricing rules:', error);
+        setPricingRulesCache(new Map());
+      }
+    };
+    
+    loadPricingRules();
+  }, [listingId]);
+
+  // Calculate subtotal using special pricing per night
+  const subtotal = useMemo(() => {
+    if (!formData.checkInDate || !formData.checkOutDate || nights === 0) return 0;
+    
+    const start = toDateOnly(parseYMD(formData.checkInDate));
+    const end = toDateOnly(parseYMD(formData.checkOutDate));
+    if (!start || !end) return 0;
+    
+    let total = 0;
+    const current = new Date(start);
+    
+    while (current < end) {
+      const dateStr = formatYMD(current);
+      const specialPrice = pricingRulesCache.get(dateStr);
+      const nightPrice = specialPrice ?? basePricePerNight;
+      total += nightPrice;
+      current.setDate(current.getDate() + 1);
+    }
+    
+    return total;
+  }, [formData.checkInDate, formData.checkOutDate, nights, basePricePerNight, pricingRulesCache]);
   const extraGuestFees = useMemo(() => {
     if (!extraGuests || extraGuests <= 0 || nights <= 0) return 0;
     return extraGuests * extraGuestFeePerPerson * nights;
@@ -317,7 +481,7 @@ const StayDetailsStep: React.FC<StayDetailsStepProps> = ({ formData, listingId, 
     v.toLocaleString('en-PH', { style: 'currency', currency: 'PHP', minimumFractionDigits: 0 });
 
   useEffect(() => {
-    if (isDateModalOpen || isTimeSheetOpen) {
+    if (isDateModalOpen) {
       document.body.style.overflow = 'hidden';
     } else {
       document.body.style.overflow = '';
@@ -325,7 +489,7 @@ const StayDetailsStep: React.FC<StayDetailsStepProps> = ({ formData, listingId, 
     return () => {
       document.body.style.overflow = '';
     };
-  }, [isDateModalOpen, isTimeSheetOpen]);
+  }, [isDateModalOpen]);
 
   const displayDateLabel = (d?: string) => {
     if (!d) return 'Select date';
@@ -333,7 +497,6 @@ const StayDetailsStep: React.FC<StayDetailsStepProps> = ({ formData, listingId, 
     if (!parsed) return 'Select date';
     return parsed.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
   };
-  const displayTimeLabel = (t?: string) => t || 'Select time';
 
   return (
     <div className="p-4 sm:p-6">
@@ -369,6 +532,21 @@ const StayDetailsStep: React.FC<StayDetailsStepProps> = ({ formData, listingId, 
           </div>
         )}
 
+        {blockedDateError && (
+          <div className="mb-3">
+            <div className="flex items-start justify-between bg-red-50 border border-red-200 rounded-md px-3 py-2">
+              <div className="flex items-start gap-2">
+                <svg className="w-5 h-5 text-red-600 mt-0.5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                </svg>
+                <div className="text-xs sm:text-sm text-red-800" style={{ fontFamily: 'Poppins' }}>
+                  {blockedDateError}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 lg:gap-6">
           <div className="lg:col-span-2 space-y-4">
             <div className="border border-[#E6F5F4] rounded-lg p-3 sm:p-4 bg-white shadow-sm text-xs sm:text-sm">
@@ -390,30 +568,20 @@ const StayDetailsStep: React.FC<StayDetailsStepProps> = ({ formData, listingId, 
                       aria-expanded={isDateModalOpen && dateModalField === 'checkIn'}
                       aria-label="Open date picker for check in"
                     >
-                      <div className="text-left">
-                        <div className="text-[11px] sm:text-sm text-gray-600">Dates</div>
+                      <div className="text-left flex-1">
+                        <div className="text-[11px] sm:text-sm text-gray-600">Check-in Date</div>
                         <div className="font-semibold text-[#0B5858]" style={{ fontFamily: 'Poppins' }}>
                           {formData.checkInDate ? displayDateLabel(formData.checkInDate) : 'Select date'}
                         </div>
                       </div>
-
-                      <div className="ml-4 flex items-center gap-3">
-                        <button
-                          onClick={(e: React.MouseEvent) => {
-                            e.stopPropagation();
-                            e.preventDefault();
-                            setActiveTimeField('checkInTime');
-                            setTimeSheetOpen(true);
-                          }}
-                          className="w-36 md:w-36 h-10 rounded-md border border-[#E6F5F4] bg-white text-sm flex items-center justify-center gap-2"
-                          aria-label="Open check-in time selector"
-                        >
-                          <span className="text-xs text-gray-600">{displayTimeLabel(formData.checkInTime)}</span>
-                          <span className="text-gray-400">⏱</span>
-                        </button>
-                      </div>
                     </button>
                   </div>
+                  {/* Default check-in time display */}
+                  {listing?.check_in_time && (
+                    <div className="mt-2 text-xs text-gray-600" style={{ fontFamily: 'Poppins' }}>
+                      Check-in time: <span className="font-semibold text-gray-800">{formatTime12Hour(listing.check_in_time)}</span>
+                    </div>
+                  )}
                 </div>
 
                 <div>
@@ -429,30 +597,20 @@ const StayDetailsStep: React.FC<StayDetailsStepProps> = ({ formData, listingId, 
                       aria-expanded={isDateModalOpen && dateModalField === 'checkOut'}
                       aria-label="Open date picker for check out"
                     >
-                      <div className="text-left">
-                        <div className="text-[11px] sm:text-sm text-gray-600">Dates</div>
+                      <div className="text-left flex-1">
+                        <div className="text-[11px] sm:text-sm text-gray-600">Check-out Date</div>
                         <div className="font-semibold text-[#0B5858]" style={{ fontFamily: 'Poppins' }}>
                           {formData.checkOutDate ? displayDateLabel(formData.checkOutDate) : 'Select date'}
                         </div>
                       </div>
-
-                      <div className="ml-4 flex items-center gap-3">
-                        <button
-                          onClick={(e: React.MouseEvent) => {
-                            e.stopPropagation();
-                            e.preventDefault();
-                            setActiveTimeField('checkOutTime');
-                            setTimeSheetOpen(true);
-                          }}
-                          className="w-36 md:w-36 h-10 rounded-md border border-[#E6F5F4] bg-white text-sm flex items-center justify-center gap-2"
-                          aria-label="Open check-out time selector"
-                        >
-                          <span className="text-xs text-gray-600">{displayTimeLabel(formData.checkOutTime)}</span>
-                          <span className="text-gray-400">⏱</span>
-                        </button>
-                      </div>
                     </button>
                   </div>
+                  {/* Default check-out time display */}
+                  {listing?.check_out_time && (
+                    <div className="mt-2 text-xs text-gray-600" style={{ fontFamily: 'Poppins' }}>
+                      Check-out time: <span className="font-semibold text-gray-800">{formatTime12Hour(listing.check_out_time)}</span>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
@@ -643,7 +801,7 @@ const StayDetailsStep: React.FC<StayDetailsStepProps> = ({ formData, listingId, 
                       {formattedRange ?? '—'}
                     </div>
                     <div className="text-[11px] text-gray-500 mt-2" style={{ fontFamily: 'Poppins' }}>
-                      Use the clock button next to each date input to open the time sheet and select times.
+                      Check-in and check-out times are set by the host and will be applied automatically.
                     </div>
                   </div>
                 </div>
@@ -675,9 +833,16 @@ const StayDetailsStep: React.FC<StayDetailsStepProps> = ({ formData, listingId, 
                 <h4 className="text-sm font-semibold text-gray-800 mb-2" style={{ fontFamily: 'Poppins' }}>Booking Summary</h4>
 
                 <div className="flex items-center justify-between text-xs sm:text-sm text-gray-600 mb-1">
-                  <div>Price / night</div>
-                  <div className="font-semibold text-gray-800" style={{ fontFamily: 'Poppins' }}>{formatCurrency(pricePerNight)}</div>
+                  <div>Base price / night</div>
+                  <div className="font-semibold text-gray-800" style={{ fontFamily: 'Poppins' }}>{formatCurrency(basePricePerNight)}</div>
                 </div>
+
+                {nights > 0 && pricingRulesCache.size > 0 && (
+                  <div className="flex items-center justify-between text-xs sm:text-sm text-amber-600 mb-1">
+                    <div>Special pricing applied</div>
+                    <div className="font-semibold" style={{ fontFamily: 'Poppins' }}>Yes</div>
+                  </div>
+                )}
 
                 <div className="flex items-center justify-between text-xs sm:text-sm text-gray-600 mb-1">
                   <div>Nights</div>
@@ -847,9 +1012,9 @@ const StayDetailsStep: React.FC<StayDetailsStepProps> = ({ formData, listingId, 
                     </div>
                   </div>
 
-                  <div className="text-xs text-gray-500">
-                    This calendar selects only the date for the field you opened it from. Times are selected via the clock button next to each date input.
-                  </div>
+                    <div className="text-xs text-gray-500">
+                      Check-in and check-out times are set by the host and will be applied automatically.
+                    </div>
 
                   <div className="mt-2 flex gap-2">
                     <button
@@ -884,44 +1049,6 @@ const StayDetailsStep: React.FC<StayDetailsStepProps> = ({ formData, listingId, 
         </div>
       )}
 
-      {isTimeSheetOpen && activeTimeField && (
-        <div
-          role="dialog"
-          aria-modal="true"
-          aria-label={activeTimeField === 'checkInTime' ? 'Select check in time' : 'Select check out time'}
-          className="fixed inset-0 z-50 flex items-end justify-center"
-        >
-          <div className="absolute inset-0 bg-black/40" onClick={() => { setTimeSheetOpen(false); setActiveTimeField(null); }} />
-          <div className="relative w-full bg-white rounded-t-xl p-4 max-h-[70vh] overflow-auto" style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 16px)' }}>
-            <div className="flex items-center justify-between mb-3">
-              <div className="text-sm font-semibold" style={{ fontFamily: 'Poppins' }}>
-                {activeTimeField === 'checkInTime' ? 'Check-in time' : 'Check-out time'}
-              </div>
-              <button onClick={() => { setTimeSheetOpen(false); setActiveTimeField(null); }} className="text-gray-600">✕</button>
-            </div>
-
-            <div className="grid grid-cols-3 gap-2">
-              {timeOptions.map(t => {
-                const selected = (activeTimeField === 'checkInTime' ? formData.checkInTime : formData.checkOutTime) === t;
-                return (
-                  <button
-                    key={t}
-                    onClick={() => {
-                      if (activeTimeField) handleTimeChange(activeTimeField, t);
-                      setTimeSheetOpen(false);
-                      setActiveTimeField(null);
-                    }}
-                    className={`py-2 px-3 rounded-md text-sm ${selected ? 'bg-[#0B5858] text-white' : 'bg-white border border-[#E6F5F4] text-gray-700'}`}
-                    style={{ fontFamily: 'Poppins' }}
-                  >
-                    {t}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 };
