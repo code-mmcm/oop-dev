@@ -1,5 +1,4 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { logger } from '../lib/logger';
 import Dropdown from './Dropdown';
 
 /**
@@ -21,9 +20,7 @@ interface TimePickerProps {
 
 const TimePicker: React.FC<TimePickerProps> = ({
   value,
-  onChange,
-  placeholder = 'Select time',
-  label
+  onChange
 }) => {
   const [hour, setHour] = useState<string>('12');
   const [minute, setMinute] = useState<string>('00');

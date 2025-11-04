@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import { logger } from '../../../lib/logger';
 import SingleDatePicker from './SingleDatePicker';
 import { CalendarService } from '../../../services/calendarService';
-import type { BlockedDateRange, SpecialPricingRule } from '../../../services/calendarService';
 
 /**
  * Local blocked date range type (for UI state)
@@ -77,7 +76,7 @@ const CalendarSettingsModal: React.FC<CalendarSettingsModalProps> = ({
    * For global settings, saves to a special global listing ID
    */
   const handleSaveBlockedRange = async () => {
-    if (unitId === undefined) {
+    if (unitId === null || unitId === undefined) {
       logger.warn('Unit ID is required to save blocked date range');
       return;
     }
@@ -90,7 +89,7 @@ const CalendarSettingsModal: React.FC<CalendarSettingsModalProps> = ({
     setIsSaving(true);
     try {
       // Use 'global' as listing ID for global blocked dates
-      const targetListingId = isGlobal ? 'global' : unitId;
+      const targetListingId = isGlobal ? 'global' : (unitId as string);
       
       // Save to database
       const savedRange = await CalendarService.addBlockedRange(
@@ -126,7 +125,7 @@ const CalendarSettingsModal: React.FC<CalendarSettingsModalProps> = ({
    * Removes from database via CalendarService
    */
   const handleRemoveBlockedRange = async (id: string) => {
-    if (unitId === undefined) {
+    if (unitId === null || unitId === undefined) {
       logger.warn('Unit ID is required to remove blocked date range');
       return;
     }
@@ -134,7 +133,7 @@ const CalendarSettingsModal: React.FC<CalendarSettingsModalProps> = ({
     setIsSaving(true);
     try {
       // Use 'global' as listing ID for global blocked dates
-      const targetListingId = isGlobal ? 'global' : unitId;
+      const targetListingId = isGlobal ? 'global' : (unitId as string);
       
       // Remove from database
       await CalendarService.removeBlockedRange(targetListingId, id);
@@ -155,7 +154,7 @@ const CalendarSettingsModal: React.FC<CalendarSettingsModalProps> = ({
    * Saves to database via CalendarService
    */
   const handleSavePricingRule = async () => {
-    if (unitId === undefined) {
+    if (unitId === null || unitId === undefined) {
       logger.warn('Unit ID is required to save pricing rule');
       return;
     }
@@ -179,7 +178,7 @@ const CalendarSettingsModal: React.FC<CalendarSettingsModalProps> = ({
     setIsSaving(true);
     try {
       // Use 'global' as listing ID for global pricing (though global pricing shouldn't be used)
-      const targetListingId = isGlobal ? 'global' : unitId;
+      const targetListingId = isGlobal ? 'global' : (unitId as string);
       
       // Save to database
       const savedRule = await CalendarService.addPricingRule(
@@ -218,7 +217,7 @@ const CalendarSettingsModal: React.FC<CalendarSettingsModalProps> = ({
    * Removes from database via CalendarService
    */
   const handleRemovePricingRule = async (id: string) => {
-    if (unitId === undefined) {
+    if (unitId === null || unitId === undefined) {
       logger.warn('Unit ID is required to remove pricing rule');
       return;
     }
@@ -226,7 +225,7 @@ const CalendarSettingsModal: React.FC<CalendarSettingsModalProps> = ({
     setIsSaving(true);
     try {
       // Use 'global' as listing ID for global pricing
-      const targetListingId = isGlobal ? 'global' : unitId;
+      const targetListingId = isGlobal ? 'global' : (unitId as string);
       
       // Remove from database
       await CalendarService.removePricingRule(targetListingId, id);
@@ -270,13 +269,13 @@ const CalendarSettingsModal: React.FC<CalendarSettingsModalProps> = ({
    * Load calendar settings when modal opens
    */
   useEffect(() => {
-    if (isOpen && unitId !== undefined) {
+    if (isOpen && unitId !== null && unitId !== undefined) {
       setIsLoading(true);
       
       const loadSettings = async () => {
         try {
           // Use 'global' as listing ID for global blocked dates
-          const targetListingId = isGlobal ? 'global' : unitId;
+          const targetListingId = isGlobal ? 'global' : (unitId as string);
           
           // Load blocked dates
           const blockedRangesData = await CalendarService.getBlockedRanges(targetListingId);
@@ -290,7 +289,7 @@ const CalendarSettingsModal: React.FC<CalendarSettingsModalProps> = ({
           
           // Load pricing rules only if special pricing is enabled
           if (showSpecialPricing) {
-            const pricingRulesData = await CalendarService.getPricingRules(targetListingId);
+            const pricingRulesData = await CalendarService.getPricingRules(targetListingId as string);
             const localPricingRules: LocalSpecialPricingRule[] = pricingRulesData.map(pr => ({
               id: pr.id,
               startDate: pr.start_date,
@@ -304,13 +303,13 @@ const CalendarSettingsModal: React.FC<CalendarSettingsModalProps> = ({
           }
           
           logger.info('Calendar settings loaded successfully', { 
-            unitId: targetListingId, 
+            unitId: isGlobal ? 'global' : (unitId as string), 
             isGlobal,
             blockedCount: localBlockedRanges.length,
             pricingCount: showSpecialPricing ? pricingRules.length : 0
           });
         } catch (error) {
-          logger.error('Error loading calendar settings', { error, unitId: targetListingId, isGlobal });
+          logger.error('Error loading calendar settings', { error, unitId: isGlobal ? 'global' : (unitId as string), isGlobal });
           // Settings will default to empty arrays
         } finally {
           setIsLoading(false);

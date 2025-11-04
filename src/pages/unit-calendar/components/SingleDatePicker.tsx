@@ -25,8 +25,7 @@ const SingleDatePicker: React.FC<SingleDatePickerProps> = ({
   value,
   onChange,
   minDate,
-  placeholder = 'Select date',
-  label
+  placeholder = 'Select date'
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [tempDate, setTempDate] = useState<Date | null>(null);
@@ -38,7 +37,6 @@ const SingleDatePicker: React.FC<SingleDatePickerProps> = ({
     const today = new Date();
     return new Date(today.getFullYear(), today.getMonth(), 1);
   });
-  const [opensUpward, setOpensUpward] = useState(false);
   const pickerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -72,7 +70,6 @@ const SingleDatePicker: React.FC<SingleDatePickerProps> = ({
 
       // Open upward if there's not enough space below but enough above
       const shouldOpenUpward = spaceBelow < dropdownHeight && spaceAbove > dropdownHeight;
-      setOpensUpward(shouldOpenUpward);
 
       // Position dropdown using fixed positioning (portal-like) - positions relative to viewport
       const rect = inputRef.current.getBoundingClientRect();

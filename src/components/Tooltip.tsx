@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 
 interface TooltipProps {
   /** Tooltip content text */
@@ -23,7 +23,6 @@ const Tooltip: React.FC<TooltipProps> = ({
 }) => {
   const [isVisible, setIsVisible] = useState(false);
   const [position, setPosition] = useState({ x: 0, y: 0 });
-  const childRef = useRef<HTMLElement | null>(null);
 
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
@@ -54,18 +53,9 @@ const Tooltip: React.FC<TooltipProps> = ({
 
   // Clone the child element and add event handlers
   const childWithProps = React.cloneElement(children, {
-    ref: (node: HTMLElement | null) => {
-      childRef.current = node;
-      // Handle existing ref if present
-      if (typeof children.ref === 'function') {
-        children.ref(node);
-      } else if (children.ref) {
-        (children.ref as React.MutableRefObject<HTMLElement | null>).current = node;
-      }
-    },
     onMouseEnter: handleMouseEnter,
     onMouseLeave: handleMouseLeave,
-  });
+  } as any);
 
   if (!content) {
     return children;
