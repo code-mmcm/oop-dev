@@ -4,7 +4,6 @@ import TabsSection from './TabsSection';
 
 interface LeftColumnProps {
   listing: Listing | null;
-  isLoading: boolean;
   error?: string | null;
   onImageClick: (index: number) => void;
   onShareClick?: () => void;
@@ -12,7 +11,6 @@ interface LeftColumnProps {
 
 const LeftColumn: React.FC<LeftColumnProps> = ({
   listing,
-  isLoading,
   error,
   onImageClick,
   onShareClick,
@@ -24,13 +22,6 @@ const LeftColumn: React.FC<LeftColumnProps> = ({
 
   // Description expansion state (inlined from DescriptionSection)
   const [showFullDescription, setShowFullDescription] = useState(false);
-
-  const amenities = listing?.amenities || [];
-  const latitude = listing?.latitude;
-  const longitude = listing?.longitude;
-
-  const isClient = typeof window !== 'undefined';
-  const hasCoords = latitude != null && longitude != null;
 
   const allImages = listing ? [listing.main_image_url || '/avida.jpg', ...(listing.image_urls || [])] : ['/avida.jpg'];
 

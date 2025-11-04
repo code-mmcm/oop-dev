@@ -278,7 +278,6 @@ const UnitView: React.FC = () => {
             <div className="flex flex-col xl:flex-row gap-8">
               <LeftColumn 
                 listing={listing} 
-                isLoading={isLoading} 
                 error={error} 
                 onImageClick={handleImageClick}
                 onShareClick={() => setShowShareModal(true)} 
@@ -397,7 +396,6 @@ const UnitView: React.FC = () => {
             <div className="flex-1">
               <LeftColumn 
                 listing={listing} 
-                isLoading={isLoading} 
                 error={error} 
                   onImageClick={handleImageClick}
                   onShareClick={() => setShowShareModal(true)} 
