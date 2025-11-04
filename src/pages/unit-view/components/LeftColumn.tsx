@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import type { Listing } from '../../../types/listing';
+import TabsSection from './TabsSection';
 
 interface LeftColumnProps {
   listing: Listing | null;
@@ -21,8 +22,6 @@ const LeftColumn: React.FC<LeftColumnProps> = ({
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [isImageTransitioning, setIsImageTransitioning] = useState(false);
 
-
-
   // Description expansion state (inlined from DescriptionSection)
   const [showFullDescription, setShowFullDescription] = useState(false);
 
@@ -32,10 +31,6 @@ const LeftColumn: React.FC<LeftColumnProps> = ({
 
   const isClient = typeof window !== 'undefined';
   const hasCoords = latitude != null && longitude != null;
-
-  // default to Amenities tab
-  const [activeTab, setActiveTab] = useState<'amenities' | 'management' | 'location'>('amenities');
-
 
   const allImages = listing ? [listing.main_image_url || '/avida.jpg', ...(listing.image_urls || [])] : ['/avida.jpg'];
 
@@ -67,50 +62,6 @@ const LeftColumn: React.FC<LeftColumnProps> = ({
       setIsImageTransitioning(false);
     }, 150);
   };
-
-  // ...existing code...
-  if (isLoading) {
-    return (
-      <div className="flex-1">
-        <div className="mb-8">
-          <div className="w-full h-75 bg-gray-300 rounded-lg animate-pulse"></div>
-        </div>
-
-        <div className="mb-6 mt-8">
-          <div className="h-10 bg-gray-300 rounded w-3/4 mb-3 animate-pulse"></div>
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <div className="h-5 w-5 bg-gray-300 rounded animate-pulse"></div>
-              <div className="h-6 bg-gray-300 rounded w-24 animate-pulse"></div>
-            </div>
-            <div className="flex items-center gap-4">
-              <div className="h-5 w-5 bg-gray-300 rounded animate-pulse"></div>
-              <div className="h-5 w-5 bg-gray-300 rounded animate-pulse"></div>
-              <div className="h-5 w-5 bg-gray-300 rounded animate-pulse"></div>
-            </div>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-0 border border-gray-200 rounded-xl overflow-hidden mb-8">
-          {[1,2,3,4].map((i) => (
-            <div key={i} className="p-6 border-r border-gray-200">
-              <div className="h-4 bg-gray-300 rounded w-16 mb-2 animate-pulse"></div>
-              <div className="h-6 bg-gray-300 rounded w-8 animate-pulse"></div>
-            </div>
-          ))}
-        </div>
-
-        <div>
-          <div className="h-6 bg-gray-300 rounded w-24 mb-3 animate-pulse"></div>
-          <div className="space-y-2">
-            <div className="h-4 bg-gray-300 rounded w-full animate-pulse"></div>
-            <div className="h-4 bg-gray-300 rounded w-5/6 animate-pulse"></div>
-            <div className="h-4 bg-gray-300 rounded w-4/6 animate-pulse"></div>
-          </div>
-        </div>
-      </div>
-    );
-  }
 
   // ...existing code continues unchanged...
   if (error || !listing) {
@@ -226,15 +177,25 @@ const LeftColumn: React.FC<LeftColumnProps> = ({
       {/* Inlined TitleLocation (originally ./left/TitleLocation.tsx) */}
       <div className={`mb-6 ${listing.image_urls && listing.image_urls.length > 0 ? 'mt-5' : 'mt-8'}`}>
         <h1 className="text-2xl md:text-3xl font-bold mb-3" style={{fontFamily: 'Poppins', fontWeight: 700}}>{listing.title}</h1>
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between">
+        <div className="flex items-start justify-between">
           <div className="flex items-start gap-2 text-gray-600 mb-2 md:mb-0 md:flex-1 md:min-w-0">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="mt-2 flex-shrink-0" style={{paddingTop: '1px'}}>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="mt-0.5 flex-shrink-0" style={{paddingTop: '1px'}}>
               <path d="M21 10c0 7-9 13-9 13S3 17 3 10a9 9 0 1 1 18 0z"></path>
               <circle cx="12" cy="10" r="3"></circle>
             </svg>
-            <span className="text-sm md:text-base flex-1 break-words" style={{fontFamily: 'Poppins'}}>{listing.location}</span>
+            <span
+              className="text-sm md:text-base flex-1 break-words leading-tight min-h-[2.25rem] md:min-h-[2.5rem] overflow-hidden"
+              style={{
+                fontFamily: 'Poppins',
+                display: '-webkit-box',
+                WebkitLineClamp: 2,
+                WebkitBoxOrient: 'vertical'
+              }}
+            >
+              {listing.location}
+            </span>
           </div>
-          <div className="flex items-center gap-2 md:gap-4 flex-shrink-0">
+          <div className="flex items-center gap-2 md:gap-4 flex-shrink-0 md:self-start">
             <button 
               onClick={() => onShareClick && onShareClick()}
               className="text-gray-400 hover:text-gray-600 transition-colors p-1 md:p-0"
@@ -305,107 +266,8 @@ const LeftColumn: React.FC<LeftColumnProps> = ({
         })()}
       </div>
 
-      <div className="mt-15">
-        <div className="inline-grid grid-flow-col auto-cols-auto items-center gap-x-4 md:gap-x-6">
-          <div className="flex items-center">
-            <button
-              type="button"
-              onClick={() => setActiveTab('amenities')}
-              className={`text-sm md:text-lg transition-colors ${activeTab === 'amenities' ? 'text-teal-700' : 'text-black'}`}
-              style={{ fontFamily: 'Poppins', fontWeight: 600 }}
-              aria-controls="amenities-grid"
-              aria-pressed={activeTab === 'amenities'}
-            >
-              Amenities
-            </button>
-          </div>
-
-          <div className="flex justify-center">
-            <button
-              type="button"
-              onClick={() => setActiveTab('management')}
-              className={`text-sm md:text-lg transition-colors ${activeTab === 'management' ? 'text-teal-700' : 'text-black'}`}
-              style={{ fontFamily: 'Poppins', fontWeight: 600 }}
-              aria-controls="management-section"
-              aria-pressed={activeTab === 'management'}
-            >
-              Management
-            </button>
-          </div>
-
-          <div className="flex items-center">
-            <button
-              type="button"
-              onClick={() => setActiveTab('location')}
-              className={`text-sm md:text-lg transition-colors ${activeTab === 'location' ? 'text-teal-700' : 'text-black'}`}
-              style={{ fontFamily: 'Poppins', fontWeight: 600 }}
-              aria-controls="MapSection"
-              aria-pressed={activeTab === 'location'}
-            >
-              Location
-            </button>
-          </div>
-        </div>
-      </div>
-
-      <div className="border-b border-black mt-2" />
-
-      {activeTab === 'amenities' && amenities && amenities.length > 0 && (
-        <div id="amenities-grid" className="mt-4">
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
-            {amenities.map((amenity, i) => (
-              <div key={i} className="px-3 py-2 bg-gray-50 rounded-md text-sm text-gray-700" style={{ fontFamily: 'Poppins' }}>
-                {amenity}
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {activeTab === 'management' && (
-        <div id="management-section" className="mt-4">
-          <p className="text-gray-500 mt-2">Management details not provided.</p>
-        </div>
-      )}
-
-      {activeTab === 'location' && (
-        <div id="MapSection" className="mt-4">
-          <div className="w-full h-64 md:h-94 border border-gray-200 rounded-lg overflow-hidden relative z-0 mt-2">
-            {isClient && hasCoords ? (
-              <iframe
-                title="Property location map"
-                width="100%"
-                height="100%"
-                style={{ border: 0 }}
-                loading="lazy"
-                allowFullScreen
-                referrerPolicy="no-referrer-when-downgrade"
-                src={`https://www.google.com/maps?q=${encodeURIComponent(`${listing.latitude},${listing.longitude}`)}&output=embed`}
-              ></iframe>
-            ) : (
-              <div className="flex items-center justify-center h-full text-gray-500">
-                <p className="text-sm" style={{fontFamily: 'Poppins'}}>Location not available</p>
-              </div>
-            )}
-          </div>
-          {listing.latitude && listing.longitude && (
-            <div className="mt-3">
-              <a
-                href={`https://www.google.com/maps/search/?api=1&query=${listing.latitude},${listing.longitude}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-2 text-teal-700 hover:text-teal-800 transition-colors"
-                style={{fontFamily: 'Poppins', fontWeight: 600}}
-              >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                </svg>
-                View in Google Maps
-              </a>
-            </div>
-          )}
-        </div>
-      )}
+      {/* Tabs: show on desktop (xl and up) inside LeftColumn. On smaller screens TabsSection will be rendered under reviews in index.tsx */}
+      <TabsSection listing={listing} className="hidden xl:block" />
     </div>
   );
 };
