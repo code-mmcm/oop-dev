@@ -40,17 +40,20 @@ export interface Booking {
     fullname: string;
     email: string;
     contact_number?: number;
+    profile_photo?: string;
   };
   user?: {
     id: string;
     fullname: string;
     email: string;
+    profile_photo?: string;
   };
   client?: {
     first_name: string;
     last_name: string;
     email?: string;
     contact_number?: number;
+    profile_photo?: string;
   };
 }
 

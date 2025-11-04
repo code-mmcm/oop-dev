@@ -31,14 +31,41 @@ interface Booking {
     id: string;
     fullname: string;
     email: string;
+    profile_photo?: string;
   };
   client?: {
     first_name: string;
     last_name: string;
     email: string;
     contact_number: number;
+    profile_photo?: string;
+  };
+  payment?: {
+    payment_method?: string;
+    proof_of_payment_url?: string;
+    billing_document_url?: string;
+    payment_status?: string;
+    bank_name?: string;
+    depositor_name?: string;
+    bank_account_number?: string;
+    company_name?: string;
+    billing_contact?: string;
+    billing_email?: string;
+    po_number?: string;
+    card_number_last4?: number;
+    card_holder_name?: string;
+    payer_name?: string;
+    payer_contact?: string;
   };
 }
+
+const IMAGE_EXTENSIONS = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp', '.svg'];
+
+const isImageUrl = (url?: string) => {
+  if (!url) return false;
+  const lower = url.split('?')[0].toLowerCase();
+  return IMAGE_EXTENSIONS.some(ext => lower.endsWith(ext));
+};
 
 const BookingDetails: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -46,6 +73,44 @@ const BookingDetails: React.FC = () => {
   const [booking, setBooking] = useState<Booking | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [imageErrors, setImageErrors] = useState<Record<string, boolean>>({});
+
+  // Get agent initials
+  const getAgentInitials = (fullname?: string) => {
+    if (!fullname) return 'AG';
+    const names = fullname.trim().split(/\s+/);
+    if (names.length >= 2) {
+      return (names[0][0] + names[names.length - 1][0]).toUpperCase();
+    }
+    return names[0][0].toUpperCase();
+  };
+
+  // Check if we have a valid photo URL
+  const hasValidPhoto = (photoUrl?: string, errorKey?: string) => {
+    if (!photoUrl) return false;
+    if (typeof photoUrl !== 'string') return false;
+    const trimmed = photoUrl.trim();
+    if (trimmed === '' || trimmed === 'null' || trimmed === 'undefined') return false;
+    if (errorKey && imageErrors[errorKey]) return false;
+    return true;
+  };
+
+  // Handle image error
+  const handleImageError = (errorKey: string) => {
+    setImageErrors(prev => ({ ...prev, [errorKey]: true }));
+  };
+
+  // Payment method label helper
+  const paymentMethodLabel = (method?: string) => {
+    if (!method) return 'Not specified';
+    const labels: Record<string, string> = {
+      'credit_card': 'Credit Card',
+      'bank_transfer': 'Bank Transfer',
+      'company_account': 'Company Account',
+      'cash': 'Cash'
+    };
+    return labels[method] || method;
+  };
 
   useEffect(() => {
     const fetchBooking = async () => {
@@ -75,7 +140,7 @@ const BookingDetails: React.FC = () => {
         // Fetch agent details separately
         const { data: agentData } = await supabase
           .from('users')
-          .select('fullname, email')
+          .select('fullname, email, profile_photo')
           .eq('id', bookingData.assigned_agent)
           .single();
 
@@ -86,11 +151,19 @@ const BookingDetails: React.FC = () => {
           .eq('booking_id', id)
           .single();
 
+        // Fetch payment details
+        const { data: paymentData } = await supabase
+          .from('payment')
+          .select('*')
+          .eq('booking_id', id)
+          .single();
+
         setBooking({
           ...bookingData,
           listing: Array.isArray(bookingData.listing) ? bookingData.listing[0] : bookingData.listing,
           agent: agentData,
-          client: clientData
+          client: clientData,
+          payment: paymentData
         } as Booking);
 
       } catch (err: any) {
@@ -123,27 +196,172 @@ const BookingDetails: React.FC = () => {
 
             {/* Content Grid Skeleton */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              {/* Left Column - Main Content */}
               <div className="lg:col-span-2 space-y-6">
-                {/* Skeleton cards */}
-                <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-                  <div className="h-32 bg-gray-200 rounded animate-pulse"></div>
+                {/* Property Header Skeleton */}
+                <div className="flex items-center gap-4 border border-gray-200 rounded-lg p-4 bg-white">
+                  <div className="w-36 h-24 flex-shrink-0 bg-gray-200 rounded-md animate-pulse"></div>
+                  <div className="flex-1 min-w-0 space-y-2">
+                    <div className="h-4 w-24 bg-gray-200 rounded animate-pulse"></div>
+                    <div className="h-5 w-48 bg-gray-200 rounded animate-pulse"></div>
+                    <div className="h-4 w-64 bg-gray-200 rounded animate-pulse"></div>
+                    <div className="h-4 w-32 bg-gray-200 rounded animate-pulse mt-2"></div>
+                  </div>
+                  <div className="ml-2 w-44 flex-shrink-0">
+                    <div className="border border-gray-100 rounded-lg p-3 bg-gray-50 space-y-3">
+                      <div className="h-3 w-32 bg-gray-200 rounded animate-pulse"></div>
+                      <div className="h-4 w-20 bg-gray-200 rounded animate-pulse"></div>
+                      <div className="border-t border-gray-100 pt-3 space-y-2">
+                        <div className="flex justify-between">
+                          <div className="h-3 w-12 bg-gray-200 rounded animate-pulse"></div>
+                          <div className="h-3 w-8 bg-gray-200 rounded animate-pulse"></div>
+                        </div>
+                        <div className="flex justify-between">
+                          <div className="h-3 w-12 bg-gray-200 rounded animate-pulse"></div>
+                          <div className="h-3 w-16 bg-gray-200 rounded animate-pulse"></div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
                 </div>
-                <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-                  <div className="h-64 bg-gray-200 rounded animate-pulse"></div>
+
+                {/* Charges Summary Skeleton */}
+                <div className="border border-gray-200 rounded-lg p-4 bg-white">
+                  <div className="h-5 w-40 bg-gray-200 rounded animate-pulse mb-3"></div>
+                  <div className="space-y-3">
+                    {[1, 2, 3, 4, 5].map((i) => (
+                      <div key={i} className="flex justify-between">
+                        <div className="h-4 w-32 bg-gray-200 rounded animate-pulse"></div>
+                        <div className="h-4 w-24 bg-gray-200 rounded animate-pulse"></div>
+                      </div>
+                    ))}
+                    <div className="border-t border-gray-200 mt-4 pt-3">
+                      <div className="flex justify-between items-center">
+                        <div className="h-4 w-24 bg-gray-200 rounded animate-pulse"></div>
+                        <div className="h-5 w-32 bg-gray-200 rounded animate-pulse"></div>
+                      </div>
+                    </div>
+                  </div>
                 </div>
-                <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-                  <div className="h-40 bg-gray-200 rounded animate-pulse"></div>
+
+                {/* Client / Agent / Payment Info Grid Skeleton */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  {/* Client Info Skeleton */}
+                  <div className="border border-gray-200 rounded-lg p-4 bg-white">
+                    <div className="h-4 w-32 bg-gray-200 rounded animate-pulse mb-3"></div>
+                    <div className="space-y-3">
+                      <div className="flex items-start gap-3">
+                        <div className="w-5 h-5 bg-gray-200 rounded animate-pulse flex-shrink-0 mt-0.5"></div>
+                        <div className="flex-1 space-y-2">
+                          <div className="h-4 w-32 bg-gray-200 rounded animate-pulse"></div>
+                          <div className="h-3 w-20 bg-gray-200 rounded animate-pulse"></div>
+                        </div>
+                      </div>
+                      <div className="flex items-start gap-3">
+                        <div className="w-5 h-5 bg-gray-200 rounded animate-pulse flex-shrink-0 mt-0.5"></div>
+                        <div className="flex-1 space-y-2">
+                          <div className="h-4 w-40 bg-gray-200 rounded animate-pulse"></div>
+                          <div className="h-3 w-16 bg-gray-200 rounded animate-pulse"></div>
+                        </div>
+                      </div>
+                      <div className="flex items-start gap-3">
+                        <div className="w-5 h-5 bg-gray-200 rounded animate-pulse flex-shrink-0 mt-0.5"></div>
+                        <div className="flex-1 space-y-2">
+                          <div className="h-4 w-32 bg-gray-200 rounded animate-pulse"></div>
+                          <div className="h-3 w-20 bg-gray-200 rounded animate-pulse"></div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Payment Info Skeleton */}
+                  <div className="border border-gray-200 rounded-lg p-4 bg-white">
+                    <div className="h-4 w-36 bg-gray-200 rounded animate-pulse mb-3"></div>
+                    <div className="space-y-3">
+                      <div className="flex items-start gap-3">
+                        <div className="w-5 h-5 bg-gray-200 rounded animate-pulse flex-shrink-0 mt-0.5"></div>
+                        <div className="flex-1 space-y-2">
+                          <div className="h-4 w-32 bg-gray-200 rounded animate-pulse"></div>
+                          <div className="h-3 w-28 bg-gray-200 rounded animate-pulse"></div>
+                        </div>
+                      </div>
+                      <div className="flex items-start gap-3">
+                        <div className="w-5 h-5 bg-gray-200 rounded animate-pulse flex-shrink-0 mt-0.5"></div>
+                        <div className="flex-1 space-y-2">
+                          <div className="h-4 w-24 bg-gray-200 rounded animate-pulse"></div>
+                          <div className="h-3 w-20 bg-gray-200 rounded animate-pulse"></div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Agent Info Skeleton */}
+                  <div className="border border-gray-200 rounded-lg p-4 bg-white">
+                    <div className="h-4 w-32 bg-gray-200 rounded animate-pulse mb-3"></div>
+                    <div className="flex items-start gap-3">
+                      <div className="w-10 h-10 rounded-full bg-gray-200 animate-pulse flex-shrink-0"></div>
+                      <div className="flex-1 space-y-2">
+                        <div className="h-4 w-28 bg-gray-200 rounded animate-pulse"></div>
+                        <div className="h-3 w-24 bg-gray-200 rounded animate-pulse"></div>
+                        <div className="h-3 w-36 bg-gray-200 rounded animate-pulse"></div>
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </div>
-              <div className="space-y-6">
-                <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-                  <div className="h-32 bg-gray-200 rounded animate-pulse"></div>
+
+              {/* Right Column - Sidebar */}
+              <div className="space-y-4">
+                {/* Status Skeleton */}
+                <div className="border border-gray-200 rounded-lg p-4 bg-white">
+                  <div className="flex items-center justify-between">
+                    <div className="h-4 w-16 bg-gray-200 rounded animate-pulse"></div>
+                    <div className="h-4 w-20 bg-gray-200 rounded animate-pulse"></div>
+                  </div>
                 </div>
-                <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-                  <div className="h-32 bg-gray-200 rounded animate-pulse"></div>
+
+                {/* Duration Skeleton */}
+                <div className="border border-gray-200 rounded-lg p-4 bg-white">
+                  <div className="h-4 w-20 bg-gray-200 rounded animate-pulse mb-2"></div>
+                  <div className="space-y-2">
+                    <div>
+                      <div className="h-3 w-16 bg-gray-200 rounded animate-pulse mb-1"></div>
+                      <div className="h-4 w-32 bg-gray-200 rounded animate-pulse"></div>
+                    </div>
+                    <div>
+                      <div className="h-3 w-20 bg-gray-200 rounded animate-pulse mb-1"></div>
+                      <div className="h-4 w-32 bg-gray-200 rounded animate-pulse"></div>
+                    </div>
+                  </div>
                 </div>
-                <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-                  <div className="h-32 bg-gray-200 rounded animate-pulse"></div>
+
+                {/* Location Skeleton */}
+                <div className="border border-gray-200 rounded-lg p-4 bg-white">
+                  <div className="h-4 w-20 bg-gray-200 rounded animate-pulse mb-2"></div>
+                  <div className="w-full h-48 bg-gray-200 rounded animate-pulse mb-4"></div>
+                  <div className="space-y-3">
+                    <div className="flex items-start gap-2">
+                      <div className="w-4 h-4 bg-gray-200 rounded animate-pulse mt-0.5"></div>
+                      <div className="flex-1 space-y-2">
+                        <div className="h-3 w-20 bg-gray-200 rounded animate-pulse"></div>
+                        <div className="h-4 w-32 bg-gray-200 rounded animate-pulse"></div>
+                      </div>
+                    </div>
+                    <div className="flex items-start gap-2">
+                      <div className="w-4 h-4 bg-gray-200 rounded animate-pulse mt-0.5"></div>
+                      <div className="flex-1 space-y-2">
+                        <div className="h-3 w-20 bg-gray-200 rounded animate-pulse"></div>
+                        <div className="h-4 w-40 bg-gray-200 rounded animate-pulse"></div>
+                      </div>
+                    </div>
+                    <div className="flex items-start gap-2">
+                      <div className="w-4 h-4 bg-gray-200 rounded animate-pulse mt-0.5"></div>
+                      <div className="flex-1 space-y-2">
+                        <div className="h-3 w-20 bg-gray-200 rounded animate-pulse"></div>
+                        <div className="h-4 w-36 bg-gray-200 rounded animate-pulse"></div>
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
@@ -364,14 +582,243 @@ const BookingDetails: React.FC = () => {
                   </div>
                 </div>
 
+                {/* Payment Information */}
+                {booking.payment && (
+                  <div className="border border-gray-200 rounded-lg p-4 bg-white">
+                    <h5 className="text-sm font-semibold mb-3" style={{ fontFamily: 'Poppins' }}>Payment Information</h5>
+                    <div className="space-y-3 text-sm text-gray-700" style={{ fontFamily: 'Poppins' }}>
+                      <div className="flex items-start gap-3">
+                        <svg className="w-5 h-5 text-gray-500 mt-0.5 flex-shrink-0" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                          <rect x="2" y="5" width="20" height="14" rx="2"></rect>
+                          <path d="M2 10h20" fill="currentColor" />
+                        </svg>
+                        <div className="min-w-0">
+                          <div className="font-medium break-words" style={{ wordBreak: 'break-word' }}>
+                            {paymentMethodLabel(booking.payment.payment_method)}
+                          </div>
+                          <div className="text-xs text-gray-500">Payment method</div>
+                        </div>
+                      </div>
+
+                      {booking.payment.payment_method === 'credit_card' && booking.payment.card_number_last4 && (
+                        <div className="flex items-start gap-3">
+                          <svg className="w-5 h-5 text-gray-500 mt-0.5 flex-shrink-0" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                            <rect x="2" y="5" width="20" height="14" rx="2"></rect>
+                            <path d="M2 10h20" fill="currentColor" />
+                          </svg>
+                          <div className="min-w-0">
+                            <div className="font-medium break-words" style={{ wordBreak: 'break-word' }}>
+                              •••• •••• •••• {booking.payment.card_number_last4}
+                            </div>
+                            <div className="text-xs text-gray-500">Card number</div>
+                          </div>
+                        </div>
+                      )}
+
+                      {booking.payment.payment_method === 'bank_transfer' && (
+                        <>
+                          {booking.payment.bank_name && (
+                            <div className="flex items-start gap-3">
+                              <svg className="w-5 h-5 text-gray-500 mt-0.5 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                                <path d="M3 10h18"></path>
+                                <path d="M12 3v6"></path>
+                              </svg>
+                              <div className="min-w-0">
+                                <div className="font-medium break-words" style={{ wordBreak: 'break-word' }}>
+                                  {booking.payment.bank_name}
+                                </div>
+                                <div className="text-xs text-gray-500">Bank</div>
+                              </div>
+                            </div>
+                          )}
+
+                          {booking.payment.depositor_name && (
+                            <div className="flex items-start gap-3">
+                              <svg className="w-5 h-5 text-gray-500 mt-0.5 flex-shrink-0" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                                <path d="M12 12a5 5 0 100-10 5 5 0 000 10z"></path>
+                                <path d="M4 20a8 8 0 0116 0H4z"></path>
+                              </svg>
+                              <div className="min-w-0">
+                                <div className="font-medium break-words" style={{ wordBreak: 'break-word' }}>
+                                  {booking.payment.depositor_name}
+                                </div>
+                                <div className="text-xs text-gray-500">Depositor name</div>
+                              </div>
+                            </div>
+                          )}
+
+                          {booking.payment.proof_of_payment_url && (
+                            <div className="mt-2">
+                              {isImageUrl(booking.payment.proof_of_payment_url) ? (
+                                <a href={booking.payment.proof_of_payment_url} target="_blank" rel="noopener noreferrer" title="Open receipt">
+                                  <img src={booking.payment.proof_of_payment_url} alt="Proof of payment" className="w-24 h-16 sm:w-28 sm:h-20 object-cover rounded border cursor-pointer" />
+                                </a>
+                              ) : (
+                                <a
+                                  href={booking.payment.proof_of_payment_url}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="inline-flex items-center gap-2 text-sm text-[#0B5858] hover:underline"
+                                >
+                                  <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                                    <path d="M14 3H6a2 2 0 00-2 2v14a2 2 0 002 2h12a2 2 0 002-2V8z"></path>
+                                    <path d="M14 3v5h5"></path>
+                                  </svg>
+                                  <span className="break-words" style={{ wordBreak: 'break-word' }}>View receipt</span>
+                                </a>
+                              )}
+                            </div>
+                          )}
+                        </>
+                      )}
+
+                      {booking.payment.payment_method === 'company_account' && (
+                        <>
+                          {booking.payment.company_name && (
+                            <div className="flex items-start gap-3">
+                              <svg className="w-5 h-5 text-gray-500 mt-0.5 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                                <path d="M4 7h16v10H4z"></path>
+                              </svg>
+                              <div className="min-w-0">
+                                <div className="font-medium break-words" style={{ wordBreak: 'break-word' }}>
+                                  {booking.payment.company_name}
+                                </div>
+                                <div className="text-xs text-gray-500">Company</div>
+                              </div>
+                            </div>
+                          )}
+
+                          {booking.payment.billing_contact && (
+                            <div className="flex items-start gap-3">
+                              <svg className="w-5 h-5 text-gray-500 mt-0.5 flex-shrink-0" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                                <path d="M12 12a5 5 0 100-10 5 5 0 000 10z"></path>
+                                <path d="M4 20a8 8 0 0116 0H4z"></path>
+                              </svg>
+                              <div className="min-w-0">
+                                <div className="font-medium break-words" style={{ wordBreak: 'break-word' }}>
+                                  {booking.payment.billing_contact}
+                                </div>
+                                <div className="text-xs text-gray-500">Billing contact</div>
+                              </div>
+                            </div>
+                          )}
+
+                          {booking.payment.billing_email && (
+                            <div className="flex items-start gap-3">
+                              <svg className="w-5 h-5 text-gray-500 mt-0.5 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                                <path d="M3 8l8.5 6L20 8"></path>
+                                <rect x="3" y="4" width="18" height="16" rx="2"></rect>
+                              </svg>
+                              <div className="min-w-0">
+                                <div className="font-medium break-words" style={{ wordBreak: 'break-word' }}>
+                                  {booking.payment.billing_email}
+                                </div>
+                                <div className="text-xs text-gray-500">Billing email</div>
+                              </div>
+                            </div>
+                          )}
+
+                          {booking.payment.billing_document_url && (
+                            <div className="mt-2">
+                              {isImageUrl(booking.payment.billing_document_url) ? (
+                                <a href={booking.payment.billing_document_url} target="_blank" rel="noopener noreferrer" title="Open document">
+                                  <img src={booking.payment.billing_document_url} alt="Billing document" className="w-24 h-16 sm:w-28 sm:h-20 object-cover rounded border cursor-pointer" />
+                                </a>
+                              ) : (
+                                <a
+                                  href={booking.payment.billing_document_url}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="inline-flex items-center gap-2 text-sm text-[#0B5858] hover:underline"
+                                >
+                                  <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                                    <path d="M14 3H6a2 2 0 00-2 2v14a2 2 0 002 2h12a2 2 0 002-2V8z"></path>
+                                    <path d="M14 3v5h5"></path>
+                                  </svg>
+                                  <span className="break-words" style={{ wordBreak: 'break-word' }}>View document</span>
+                                </a>
+                              )}
+                            </div>
+                          )}
+
+                          {booking.payment.po_number && (
+                            <div className="text-xs text-gray-500 mt-1 break-words" style={{ wordBreak: 'break-word' }}>
+                              PO / Ref: {booking.payment.po_number}
+                            </div>
+                          )}
+                        </>
+                      )}
+
+                      {booking.payment.payment_method === 'cash' && (
+                        <>
+                          {booking.payment.payer_name && (
+                            <div className="flex items-start gap-3">
+                              <svg className="w-5 h-5 text-gray-500 mt-0.5 flex-shrink-0" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                                <path d="M12 12a5 5 0 100-10 5 5 0 000 10z"></path>
+                                <path d="M4 20a8 8 0 0116 0H4z"></path>
+                              </svg>
+                              <div className="min-w-0">
+                                <div className="font-medium break-words" style={{ wordBreak: 'break-word' }}>
+                                  {booking.payment.payer_name}
+                                </div>
+                                <div className="text-xs text-gray-500">Payer name</div>
+                              </div>
+                            </div>
+                          )}
+
+                          {booking.payment.payer_contact && (
+                            <div className="flex items-start gap-3">
+                              <svg className="w-5 h-5 text-gray-500 mt-0.5 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                                <path d="M22 16.92V21a1 1 0 01-1.11 1 19.86 19.86 0 01-8.63-3.07 19.89 19.89 0 01-6-6A19.86 19.86 0 013 3.11 1 1 0 014 2h4.09a1 1 0 01.95.68l1.2 3.6a1 1 0 01-.24 1.02L9.7 9.7a12 12 0 006.6 6.6l1.4-1.4a1 1 0 011.02-.24l3.6 1.2c.43.14.71.56.68.99z"></path>
+                              </svg>
+                              <div className="min-w-0">
+                                <div className="font-medium break-words" style={{ wordBreak: 'break-word' }}>
+                                  {booking.payment.payer_contact}
+                                </div>
+                                <div className="text-xs text-gray-500">Payer contact</div>
+                              </div>
+                            </div>
+                          )}
+                        </>
+                      )}
+
+                      {booking.payment.payment_status && (
+                        <div className="mt-2 pt-2 border-t border-gray-200">
+                          <div className="text-xs text-gray-500">Payment Status</div>
+                          <div className="text-sm font-medium text-gray-800 capitalize">{booking.payment.payment_status}</div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
                 {/* Assigned Agent */}
                 <div className="border border-gray-200 rounded-lg p-4 bg-white">
                   <h5 className="text-sm font-semibold mb-3" style={{ fontFamily: 'Poppins' }}>Assigned Agent</h5>
                   <div className="flex items-start gap-3">
-                    <div className="w-10 h-10 rounded-full bg-[#E8F8F7] text-[#0B5858] flex items-center justify-center font-semibold" style={{ fontFamily: 'Poppins' }}>
-                      {booking.agent?.fullname 
-                        ? booking.agent.fullname.split(' ').map(n => n[0]).join('').toUpperCase()
-                        : 'AG'}
+                    <div 
+                      className="w-10 h-10 rounded-full flex items-center justify-center overflow-hidden flex-shrink-0"
+                      style={{
+                        background: hasValidPhoto(booking.agent?.profile_photo, 'agent-main')
+                          ? 'transparent'
+                          : 'linear-gradient(to bottom right, #14b8a6, #0d9488)'
+                      }}
+                    >
+                      {hasValidPhoto(booking.agent?.profile_photo, 'agent-main') ? (
+                        <img
+                          src={booking.agent?.profile_photo}
+                          alt={booking.agent?.fullname || 'Agent'}
+                          className="w-full h-full object-cover"
+                          onError={() => handleImageError('agent-main')}
+                        />
+                      ) : (
+                        <span 
+                          className="text-white text-sm font-bold" 
+                          style={{ fontFamily: 'Poppins', fontWeight: 700 }}
+                        >
+                          {getAgentInitials(booking.agent?.fullname)}
+                        </span>
+                      )}
                     </div>
 
                     <div className="flex-1 text-sm" style={{ fontFamily: 'Poppins' }}>

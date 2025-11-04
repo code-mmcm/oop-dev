@@ -22,7 +22,7 @@ export class BookingService {
       bookings.map(async (booking) => {
         const [listingData, agentData] = await Promise.all([
           supabase.from('listings').select('id, title, location, main_image_url').eq('id', booking.listing_id).single(),
-          supabase.from('users').select('fullname, email').eq('id', booking.assigned_agent).single()
+          supabase.from('users').select('fullname, email, profile_photo').eq('id', booking.assigned_agent).single()
         ]);
 
         return {

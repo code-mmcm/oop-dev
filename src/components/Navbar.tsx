@@ -7,7 +7,25 @@ const Navbar: React.FC = () => {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [profileImageError, setProfileImageError] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+
+  // Get user initials for default avatar
+  const getInitials = () => {
+    if (userProfile?.fullname) {
+      const names = userProfile.fullname.trim().split(/\s+/);
+      if (names.length >= 2) {
+        return (names[0][0] + names[names.length - 1][0]).toUpperCase();
+      }
+      return names[0][0].toUpperCase();
+    }
+    return user?.email?.charAt(0).toUpperCase() || 'U';
+  };
+
+  // Reset image error when profile photo changes
+  useEffect(() => {
+    setProfileImageError(false);
+  }, [userProfile?.profile_photo]);
 
   const handleLogout = async () => {
     try {
@@ -110,11 +128,28 @@ const Navbar: React.FC = () => {
                   {/* Profile Picture Button */}
                   <button
                     onClick={toggleDropdown}
-                    className="w-10 h-10 rounded-full bg-gray-300 flex items-center justify-center hover:bg-gray-400 transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
+                    className="w-10 h-10 rounded-full overflow-hidden flex items-center justify-center hover:ring-2 hover:ring-teal-300 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
+                    style={{
+                      background: (userProfile?.profile_photo && !profileImageError)
+                        ? 'transparent' 
+                        : 'linear-gradient(to bottom right, #14b8a6, #0d9488)'
+                    }}
                   >
-                    <svg className="w-6 h-6 text-gray-600" fill="currentColor" viewBox="0 0 20 20">
-                      <path fillRule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clipRule="evenodd" />
-                    </svg>
+                    {(userProfile?.profile_photo && !profileImageError) ? (
+                      <img
+                        src={userProfile.profile_photo}
+                        alt={userProfile?.fullname || 'Profile'}
+                        className="w-full h-full object-cover"
+                        onError={() => setProfileImageError(true)}
+                      />
+                    ) : (
+                      <span 
+                        className="text-white text-sm font-bold"
+                        style={{ fontFamily: 'Poppins', fontWeight: 700 }}
+                      >
+                        {getInitials()}
+                      </span>
+                    )}
                   </button>
 
                   {/* Dropdown Menu */}

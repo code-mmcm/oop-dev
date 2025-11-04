@@ -10,12 +10,18 @@ type Props = {
 
 const ContactInfoCard: React.FC<Props> = ({ profile, onEditSection, formatPhoneNumber }) => {
   return (
-    <div className="bg-white rounded-xl shadow border border-gray-200">
+    <div className="bg-white rounded-xl shadow-lg border border-gray-200 hover:shadow-xl transition-shadow duration-200">
       <div className="flex items-center justify-between px-4 sm:px-5 py-3 sm:py-4 border-b border-gray-100">
         <h2 className="text-base sm:text-lg text-black" style={{ fontFamily: 'Poppins', fontWeight: 700 }}>Contact Information</h2>
-        <button onClick={onEditSection} className="text-xs sm:text-sm px-3 py-1 rounded-md text-white" style={{ backgroundColor: '#0B5858', fontFamily: 'Poppins', fontWeight: 600 }}>Edit</button>
+        <button 
+          onClick={onEditSection} 
+          className="text-xs sm:text-sm px-3 py-1.5 rounded-md text-white hover:opacity-90 transition-opacity shadow-sm" 
+          style={{ backgroundColor: '#0B5858', fontFamily: 'Poppins', fontWeight: 600 }}
+        >
+          Edit
+        </button>
       </div>
-      <div className="px-4 sm:px-5 py-4 space-y-4">
+      <div className="px-4 sm:px-5 py-5 sm:py-6 space-y-4 sm:space-y-5">
         <div>
           <p className="text-sm sm:text-base text-black" style={{ fontFamily: 'Poppins', fontWeight: 600 }}>
             {profile.email || 'Not provided'}

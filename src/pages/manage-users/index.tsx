@@ -21,7 +21,40 @@ const ManageUsers: React.FC = () => {
   const [hoveredText, setHoveredText] = useState<string | null>(null);
   const [tooltipPosition, setTooltipPosition] = useState({ x: 0, y: 0 });
   const [openDropdown, setOpenDropdown] = useState<string | null>(null);
+  const [imageErrors, setImageErrors] = useState<Record<string, boolean>>({});
   const hasFetchedUsers = useRef(false);
+
+  // Get user initials for default avatar
+  const getInitials = (user: UserWithRole) => {
+    if (user.fullname) {
+      const names = user.fullname.trim().split(/\s+/);
+      if (names.length >= 2) {
+        return (names[0][0] + names[names.length - 1][0]).toUpperCase();
+      }
+      return names[0][0].toUpperCase();
+    }
+    return user.email?.charAt(0).toUpperCase() || 'U';
+  };
+
+  // Check if we have a valid photo URL
+  const hasValidPhoto = (user: UserWithRole) => {
+    if (!user.profile_photo) return false;
+    if (typeof user.profile_photo !== 'string') return false;
+    const trimmed = user.profile_photo.trim();
+    if (trimmed === '' || trimmed === 'null' || trimmed === 'undefined') return false;
+    if (imageErrors[user.id]) return false;
+    return true;
+  };
+
+  // Handle image error
+  const handleImageError = (userId: string) => {
+    setImageErrors(prev => ({ ...prev, [userId]: true }));
+  };
+
+  // Reset image errors when users data changes
+  useEffect(() => {
+    setImageErrors({});
+  }, [users]);
 
   useEffect(() => {
     if (!loading && !roleLoading) {
@@ -375,17 +408,32 @@ const ManageUsers: React.FC = () => {
                         <td className="px-6 py-3 align-top">
                           <div className="flex items-center space-x-3">
                             <div 
-                              className="h-12 w-12 rounded-full bg-[#0B5858] flex items-center justify-center flex-shrink-0"
+                              className="h-12 w-12 rounded-full flex items-center justify-center flex-shrink-0 overflow-hidden"
                               style={{
                                 minWidth: '48px',
                                 minHeight: '48px',
                                 maxWidth: '48px',
-                                maxHeight: '48px'
+                                maxHeight: '48px',
+                                background: hasValidPhoto(user)
+                                  ? 'transparent'
+                                  : 'linear-gradient(to bottom right, #14b8a6, #0d9488)'
                               }}
                             >
-                              <span className="text-sm font-medium text-white" style={{fontFamily: 'Poppins'}}>
-                                {(user.fullname || 'U').charAt(0).toUpperCase()}
-                              </span>
+                              {hasValidPhoto(user) ? (
+                                <img
+                                  src={user.profile_photo}
+                                  alt={user.fullname || 'User'}
+                                  className="w-full h-full object-cover"
+                                  onError={() => handleImageError(user.id)}
+                                />
+                              ) : (
+                                <span 
+                                  className="text-sm font-bold text-white" 
+                                  style={{ fontFamily: 'Poppins', fontWeight: 700 }}
+                                >
+                                  {getInitials(user)}
+                                </span>
+                              )}
                             </div>
                             <div className="min-w-0 flex-1">
                               <div 
