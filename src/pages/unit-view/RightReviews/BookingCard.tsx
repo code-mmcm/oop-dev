@@ -10,9 +10,44 @@ interface BookingCardProps {
   onReserve: () => void;
 }
 
+/**
+ * Convert HH:mm format (24-hour) to 12-hour format with AM/PM
+ * @param time24 - Time in HH:mm format (e.g., "14:00")
+ * @returns Formatted time string (e.g., "2:00 PM") or "Not set" if invalid
+ */
+const formatTime12Hour = (time24?: string | null): string => {
+  // Handle null, undefined, empty string, or non-string values
+  if (!time24 || typeof time24 !== 'string') return 'Not set';
+  
+  // Trim whitespace and check if empty after trimming
+  const trimmed = time24.trim();
+  if (trimmed === '') return 'Not set';
+  
+  // Parse the time string (expecting HH:mm format)
+  const parts = trimmed.split(':');
+  if (parts.length !== 2) return 'Not set';
+  
+  const hours = parseInt(parts[0], 10);
+  const minutes = parseInt(parts[1], 10);
+  
+  // Validate parsed values
+  if (isNaN(hours) || isNaN(minutes) || hours < 0 || hours > 23 || minutes < 0 || minutes > 59) {
+    return 'Not set';
+  }
+  
+  // Convert to 12-hour format
+  const period = hours >= 12 ? 'PM' : 'AM';
+  let hour12 = hours % 12;
+  if (hour12 === 0) hour12 = 12;
+  const mm = String(minutes).padStart(2, '0');
+  
+  return `${hour12}:${mm} ${period}`;
+};
+
 const BookingCard: React.FC<BookingCardProps> = ({ listing, isLoading, error, onReserve }) => {
   const { user } = useAuth();
   const navigate = useNavigate();
+
 
   const handleReserveClick = () => {
     if (!user) {
@@ -128,7 +163,9 @@ const BookingCard: React.FC<BookingCardProps> = ({ listing, isLoading, error, on
                   </svg>
                   <div>
                     <div className="text-sm text-gray-500">Check-in</div>
-                    <div className="text-lg font-semibold text-gray-900">12:00 PM</div>
+                    <div className="text-lg font-semibold text-gray-900">
+                      {formatTime12Hour(listing.check_in_time)}
+                    </div>
                   </div>
                 </div>
               </div>
@@ -139,7 +176,9 @@ const BookingCard: React.FC<BookingCardProps> = ({ listing, isLoading, error, on
                   </svg>
                   <div>
                     <div className="text-sm text-gray-500">Check-out</div>
-                    <div className="text-lg font-semibold text-gray-900">10:00 AM</div>
+                    <div className="text-lg font-semibold text-gray-900">
+                      {formatTime12Hour(listing.check_out_time)}
+                    </div>
                   </div>
                 </div>
               </div>

@@ -357,6 +357,7 @@ const UnitView: React.FC = () => {
         <Navbar />
         <BookingForm
           listingId={listing?.id}
+          listing={listing}
           pricePerNight={calculatePricePerNight()}
           priceUnit={listing?.price_unit || 'daily'}
           extraGuestFeePerPerson={250} // Default extra guest fee per person

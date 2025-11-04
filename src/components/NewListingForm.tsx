@@ -8,6 +8,7 @@ import ImageUpload from './ImageUpload';
 import ImageGallery from './ImageGallery';
 import Dropdown from './Dropdown';
 import type { UploadedImage } from '../services/imageService';
+import TimePicker from './TimePicker';
 
 // Fix for default markers in react-leaflet
 delete (L.Icon.Default.prototype as any)._getIconUrl;
@@ -62,7 +63,9 @@ const NewListingForm: React.FC<NewListingFormProps> = ({ onSuccess, onCancel, mo
     image_urls: [] as string[],
     amenities: [] as string[],
     latitude: '',
-    longitude: ''
+    longitude: '',
+    check_in_time: '',
+    check_out_time: ''
   });
 
   const [uploadedImages, setUploadedImages] = useState<UploadedImage[]>([]);
@@ -147,7 +150,11 @@ const NewListingForm: React.FC<NewListingFormProps> = ({ onSuccess, onCancel, mo
         image_urls: initialListing.image_urls || [],
         amenities: initialListing.amenities || [],
         latitude: initialListing.latitude ? initialListing.latitude.toString() : '',
-        longitude: initialListing.longitude ? initialListing.longitude.toString() : ''
+        longitude: initialListing.longitude ? initialListing.longitude.toString() : '',
+        // Handle check-in/check-out times - convert null to empty string for TimePicker
+        // TimePicker expects empty string, not null
+        check_in_time: initialListing.check_in_time || '',
+        check_out_time: initialListing.check_out_time || ''
       });
       // If we have a main image in edit mode, seed uploadedImages for gallery
       if (initialListing.main_image_url) {
@@ -175,7 +182,6 @@ const NewListingForm: React.FC<NewListingFormProps> = ({ onSuccess, onCancel, mo
       }));
     }
   };
-
 
   // Amenities hashtag functionality
   const handleAmenityAdd = () => {
@@ -426,6 +432,19 @@ const NewListingForm: React.FC<NewListingFormProps> = ({ onSuccess, onCancel, mo
           amenities: Array.isArray(formData.amenities) && formData.amenities.length > 0 ? formData.amenities : undefined,
           updated_at: new Date().toISOString()
         };
+        
+        // Only include check_in_time and check_out_time if they have non-empty values
+        // Handle both fields identically
+        const checkInTime = formData.check_in_time?.trim();
+        const checkOutTime = formData.check_out_time?.trim();
+        
+        if (checkInTime && checkInTime !== '') {
+          updates.check_in_time = checkInTime;
+        }
+        if (checkOutTime && checkOutTime !== '') {
+          updates.check_out_time = checkOutTime;
+        }
+        
         await ListingService.updateListing(initialListing.id, updates);
         if (submitActionRef.current === 'save') {
           // Parent-owned toast; stays visible even if this form unmounts
@@ -454,8 +473,13 @@ const NewListingForm: React.FC<NewListingFormProps> = ({ onSuccess, onCancel, mo
           is_available: true,
           is_featured: false,
           latitude: formData.latitude ? parseFloat(formData.latitude) : undefined,
-          longitude: formData.longitude ? parseFloat(formData.longitude) : undefined
+          longitude: formData.longitude ? parseFloat(formData.longitude) : undefined,
+          // Include check_in_time and check_out_time if they have non-empty values
+          check_in_time: formData.check_in_time && formData.check_in_time.trim() ? formData.check_in_time.trim() : undefined,
+          check_out_time: formData.check_out_time && formData.check_out_time.trim() ? formData.check_out_time.trim() : undefined
         };
+        
+        
         await ListingService.createListing(listingData);
         // Hand off toast to parent for display after returning to Manage Listings
         try { sessionStorage.setItem('global_toast', 'Listing created.'); } catch {}
@@ -471,7 +495,13 @@ const NewListingForm: React.FC<NewListingFormProps> = ({ onSuccess, onCancel, mo
       }
     } catch (err) {
       console.error('Error creating listing:', err);
-      setError(err instanceof Error ? err.message : 'Failed to create listing');
+      // Log full error details for debugging
+      if (err && typeof err === 'object' && 'message' in err) {
+        console.error('Error details:', JSON.stringify(err, null, 2));
+        setError(err instanceof Error ? err.message : `Failed to create listing: ${JSON.stringify(err)}`);
+      } else {
+        setError(err instanceof Error ? err.message : 'Failed to create listing');
+      }
     } finally {
       setIsSubmitting(false);
     }
@@ -673,6 +703,35 @@ const NewListingForm: React.FC<NewListingFormProps> = ({ onSuccess, onCancel, mo
 
   const renderPropertyDetailsStep = () => (
     <div className="space-y-6">
+      {/* Check-In Time / Check-Out Time Section */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div>
+          <label className="block text-sm font-semibold mb-2" style={{fontFamily: 'Poppins', color: '#0B5858'}}>
+            Check-In Time
+          </label>
+          <TimePicker
+            value={formData.check_in_time}
+            onChange={(time) => {
+              setFormData(prev => ({ ...prev, check_in_time: time }));
+            }}
+            placeholder="Select check-in time"
+          />
+        </div>
+
+        <div>
+          <label className="block text-sm font-semibold mb-2" style={{fontFamily: 'Poppins', color: '#0B5858'}}>
+            Check-Out Time
+          </label>
+          <TimePicker
+            value={formData.check_out_time}
+            onChange={(time) => {
+              setFormData(prev => ({ ...prev, check_out_time: time }));
+            }}
+            placeholder="Select check-out time"
+          />
+        </div>
+      </div>
+
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <div>
           <label className="block text-sm font-semibold mb-2" style={{fontFamily: 'Poppins', color: '#0B5858'}}>

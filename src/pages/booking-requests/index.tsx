@@ -175,11 +175,32 @@ const BookingRequests: React.FC = () => {
       logger.info('Approving booking', { bookingId: booking.id });
       await BookingService.updateBookingStatus(booking.id, 'confirmed');
       
+      // Decline all overlapping pending bookings for the same unit
+      await BookingService.declineOverlappingPendingBookings(
+        booking.id,
+        booking.listing_id,
+        booking.check_in_date,
+        booking.check_out_date
+      );
+      
       // Create updated booking with new status
       const updatedBooking = { ...booking, status: 'confirmed' as const };
       
-      // Update allBookings with the new status
-      setAllBookings(prev => prev.map(b => b.id === booking.id ? updatedBooking : b));
+      // Refresh bookings list to show declined bookings removed and confirmed booking visible
+      const refreshBookings = async () => {
+        try {
+          const fetchedBookings = await BookingService.getAllBookings();
+          const activeBookings = fetchedBookings.filter((b) => 
+            b.status !== 'declined' && b.status !== 'cancelled'
+          );
+          setAllBookings(activeBookings);
+          logger.info('Refreshed bookings after approval', { count: activeBookings.length });
+        } catch (error) {
+          logger.error('Error refreshing bookings after approval', { error });
+        }
+      };
+      
+      await refreshBookings();
       
       // Update selectedBooking if drawer is open for this booking
       if (isDrawerOpen && selectedBooking?.id === booking.id) {
@@ -842,20 +863,22 @@ const BookingRequests: React.FC = () => {
                     })()}
                   </span>
                 </div>
-                <button
-                  onClick={() => {
-                    if (selectedBooking) {
-                      navigate(`/booking-details/${selectedBooking.id}`);
-                    }
-                  }}
-                  className="text-sm font-semibold transition-all duration-200 cursor-pointer hover:scale-105 active:scale-100 relative group"
-                  style={{ fontFamily: 'Poppins', color: '#0B5858' }}
-                >
-                  <span className="relative inline-block">
-                    [ View Full Details ]
-                    <span className="absolute bottom-0 left-0 w-0 h-0.5 bg-[#0B5858] transition-all duration-300 group-hover:w-full"></span>
-                  </span>
-                </button>
+                {selectedBooking.status === 'pending' && (
+                  <button
+                    onClick={() => {
+                      if (selectedBooking) {
+                        navigate(`/booking-details/${selectedBooking.id}`);
+                      }
+                    }}
+                    className="text-sm font-semibold transition-all duration-200 cursor-pointer hover:scale-105 active:scale-100 relative group"
+                    style={{ fontFamily: 'Poppins', color: '#0B5858' }}
+                  >
+                    <span className="relative inline-block">
+                      [ View Full Details ]
+                      <span className="absolute bottom-0 left-0 w-0 h-0.5 bg-[#0B5858] transition-all duration-300 group-hover:w-full"></span>
+                    </span>
+                  </button>
+                )}
               </div>
             </div>
             {/* Divider */}
@@ -970,19 +993,19 @@ const BookingRequests: React.FC = () => {
                 <div className="space-y-0 p-4 bg-gradient-to-br from-gray-50 to-gray-100 rounded-xl border border-gray-200">
                   <div className="flex items-start py-1">
                     <span className="text-xs font-medium text-gray-600 w-[30%]" style={{ fontFamily: 'Poppins' }}>Unit</span>
-                    <span className="text-xs font-semibold text-gray-900 ml-4 flex-1" style={{ fontFamily: 'Poppins' }}>
+                    <span className="text-xs text-gray-900 ml-4 flex-1" style={{ fontFamily: 'Poppins' }}>
                       {selectedBooking.listing?.title || 'Unknown Unit'}
                     </span>
                   </div>
                   <div className="flex items-start py-1">
                     <span className="text-xs font-medium text-gray-600 w-[30%]" style={{ fontFamily: 'Poppins' }}>Location</span>
-                    <span className="text-xs font-semibold text-gray-900 ml-4 flex-1" style={{ fontFamily: 'Poppins' }}>
+                    <span className="text-xs text-gray-900 ml-4 flex-1" style={{ fontFamily: 'Poppins' }}>
                       {selectedBooking.listing?.location || 'N/A'}
                     </span>
                   </div>
                   <div className="flex items-start py-1">
                     <span className="text-xs font-medium text-gray-600 w-[30%]" style={{ fontFamily: 'Poppins' }}>Check-in</span>
-                    <span className="text-xs font-semibold text-gray-900 ml-4 flex-1" style={{ fontFamily: 'Poppins' }}>
+                    <span className="text-xs text-gray-900 ml-4 flex-1" style={{ fontFamily: 'Poppins' }}>
                       {new Date(selectedBooking.check_in_date).toLocaleDateString('en-US', {
                         month: 'short',
                         day: 'numeric',
@@ -992,7 +1015,7 @@ const BookingRequests: React.FC = () => {
                   </div>
                   <div className="flex items-start py-1">
                     <span className="text-xs font-medium text-gray-600 w-[30%]" style={{ fontFamily: 'Poppins' }}>Check-out</span>
-                    <span className="text-xs font-semibold text-gray-900 ml-4 flex-1" style={{ fontFamily: 'Poppins' }}>
+                    <span className="text-xs text-gray-900 ml-4 flex-1" style={{ fontFamily: 'Poppins' }}>
                       {new Date(selectedBooking.check_out_date).toLocaleDateString('en-US', {
                         month: 'short',
                         day: 'numeric',
@@ -1003,7 +1026,7 @@ const BookingRequests: React.FC = () => {
                   {((selectedBooking.num_guests && selectedBooking.num_guests > 0) || (selectedBooking.extra_guests && selectedBooking.extra_guests > 0)) && (
                     <div className="flex items-start py-1">
                       <span className="text-xs font-medium text-gray-600 w-[30%]" style={{ fontFamily: 'Poppins' }}>Guest count</span>
-                      <span className="text-xs font-semibold text-gray-900 ml-4 flex-1" style={{ fontFamily: 'Poppins' }}>
+                      <span className="text-xs text-gray-900 ml-4 flex-1" style={{ fontFamily: 'Poppins' }}>
                         {(() => {
                           const adults = selectedBooking.num_guests || 0;
                           const children = selectedBooking.extra_guests || 0;
@@ -1017,7 +1040,7 @@ const BookingRequests: React.FC = () => {
                   )}
                   <div className="flex items-start py-1">
                     <span className="text-xs font-medium text-gray-600 w-[30%]" style={{ fontFamily: 'Poppins' }}>Total Price</span>
-                    <span className="text-xs font-semibold text-gray-900 ml-4 flex-1" style={{ fontFamily: 'Poppins' }}>
+                    <span className="text-xs text-gray-900 ml-4 flex-1" style={{ fontFamily: 'Poppins' }}>
                       ₱ {selectedBooking.total_amount?.toLocaleString() || '0'}
                     </span>
                   </div>
@@ -1080,22 +1103,39 @@ const BookingRequests: React.FC = () => {
               >
                 Close
               </button>
-              <button
-                onClick={() => selectedBooking && openConfirmModal(selectedBooking)}
-                disabled={isProcessing}
-                className="flex-1 px-6 py-3 text-white rounded-lg transition-all duration-200 hover:opacity-90 hover:scale-105 active:scale-95 cursor-pointer font-medium disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 disabled:active:scale-100"
-                style={{ fontFamily: 'Poppins', backgroundColor: '#B84C4C' }}
-              >
-                Decline
-              </button>
-              <button
-                onClick={() => selectedBooking && handleApprove(selectedBooking)}
-                disabled={isProcessing}
-                className="flex-1 px-6 py-3 text-white rounded-lg transition-all duration-200 hover:opacity-90 hover:scale-105 active:scale-95 cursor-pointer font-medium disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 disabled:active:scale-100"
-                style={{ fontFamily: 'Poppins', backgroundColor: '#05807E' }}
-              >
-                Approve
-              </button>
+              {selectedBooking.status === 'pending' && (
+                <>
+                  <button
+                    onClick={() => selectedBooking && openConfirmModal(selectedBooking)}
+                    disabled={isProcessing}
+                    className="flex-1 px-6 py-3 text-white rounded-lg transition-all duration-200 hover:opacity-90 hover:scale-105 active:scale-95 cursor-pointer font-medium disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 disabled:active:scale-100"
+                    style={{ fontFamily: 'Poppins', backgroundColor: '#B84C4C' }}
+                  >
+                    Decline
+                  </button>
+                  <button
+                    onClick={() => selectedBooking && handleApprove(selectedBooking)}
+                    disabled={isProcessing}
+                    className="flex-1 px-6 py-3 text-white rounded-lg transition-all duration-200 hover:opacity-90 hover:scale-105 active:scale-95 cursor-pointer font-medium disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 disabled:active:scale-100"
+                    style={{ fontFamily: 'Poppins', backgroundColor: '#05807E' }}
+                  >
+                    Approve
+                  </button>
+                </>
+              )}
+              {selectedBooking.status !== 'pending' && (
+                <button
+                  onClick={() => {
+                    if (selectedBooking) {
+                      navigate(`/booking-details/${selectedBooking.id}`);
+                    }
+                  }}
+                  className="flex-1 px-6 py-3 text-white rounded-lg transition-all duration-200 hover:opacity-90 hover:scale-105 active:scale-95 cursor-pointer font-medium"
+                  style={{ fontFamily: 'Poppins', backgroundColor: '#0B5858' }}
+                >
+                  View Full Details
+                </button>
+              )}
             </div>
           </div>
         </>

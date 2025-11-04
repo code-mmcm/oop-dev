@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import type { BookingFormData, BookingStep } from '../../../types/booking';
+import type { Listing } from '../../../types/listing';
 import StayDetailsStep from './StayDetailsStep';
 import ClientInfoStep from './ClientInfoStep';
 import AdditionalServicesStep from './AdditionalServicesStep';
@@ -8,6 +9,7 @@ import ConfirmationStep from './ConfirmationStep';
 
 interface BookingFormProps {
   listingId?: string;
+  listing?: Listing | null;
   pricePerNight?: number;
   priceUnit?: string;
   extraGuestFeePerPerson?: number;
@@ -16,7 +18,7 @@ interface BookingFormProps {
   onComplete: (formData: BookingFormData) => void;
 }
 
-const BookingForm: React.FC<BookingFormProps> = ({ listingId, pricePerNight, priceUnit, extraGuestFeePerPerson, baseGuests, onCancel, onComplete }) => {
+const BookingForm: React.FC<BookingFormProps> = ({ listingId, listing, pricePerNight, priceUnit, extraGuestFeePerPerson, baseGuests, onCancel, onComplete }) => {
   const [currentStep, setCurrentStep] = useState(0);
 
   // Initial form data filled out with all commonly-referenced fields so child steps
@@ -125,6 +127,7 @@ const BookingForm: React.FC<BookingFormProps> = ({ listingId, pricePerNight, pri
           <StayDetailsStep
             formData={formData}
             listingId={listingId}
+            listing={listing}
             onUpdate={updateFormData}
             onNext={nextStep}
             onCancel={onCancel}

@@ -19,6 +19,26 @@ export interface Listing {
   is_featured: boolean;
   latitude?: number;
   longitude?: number;
+  check_in_time?: string; // HH:mm format (e.g., "14:00")
+  check_out_time?: string; // HH:mm format (e.g., "11:00")
+  /** Calendar settings stored as JSONB (blocked dates and special pricing) */
+  calendar_settings?: {
+    blocked_dates?: Array<{
+      id: string;
+      start_date: string;
+      end_date: string;
+      reason?: string;
+      created_at: string;
+    }>;
+    special_pricing?: Array<{
+      id: string;
+      start_date: string;
+      end_date: string;
+      price: number;
+      note?: string;
+      created_at: string;
+    }>;
+  };
   created_at: string;
   updated_at: string;
 }

@@ -24,8 +24,6 @@ const ManageUnits: React.FC = () => {
   const [togglingFeatured, setTogglingFeatured] = useState<Set<string>>(new Set());
   const [animatingStars, setAnimatingStars] = useState<Set<string>>(new Set());
   const [showNewListing, setShowNewListing] = useState(false);
-  const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage] = useState(10);
   const [hoveredText, setHoveredText] = useState<string | null>(null);
   const [tooltipPosition, setTooltipPosition] = useState({ x: 0, y: 0 });
   const [showDeleteModal, setShowDeleteModal] = useState(false);
@@ -156,16 +154,6 @@ const ManageUnits: React.FC = () => {
     return matchesSearch && matchesStatus && matchesType;
   });
 
-  // Pagination logic
-  const totalPages = Math.ceil(filteredUnits.length / itemsPerPage);
-  const startIndex = (currentPage - 1) * itemsPerPage;
-  const endIndex = startIndex + itemsPerPage;
-  const currentUnits = filteredUnits.slice(startIndex, endIndex);
-
-  // Reset to first page when filters change
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [searchTerm, statusFilter, typeFilter]);
 
   // Helper function to format price
   const formatPrice = (price: number, currency: string) => {
@@ -512,31 +500,193 @@ const ManageUnits: React.FC = () => {
 
 
   /**
+   * PageSkeleton component for full page loading state
+   * JSDoc: Displays skeleton for entire page including header, filters, and content
+   */
+  const PageSkeleton = () => (
+    <>
+      {/* Header Skeleton */}
+      <div className="flex justify-between items-center mb-6 animate-pulse">
+        <div className="flex items-center">
+          <div className="mr-4 w-10 h-10 bg-gray-200 rounded-lg"></div>
+          <div className="h-9 w-48 bg-gray-200 rounded"></div>
+        </div>
+      </div>
+
+      {/* Search and Filter Section Skeleton */}
+      <div className="mb-6 animate-pulse">
+        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+          <div className="flex flex-col md:flex-row gap-4 items-center w-full">
+            {/* Search Bar Skeleton */}
+            <div className="relative w-full md:w-[60%] lg:w-[50%]">
+              <div className="h-12 bg-gray-200 rounded-lg"></div>
+            </div>
+
+            {/* Status Filter Skeleton */}
+            <div className="w-full md:w-auto min-w-[160px]">
+              <div className="h-12 bg-gray-200 rounded-lg"></div>
+            </div>
+
+            {/* View Toggle Skeleton */}
+            <div className="h-[52px] w-24 bg-gray-200 rounded-lg"></div>
+          </div>
+
+          {/* Add Button Skeleton */}
+          <div className="w-full md:w-auto flex justify-end">
+            <div className="h-12 w-40 bg-gray-200 rounded-lg"></div>
+          </div>
+        </div>
+      </div>
+
+      {/* Content Skeleton - List View */}
+      {viewMode === 'list' ? (
+        <div className="bg-white rounded-lg shadow-sm overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full table-auto min-w-[900px] md:min-w-0">
+              <thead className="sticky top-0 z-10">
+                <tr style={{backgroundColor: '#0B5858'}}>
+                  <th className="px-3 py-2.5 text-left" style={{fontFamily: 'Poppins'}}>
+                    <div className="h-4 w-4 bg-white/30 rounded animate-pulse"></div>
+                  </th>
+                  <th className="px-3 py-2.5 text-left" style={{fontFamily: 'Poppins'}}>
+                    <div className="h-4 w-20 bg-white/30 rounded animate-pulse"></div>
+                  </th>
+                  <th className="px-3 py-2.5 text-left whitespace-nowrap" style={{fontFamily: 'Poppins'}}>
+                    <div className="h-4 w-16 bg-white/30 rounded animate-pulse"></div>
+                  </th>
+                  <th className="px-3 py-2.5 text-left whitespace-nowrap" style={{fontFamily: 'Poppins'}}>
+                    <div className="h-4 w-12 bg-white/30 rounded animate-pulse"></div>
+                  </th>
+                  <th className="px-3 py-2.5 text-left whitespace-nowrap" style={{fontFamily: 'Poppins'}}>
+                    <div className="h-4 w-14 bg-white/30 rounded animate-pulse"></div>
+                  </th>
+                  <th className="px-3 py-2.5 text-left whitespace-nowrap" style={{fontFamily: 'Poppins'}}>
+                    <div className="h-4 w-20 bg-white/30 rounded animate-pulse"></div>
+                  </th>
+                  <th className="px-3 py-2.5 text-left whitespace-nowrap" style={{fontFamily: 'Poppins'}}>
+                    <div className="h-4 w-16 bg-white/30 rounded animate-pulse"></div>
+                  </th>
+                  <th className="px-3 py-2.5 text-left whitespace-nowrap" style={{fontFamily: 'Poppins'}}>
+                    <div className="h-4 w-12 bg-white/30 rounded animate-pulse"></div>
+                  </th>
+                  <th className="px-3 py-2.5 text-left whitespace-nowrap hidden md:table-cell" style={{fontFamily: 'Poppins'}}>
+                    <div className="h-4 w-16 bg-white/30 rounded animate-pulse"></div>
+                  </th>
+                  <th className="px-3 py-2.5 text-left whitespace-nowrap" style={{fontFamily: 'Poppins'}}>
+                    <div className="h-4 w-24 bg-white/30 rounded animate-pulse"></div>
+                  </th>
+                  <th className="px-3 py-2.5 text-left whitespace-nowrap" style={{fontFamily: 'Poppins'}}>
+                    <div className="h-4 w-16 bg-white/30 rounded animate-pulse"></div>
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                <TableSkeleton />
+              </tbody>
+            </table>
+          </div>
+        </div>
+      ) : (
+        // Content Skeleton - Grid View
+        <GridSkeleton />
+      )}
+
+    </>
+  );
+
+  /**
    * GridSkeleton component for grid view loading state
    * JSDoc: Displays animated skeleton cards during grid view loading
    */
   const GridSkeleton = () => (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-      {Array.from({ length: 6 }).map((_, index) => (
+      {Array.from({ length: 8 }).map((_, index) => (
         <div key={index} className="bg-white border border-gray-200 rounded-2xl shadow-sm overflow-hidden animate-pulse">
-          <div className="h-40 bg-gray-300"></div>
+          <div className="h-40 bg-gray-200"></div>
           <div className="p-4">
-            <div className="h-6 bg-gray-300 rounded w-3/4 mb-2"></div>
-            <div className="h-5 bg-gray-300 rounded w-1/2 mb-2"></div>
-            <div className="h-4 bg-gray-300 rounded w-full mb-4"></div>
+            <div className="h-6 bg-gray-200 rounded w-3/4 mb-2"></div>
+            <div className="h-5 bg-gray-200 rounded w-1/2 mb-2"></div>
+            <div className="h-4 bg-gray-200 rounded w-full mb-4"></div>
             <div className="flex items-center space-x-3 mb-3">
-              <div className="h-4 bg-gray-300 rounded w-16"></div>
-              <div className="h-4 bg-gray-300 rounded w-16"></div>
-              <div className="h-4 bg-gray-300 rounded w-16"></div>
+              <div className="h-4 bg-gray-200 rounded w-16"></div>
+              <div className="h-4 bg-gray-200 rounded w-16"></div>
+              <div className="h-4 bg-gray-200 rounded w-16"></div>
             </div>
             <div className="flex items-center justify-between">
-              <div className="h-8 bg-gray-300 rounded w-20"></div>
-              <div className="h-8 bg-gray-300 rounded w-8"></div>
+              <div className="h-8 bg-gray-200 rounded w-20"></div>
+              <div className="h-8 bg-gray-200 rounded w-8"></div>
             </div>
           </div>
         </div>
       ))}
     </div>
+  );
+
+  /**
+   * TableSkeleton component for list view loading state
+   * JSDoc: Displays animated skeleton rows during table loading
+   */
+  const TableSkeleton = () => (
+    <>
+      {Array.from({ length: 5 }).map((_, index) => (
+        <tr key={index} className="animate-pulse">
+          {/* Featured Star */}
+          <td className="px-3 py-2.5 align-middle text-center">
+            <div className="h-6 w-6 bg-gray-200 rounded mx-auto"></div>
+          </td>
+          {/* Unit Title - with image and title */}
+          <td className="px-3 py-2.5 align-middle">
+            <div className="flex items-center space-x-3">
+              <div className="w-10 h-10 bg-gray-200 rounded flex-shrink-0"></div>
+              <div className="flex-1 min-w-0">
+                <div className="h-4 bg-gray-200 rounded w-32 mb-1"></div>
+                <div className="h-3 bg-gray-200 rounded w-24"></div>
+              </div>
+            </div>
+          </td>
+          {/* Location */}
+          <td className="px-3 py-2.5 align-middle">
+            <div className="h-4 bg-gray-200 rounded w-24"></div>
+          </td>
+          {/* Type */}
+          <td className="px-3 py-2.5 align-middle">
+            <div className="h-4 bg-gray-200 rounded w-20"></div>
+          </td>
+          {/* Capacity */}
+          <td className="px-3 py-2.5 align-middle">
+            <div className="h-4 bg-gray-200 rounded w-16"></div>
+          </td>
+          {/* Price/Night */}
+          <td className="px-3 py-2.5 align-middle">
+            <div className="h-4 bg-gray-200 rounded w-20"></div>
+          </td>
+          {/* Status */}
+          <td className="px-3 py-2.5 align-middle">
+            <div className="h-6 bg-gray-200 rounded-full w-20"></div>
+          </td>
+          {/* Slots */}
+          <td className="px-3 py-2.5 align-middle">
+            <div className="h-7 bg-gray-200 rounded w-16"></div>
+          </td>
+          {/* Bookings - hidden on mobile */}
+          <td className="px-3 py-2.5 align-middle hidden md:table-cell">
+            <div className="h-4 bg-gray-200 rounded w-12"></div>
+          </td>
+          {/* Last Updated */}
+          <td className="px-3 py-2.5 align-middle whitespace-nowrap">
+            <div className="h-4 bg-gray-200 rounded w-24"></div>
+          </td>
+          {/* Actions */}
+          <td className="px-3 py-2.5 align-middle">
+            <div className="flex items-center justify-end space-x-2">
+              <div className="h-6 w-11 bg-gray-200 rounded-full"></div>
+              <div className="h-5 w-5 bg-gray-200 rounded"></div>
+              <div className="h-5 w-5 bg-gray-200 rounded"></div>
+            </div>
+          </td>
+        </tr>
+      ))}
+    </>
   );
 
   /**
@@ -555,135 +705,140 @@ const ManageUnits: React.FC = () => {
       
       <div className="pt-24 py-8">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          {/* Header Section */}
-          <div className="flex justify-between items-center mb-6">
-            <div className="flex items-center">
-              <button
-                onClick={() => navigate('/admin')}
-                className="mr-4 p-2 text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-lg transition-colors duration-200 cursor-pointer"
-              >
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-                </svg>
-              </button>
-              <h1 
-                className="text-3xl font-bold text-black"
-                style={{fontFamily: 'Poppins', fontWeight: 700}}
-              >
-                Manage Listings
-              </h1>
-            </div>
-          </div>
-
-          {/* Search and Filter Section */}
-          {/*
-            Removed white wrapper background, padding, and shadow from the container
-            to ensure the search bar and filters are not covered by a white card.
-            Kept margin-bottom for spacing from the table that follows.
-          */}
-          <div className="mb-6">
-            {/*
-              Group search, filters, and view toggle on the left; position the
-              "Add new Listing" action on the right for clear primary action placement.
-            */}
-            <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-              <div className="flex flex-col md:flex-row gap-4 items-center w-full">
-              {/* Search Bar */}
-              <div className="relative w-full md:w-[60%] lg:w-[50%]">
-                <div className="relative">
-                  <svg 
-                    className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5" 
-                    fill="none" 
-                    stroke="currentColor" 
-                    viewBox="0 0 24 24"
-                    style={{ color: '#558B8B' }}
+          {/* Show full page skeleton during loading */}
+          {(roleLoading || isLoading) ? (
+            <PageSkeleton />
+          ) : (
+            <>
+              {/* Header Section */}
+              <div className="flex justify-between items-center mb-6">
+                <div className="flex items-center">
+                  <button
+                    onClick={() => navigate('/admin')}
+                    className="mr-4 p-2 text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-lg transition-colors duration-200 cursor-pointer"
                   >
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                  </svg>
-                  {/* Ensure search input has white fill for contrast on non-white page backgrounds */}
-                  <input
-                    type="text"
-                    placeholder="Search by unit name or ID..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg bg-white transition-all focus:outline-none focus:ring-2 focus:ring-offset-2 focus:shadow-md focus:border-transparent"
-                    style={{
-                      fontFamily: 'Poppins',
-                      '--tw-ring-color': '#549F74'
-                    } as React.CSSProperties & { '--tw-ring-color': string }}
-                  />
+                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                    </svg>
+                  </button>
+                  <h1 
+                    className="text-3xl font-bold text-black"
+                    style={{fontFamily: 'Poppins', fontWeight: 700}}
+                  >
+                    Manage Listings
+                  </h1>
                 </div>
               </div>
 
-              {/* Status Filter using shared Dropdown */}
-              <div className="w-full md:w-auto min-w-[160px]">
-                <Dropdown
-                  label={statusFilter}
-                  options={[
-                    { value: 'All Status', label: 'All Status' },
-                    { value: 'Available', label: 'Available' },
-                    { value: 'Unavailable', label: 'Unavailable' }
-                  ]}
-                  onSelect={(value) => setStatusFilter(value)}
-                  placeholder="All Status"
-                  className="min-w-[160px]"
-                  maxVisibleItems={4}
-                  alwaysScrollable
-                />
-              </div>
+              {/* Search and Filter Section */}
+              {/*
+                Removed white wrapper background, padding, and shadow from the container
+                to ensure the search bar and filters are not covered by a white card.
+                Kept margin-bottom for spacing from the table that follows.
+              */}
+              <div className="mb-6">
+                {/*
+                  Group search, filters, and view toggle on the left; position the
+                  "Add new Listing" action on the right for clear primary action placement.
+                */}
+                <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+                  <div className="flex flex-col md:flex-row gap-4 items-center w-full">
+                  {/* Search Bar */}
+                  <div className="relative w-full md:w-[60%] lg:w-[50%]">
+                    <div className="relative">
+                      <svg 
+                        className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5" 
+                        fill="none" 
+                        stroke="currentColor" 
+                        viewBox="0 0 24 24"
+                        style={{ color: '#558B8B' }}
+                      >
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                      </svg>
+                      {/* Ensure search input has white fill for contrast on non-white page backgrounds */}
+                      <input
+                        type="text"
+                        placeholder="Search by unit name or ID..."
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                        className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg bg-white transition-all focus:outline-none focus:ring-2 focus:ring-offset-2 focus:shadow-md focus:border-transparent"
+                        style={{
+                          fontFamily: 'Poppins',
+                          '--tw-ring-color': '#549F74'
+                        } as React.CSSProperties & { '--tw-ring-color': string }}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Status Filter using shared Dropdown */}
+                  <div className="w-full md:w-auto min-w-[160px]">
+                    <Dropdown
+                      label={statusFilter}
+                      options={[
+                        { value: 'All Status', label: 'All Status' },
+                        { value: 'Available', label: 'Available' },
+                        { value: 'Unavailable', label: 'Unavailable' }
+                      ]}
+                      onSelect={(value) => setStatusFilter(value)}
+                      placeholder="All Status"
+                      className="min-w-[160px]"
+                      maxVisibleItems={4}
+                      alwaysScrollable
+                    />
+                  </div>
 
 
-              {/* View Toggle */}
-              <div className="flex border border-gray-300 rounded-lg overflow-hidden h-[52px]">
-                <button
-                  onClick={() => setViewMode('list')}
-                  className={`px-4 h-full flex items-center transition-colors cursor-pointer ${
-                    viewMode === 'list' 
-                      ? 'text-white' 
-                      : 'text-gray-600 hover:bg-gray-50'
-                  }`}
-                  style={{
-                    backgroundColor: viewMode === 'list' ? '#0B5858' : 'white',
-                    fontFamily: 'Poppins'
-                  }}
-                >
-                  <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M3 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1z" clipRule="evenodd" />
-                  </svg>
-                </button>
-                <button
-                  onClick={() => setViewMode('grid')}
-                  className={`px-4 h-full flex items-center transition-colors cursor-pointer ${
-                    viewMode === 'grid' 
-                      ? 'text-white' 
-                      : 'text-gray-600 hover:bg-gray-50'
-                  }`}
-                  style={{
-                    backgroundColor: viewMode === 'grid' ? '#0B5858' : 'white',
-                    fontFamily: 'Poppins'
-                  }}
-                >
-                  <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-                    <path d="M5 3a2 2 0 00-2 2v2a2 2 0 002 2h2a2 2 0 002-2V5a2 2 0 00-2-2H5zM5 11a2 2 0 00-2 2v2a2 2 0 002 2h2a2 2 0 002-2v-2a2 2 0 00-2-2H5zM11 5a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V5zM11 13a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
-                  </svg>
-                </button>
-              </div>
+                  {/* View Toggle */}
+                  <div className="flex border border-gray-300 rounded-lg overflow-hidden h-[52px]">
+                    <button
+                      onClick={() => setViewMode('list')}
+                      className={`px-4 h-full flex items-center transition-colors cursor-pointer ${
+                        viewMode === 'list' 
+                          ? 'text-white' 
+                          : 'text-gray-600 hover:bg-gray-50'
+                      }`}
+                      style={{
+                        backgroundColor: viewMode === 'list' ? '#0B5858' : 'white',
+                        fontFamily: 'Poppins'
+                      }}
+                    >
+                      <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M3 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1z" clipRule="evenodd" />
+                      </svg>
+                    </button>
+                    <button
+                      onClick={() => setViewMode('grid')}
+                      className={`px-4 h-full flex items-center transition-colors cursor-pointer ${
+                        viewMode === 'grid' 
+                          ? 'text-white' 
+                          : 'text-gray-600 hover:bg-gray-50'
+                      }`}
+                      style={{
+                        backgroundColor: viewMode === 'grid' ? '#0B5858' : 'white',
+                        fontFamily: 'Poppins'
+                      }}
+                    >
+                      <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                        <path d="M5 3a2 2 0 00-2 2v2a2 2 0 002 2h2a2 2 0 002-2V5a2 2 0 00-2-2H5zM5 11a2 2 0 00-2 2v2a2 2 0 002 2h2a2 2 0 002-2v-2a2 2 0 00-2-2H5zM11 5a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V5zM11 13a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
+                      </svg>
+                    </button>
+                  </div>
+                  </div>
+
+                  {/* Primary action placed at right side of the row */}
+                  <div className="w-full md:w-auto flex justify-end">
+                    <button 
+                      onClick={() => setShowNewListing(true)}
+                      className="px-6 py-3 rounded-lg text-white font-semibold transition-all duration-300 hover:opacity-90 whitespace-nowrap shrink-0 cursor-pointer"
+                      style={{backgroundColor: '#0B5858', fontFamily: 'Poppins'}}
+                    >
+                      + Add new Listing
+                    </button>
+                  </div>
+                </div>
               </div>
 
-              {/* Primary action placed at right side of the row */}
-              <div className="w-full md:w-auto flex justify-end">
-                <button 
-                  onClick={() => setShowNewListing(true)}
-                  className="px-6 py-3 rounded-lg text-white font-semibold transition-all duration-300 hover:opacity-90 whitespace-nowrap shrink-0 cursor-pointer"
-                  style={{backgroundColor: '#0B5858', fontFamily: 'Poppins'}}
-                >
-                  + Add new Listing
-                </button>
-              </div>
-            </div>
-          </div>
-
-          {/* Units Display (Table or Grid) */}
+              {/* Units Display (Table or Grid) */}
           {viewMode === 'list' ? (
             <>
               {/* Table View */}
@@ -729,20 +884,10 @@ const ManageUnits: React.FC = () => {
                   </tr>
                 </thead>
                 <tbody>
-                  {roleLoading ? (
-                    // Role loading state - show loading message
-                  <tr>
-                    <td colSpan={10} className="px-6 py-8 text-center">
-                        <div className="flex flex-col items-center">
-                          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900 mb-4"></div>
-                          <p className="text-gray-600" style={{fontFamily: 'Poppins'}}>Loading...</p>
-                        </div>
-                      </td>
-                    </tr>
-                  ) : !isAdmin ? (
+                  {!isAdmin ? (
                     // Access denied state - maintain table structure
                   <tr>
-                    <td className="px-6 py-8 text-center" colSpan={10}>
+                    <td className="px-6 py-8 text-center" colSpan={11}>
                         <div className="text-red-500">
                           <svg className="w-16 h-16 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
@@ -756,20 +901,10 @@ const ManageUnits: React.FC = () => {
                         </div>
                       </td>
                     </tr>
-                  ) : isLoading ? (
-                    // Data loading state - show loading message
-                  <tr>
-                    <td colSpan={10} className="px-6 py-8 text-center">
-                        <div className="flex flex-col items-center">
-                          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900 mb-4"></div>
-                          <p className="text-gray-600" style={{fontFamily: 'Poppins'}}>Loading units...</p>
-                        </div>
-                      </td>
-                    </tr>
                   ) : error ? (
                     // Error state - maintain table structure
                   <tr>
-                    <td className="px-6 py-8 text-center" colSpan={10}>
+                    <td className="px-6 py-8 text-center" colSpan={11}>
                         <div className="text-red-500">
                           <svg className="w-16 h-16 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
@@ -786,7 +921,7 @@ const ManageUnits: React.FC = () => {
                   ) : filteredUnits.length === 0 ? (
                     // No units found - maintain table structure
                     <tr>
-                      <td className="px-6 py-8 text-center" colSpan={10}>
+                      <td className="px-6 py-8 text-center" colSpan={11}>
                         <div className="text-gray-500">
                           <svg className="w-16 h-16 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
@@ -802,7 +937,7 @@ const ManageUnits: React.FC = () => {
                     </tr>
                   ) : (
                     // Actual units data
-                    currentUnits.map((unit, index) => (
+                    filteredUnits.map((unit, index) => (
                       <tr 
                         key={unit.id} 
                         className={`border-b border-gray-200 ${
@@ -1034,67 +1169,11 @@ const ManageUnits: React.FC = () => {
                 </div>
               </div>
 
-              {/* Pagination */}
-              {filteredUnits.length > itemsPerPage && (
-                <div className="px-6 py-4">
-                  <div className="flex items-center justify-between">
-                    <div className="text-sm text-gray-700" style={{fontFamily: 'Poppins'}}>
-                      Showing {startIndex + 1} to {Math.min(endIndex, filteredUnits.length)} of {filteredUnits.length} results
-                    </div>
-                    
-                    <div className="flex items-center space-x-2">
-                      {/* Previous Button */}
-                      <button
-                        onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
-                        disabled={currentPage === 1}
-                        className="px-3 py-2 text-sm font-medium text-gray-500 bg-white border border-gray-300 rounded-md hover:bg-gray-50 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
-                        style={{fontFamily: 'Poppins'}}
-                      >
-                        Previous
-                      </button>
-                      
-                      {/* Page Numbers */}
-                      <div className="flex space-x-1">
-                        {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
-                          <button
-                            key={page}
-                            onClick={() => setCurrentPage(page)}
-                            className={`px-3 py-2 text-sm font-medium rounded-md cursor-pointer ${
-                              currentPage === page
-                                ? 'text-white'
-                                : 'text-gray-700 bg-white border border-gray-300 hover:bg-gray-50'
-                            }`}
-                            style={{
-                              backgroundColor: currentPage === page ? '#0B5858' : undefined,
-                              fontFamily: 'Poppins'
-                            }}
-                          >
-                            {page}
-                          </button>
-                        ))}
-                      </div>
-                      
-                      {/* Next Button */}
-                      <button
-                        onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
-                        disabled={currentPage === totalPages}
-                        className="px-3 py-2 text-sm font-medium text-gray-500 bg-white border border-gray-300 rounded-md hover:bg-gray-50 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
-                        style={{fontFamily: 'Poppins'}}
-                      >
-                        Next
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              )}
             </>
           ) : (
             // Grid View
             <>
-               {roleLoading ? (
-                 // Role loading state - show skeleton
-                 <GridSkeleton />
-              ) : !isAdmin ? (
+               {!isAdmin ? (
                 // Access denied state
                 <div className="flex flex-col items-center justify-center py-12">
                   <div className="text-red-500">
@@ -1109,9 +1188,6 @@ const ManageUnits: React.FC = () => {
                     </p>
                   </div>
                 </div>
-              ) : isLoading ? (
-                // Data loading state - show skeleton
-                <GridSkeleton />
               ) : error ? (
                 // Error state
                 <div className="flex flex-col items-center justify-center py-12">
@@ -1145,7 +1221,7 @@ const ManageUnits: React.FC = () => {
               ) : (
                 // Grid of unit cards
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                  {currentUnits.map((unit) => (
+                  {filteredUnits.map((unit) => (
                     <div
                       key={unit.id}
                       className="bg-white border border-gray-200 rounded-2xl shadow-sm hover:shadow-xl transition-all duration-300 overflow-hidden group cursor-pointer"
@@ -1392,57 +1468,8 @@ const ManageUnits: React.FC = () => {
                 </div>
               )}
 
-              {/* Pagination for Grid View */}
-              {filteredUnits.length > itemsPerPage && (
-                <div className="flex items-center justify-between mt-6">
-                  <div className="text-sm text-gray-700" style={{fontFamily: 'Poppins'}}>
-                    Showing {startIndex + 1} to {Math.min(endIndex, filteredUnits.length)} of {filteredUnits.length} results
-                  </div>
-                  
-                  <div className="flex items-center space-x-2">
-                    {/* Previous Button */}
-                    <button
-                      onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
-                      disabled={currentPage === 1}
-                      className="px-3 py-2 text-sm font-medium text-gray-500 bg-white border border-gray-300 rounded-md hover:bg-gray-50 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
-                      style={{fontFamily: 'Poppins'}}
-                    >
-                      Previous
-                    </button>
-                    
-                    {/* Page Numbers */}
-                    <div className="flex space-x-1">
-                      {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
-                        <button
-                          key={page}
-                          onClick={() => setCurrentPage(page)}
-                          className={`px-3 py-2 text-sm font-medium rounded-md cursor-pointer ${
-                            currentPage === page
-                              ? 'text-white'
-                              : 'text-gray-700 bg-white border border-gray-300 hover:bg-gray-50'
-                          }`}
-                          style={{
-                            backgroundColor: currentPage === page ? '#0B5858' : undefined,
-                            fontFamily: 'Poppins'
-                          }}
-                        >
-                          {page}
-                        </button>
-                      ))}
-                    </div>
-                    
-                    {/* Next Button */}
-                    <button
-                      onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
-                      disabled={currentPage === totalPages}
-                      className="px-3 py-2 text-sm font-medium text-gray-500 bg-white border border-gray-300 rounded-md hover:bg-gray-50 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
-                      style={{fontFamily: 'Poppins'}}
-                    >
-                      Next
-                    </button>
-                  </div>
-                </div>
-              )}
+            </>
+          )}
             </>
           )}
         </div>
