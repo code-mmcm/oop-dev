@@ -10,6 +10,7 @@ import type { BookingFormData } from '../../types/booking';
 import { getLenis } from '../../App';
 import LeftColumn from './components/LeftColumn';
 import RightColumn from './components/RightColumn';
+import TabsSection from './components/TabsSection';
 import PropertiesInSameArea from './components/PropertiesInSameArea';
 import ShareModal from './components/ShareModal';
 
@@ -277,7 +278,6 @@ const UnitView: React.FC = () => {
             <div className="flex flex-col xl:flex-row gap-8">
               <LeftColumn 
                 listing={listing} 
-                isLoading={isLoading} 
                 error={error} 
                 onImageClick={handleImageClick}
                 onShareClick={() => setShowShareModal(true)} 
@@ -397,7 +397,6 @@ const UnitView: React.FC = () => {
             <div className="flex-1">
               <LeftColumn 
                 listing={listing} 
-                isLoading={isLoading} 
                 error={error} 
                   onImageClick={handleImageClick}
                   onShareClick={() => setShowShareModal(true)} 
@@ -411,6 +410,10 @@ const UnitView: React.FC = () => {
                 error={error} 
                 onReserve={handleReserve} 
               />
+              {/* On mobile (below xl) render the tabs & content under the reviews/sidebar */}
+              <div className="block xl:hidden mt-6">
+                <TabsSection listing={listing} />
+              </div>
             </div>
           </div>
         </div>
