@@ -25,9 +25,27 @@ export class AuthService {
 
       if (error) {
         console.error('Error fetching user role:', error);
-        console.log('No role found in user_roles table, returning default user role');
+        console.error('Error details:', {
+          message: error.message,
+          code: error.code,
+          details: error.details,
+          hint: error.hint
+        });
         
-        // Return default user role without additional fetching
+        // If it's a "not found" error (PGRST116), the user doesn't have a role in the table
+        // Return null instead of defaulting to 'user' so we can handle it properly
+        if (error.code === 'PGRST116') {
+          console.log('No role found in user_roles table for user:', user.id);
+          return {
+            role: 'user',
+            user_id: user.id,
+            fullname: '', // Will be populated by getUserProfile if needed
+            email: user.email || ''
+          };
+        }
+        
+        // For other errors, still return default user role
+        console.log('Error fetching role, returning default user role');
         return {
           role: 'user',
           user_id: user.id,
@@ -37,6 +55,7 @@ export class AuthService {
       }
 
       console.log('User role data:', data);
+      console.log('User role:', data?.role);
 
       // Get user info separately
       const { data: userData } = await supabase

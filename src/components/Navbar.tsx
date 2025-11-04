@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 
 const Navbar: React.FC = () => {
-  const { user, signOut, userRole, userProfile, isAdmin, roleLoading } = useAuth();
+  const { user, signOut, userRole, userProfile, isAdmin, isAgent, roleLoading } = useAuth();
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -188,11 +188,13 @@ const Navbar: React.FC = () => {
                             ) : (
                               <div className="text-xs text-gray-500" style={{fontFamily: 'Poppins'}}>
                                 {userRole?.role ? (
-                                  <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium ${
-                                    userRole.role === 'admin' 
-                                      ? 'bg-red-100 text-red-800' 
-                                      : 'bg-green-100 text-green-800'
-                                  }`}>
+                                  <span 
+                                    className="inline-flex px-2 py-0.5 rounded-full text-xs font-medium"
+                                    style={{
+                                      backgroundColor: userRole.role === 'admin' ? '#B84C4C' : userRole.role === 'agent' ? '#FACC15' : '#558B8B',
+                                      color: userRole.role === 'agent' ? '#0B5858' : 'white'
+                                    }}
+                                  >
                                     {userRole.role.toUpperCase()}
                                   </span>
                                 ) : (
@@ -220,14 +222,16 @@ const Navbar: React.FC = () => {
                             </Link>
                           </>
                         )}
-                        <Link
-                          to="/booking"
-                          onClick={() => setIsDropdownOpen(false)}
-                          className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors cursor-pointer"
-                          style={{fontFamily: 'Poppins'}}
-                        >
-                          My Bookings
-                        </Link>
+                        {(isAdmin || isAgent) && (
+                          <Link
+                            to="/booking"
+                            onClick={() => setIsDropdownOpen(false)}
+                            className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors cursor-pointer"
+                            style={{fontFamily: 'Poppins'}}
+                          >
+                            My Bookings
+                          </Link>
+                        )}
                         <a
                           href="#"
                           className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors cursor-pointer"
@@ -349,11 +353,13 @@ const Navbar: React.FC = () => {
                         ) : (
                           <div className="text-xs text-gray-500" style={{fontFamily: 'Poppins'}}>
                             {userRole?.role ? (
-                              <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium ${
-                                userRole.role === 'admin' 
-                                  ? 'bg-red-100 text-red-800' 
-                                  : 'bg-green-100 text-green-800'
-                              }`}>
+                              <span 
+                                className="inline-flex px-2 py-0.5 rounded-full text-xs font-medium"
+                                style={{
+                                  backgroundColor: userRole.role === 'admin' ? '#B84C4C' : userRole.role === 'agent' ? '#FACC15' : '#558B8B',
+                                  color: userRole.role === 'agent' ? '#0B5858' : 'white'
+                                }}
+                              >
                                 {userRole.role.toUpperCase()}
                               </span>
                             ) : (
@@ -367,43 +373,27 @@ const Navbar: React.FC = () => {
                   
                   {/* Admin Menu */}
                   {isAdmin && (
-                    <>
-                      <Link
-                        to="/admin"
-                        onClick={() => setIsMobileMenuOpen(false)}
-                        className="block px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 rounded-md transition-colors text-left cursor-pointer"
-                        style={{fontFamily: 'Poppins'}}
-                      >
-                        Admin Panel
-                      </Link>
-                      <Link
-                        to="/manage"
-                        onClick={() => setIsMobileMenuOpen(false)}
-                        className="block px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 rounded-md transition-colors text-left cursor-pointer"
-                        style={{fontFamily: 'Poppins'}}
-                      >
-                        Manage Units
-                      </Link>
-                      <Link
-                        to="/manageusers"
-                        onClick={() => setIsMobileMenuOpen(false)}
-                        className="block px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 rounded-md transition-colors text-left cursor-pointer"
-                        style={{fontFamily: 'Poppins'}}
-                      >
-                        Manage Users
-                      </Link>
-                    </>
+                    <Link
+                      to="/admin"
+                      onClick={() => setIsMobileMenuOpen(false)}
+                      className="block px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 rounded-md transition-colors text-left cursor-pointer"
+                      style={{fontFamily: 'Poppins'}}
+                    >
+                      Admin Panel
+                    </Link>
                   )}
                   
-                  {/* My Bookings */}
-                  <Link
-                    to="/booking"
-                    onClick={() => setIsMobileMenuOpen(false)}
-                    className="block px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 rounded-md transition-colors text-left cursor-pointer"
-                    style={{fontFamily: 'Poppins'}}
-                  >
-                    My Bookings
-                  </Link>
+                  {/* My Bookings - Only for Admin and Agent */}
+                  {(isAdmin || isAgent) && (
+                    <Link
+                      to="/booking"
+                      onClick={() => setIsMobileMenuOpen(false)}
+                      className="block px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 rounded-md transition-colors text-left cursor-pointer"
+                      style={{fontFamily: 'Poppins'}}
+                    >
+                      My Bookings
+                    </Link>
+                  )}
                   
                   {/* Other Menu Items */}
                   <a

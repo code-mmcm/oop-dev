@@ -12,6 +12,7 @@ interface AuthContextType {
   userRole: UserRole | null
   userProfile: UserProfile | null
   isAdmin: boolean
+  isAgent: boolean
   roleLoading: boolean
   signIn: (email: string, password: string) => Promise<{ error: any }>
   signUp: (email: string, password: string, userProfile: {
@@ -63,6 +64,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return false
     }
   })
+  const [isAgent, setIsAgent] = useState<boolean>(() => {
+    try {
+      const saved = localStorage.getItem('isAgent')
+      return saved === 'true'
+    } catch {
+      return false
+    }
+  })
   const [roleLoading, setRoleLoading] = useState(false)
   const hasFetchedData = useRef(false)
 
@@ -72,6 +81,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setUserRole(null)
       setUserProfile(null)
       setIsAdmin(false)
+      setIsAgent(false)
       return
     }
 
@@ -85,13 +95,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setUserRole(roleData)
       setUserProfile(profileData)
       const finalAdminStatus = roleData?.role === 'admin'
+      const finalAgentStatus = roleData?.role === 'agent'
       setIsAdmin(finalAdminStatus)
+      setIsAgent(finalAgentStatus)
       
       // Save to localStorage for persistence
       try {
         localStorage.setItem('userRole', JSON.stringify(roleData))
         localStorage.setItem('userProfile', JSON.stringify(profileData))
         localStorage.setItem('isAdmin', finalAdminStatus.toString())
+        localStorage.setItem('isAgent', finalAgentStatus.toString())
       } catch (error) {
         console.error('Error saving user data to localStorage:', error)
       }
@@ -160,6 +173,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setUserRole(null)
       setUserProfile(null)
       setIsAdmin(false)
+      setIsAgent(false)
       setRoleLoading(false)
       hasFetchedData.current = false
     }
@@ -265,6 +279,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setUserRole(null)
     setUserProfile(null)
     setIsAdmin(false)
+    setIsAgent(false)
     setRoleLoading(false)
     hasFetchedData.current = false
     
@@ -273,6 +288,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       localStorage.removeItem('userRole')
       localStorage.removeItem('userProfile')
       localStorage.removeItem('isAdmin')
+      localStorage.removeItem('isAgent')
     } catch (error) {
       console.error('Error clearing localStorage:', error)
     }
@@ -289,6 +305,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     userRole,
     userProfile,
     isAdmin,
+    isAgent,
     roleLoading,
     signIn,
     signUp,
