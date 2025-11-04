@@ -89,7 +89,10 @@ const ManageUsers: React.FC = () => {
 
         if (usersError) {
           console.error('Error fetching users:', usersError);
-          if (isMounted) setUsers([]);
+          if (isMounted) {
+            setUsers([]);
+            setLoadingUsers(false);
+          }
           return;
         }
 
@@ -119,30 +122,42 @@ const ManageUsers: React.FC = () => {
         // If we couldn't fetch roles in bulk and we have users, try to fetch individual roles
         if (!rolesData && usersData && usersData.length > 0) {
           console.log('Attempting to fetch individual user roles...');
-          const individualRoles = await Promise.all(
-            usersData.map(async (user) => {
-              try {
-                const { data: roleData } = await supabase
-                  .from('user_roles')
-                  .select('role')
-                  .eq('user_id', user.id)
-                  .single();
-                return { userId: user.id, role: roleData?.role || 'user' };
-              } catch (error) {
-                console.log(`Could not fetch role for user ${user.id}:`, error);
-                return { userId: user.id, role: 'user' };
-              }
-            })
-          );
+          try {
+            // Add timeout to prevent hanging
+            const timeoutPromise = new Promise((_, reject) => 
+              setTimeout(() => reject(new Error('Role fetch timeout')), 10000)
+            );
+            
+            const individualRolesPromise = Promise.all(
+              usersData.map(async (user) => {
+                try {
+                  const { data: roleData } = await supabase
+                    .from('user_roles')
+                    .select('role')
+                    .eq('user_id', user.id)
+                    .single();
+                  return { userId: user.id, role: roleData?.role || 'user' };
+                } catch (error) {
+                  console.log(`Could not fetch role for user ${user.id}:`, error);
+                  return { userId: user.id, role: 'user' };
+                }
+              })
+            );
 
-          // Update users with individual roles
-          usersWithRoles = usersData.map(user => {
-            const individualRole = individualRoles.find(r => r.userId === user.id);
-            return {
-              ...user,
-              role: individualRole?.role || 'user'
-            };
-          });
+            const individualRoles = await Promise.race([individualRolesPromise, timeoutPromise]) as Array<{ userId: string; role: string }>;
+
+            // Update users with individual roles
+            usersWithRoles = usersData.map(user => {
+              const individualRole = individualRoles.find(r => r.userId === user.id);
+              return {
+                ...user,
+                role: individualRole?.role || 'user'
+              };
+            });
+          } catch (error) {
+            console.error('Error or timeout fetching individual roles:', error);
+            // Continue with default 'user' roles if individual fetch fails
+          }
         }
 
         console.log('Fetched users:', usersWithRoles); // Debug log
@@ -163,14 +178,50 @@ const ManageUsers: React.FC = () => {
 
     // Only fetch once when component mounts and user is confirmed to be admin
     // Also reload if the current user changes
+    // Add a timeout check to prevent infinite loading
+    console.log('ManageUsers useEffect - conditions:', {
+      loading,
+      roleLoading,
+      hasUser: !!user,
+      isAdmin,
+      lastUserId: lastUserIdRef.current,
+      currentUserId: user?.id,
+      hasFetchedUsers: hasFetchedUsers.current,
+      loadingUsers
+    });
+
     if (!loading && !roleLoading && user && isAdmin && (lastUserIdRef.current !== user.id || !hasFetchedUsers.current)) {
+      console.log('Conditions met - fetching users');
       hasFetchedUsers.current = true;
       lastUserIdRef.current = user.id;
       fetchUsers();
+    } else if (!loading && !roleLoading && user && !isAdmin) {
+      // If user is not admin after loading completes, ensure we're not stuck loading
+      console.log('User is not admin - stopping loading');
+      if (isMounted) {
+        setLoadingUsers(false);
+      }
+    } else if (!loading && !roleLoading && !user) {
+      // If no user, ensure we're not stuck loading
+      console.log('No user - stopping loading');
+      if (isMounted) {
+        setLoadingUsers(false);
+      }
+    } else {
+      console.log('Conditions not met - waiting...');
     }
+
+    // Safety timeout: if loading takes too long, stop it
+    const timeoutId = setTimeout(() => {
+      if (isMounted && loadingUsers) {
+        console.warn('Loading timeout - forcing loadingUsers to false');
+        setLoadingUsers(false);
+      }
+    }, 30000); // 30 second timeout
 
     return () => {
       isMounted = false;
+      clearTimeout(timeoutId);
     };
   }, [loading, roleLoading, user, isAdmin]);
 
@@ -178,24 +229,65 @@ const ManageUsers: React.FC = () => {
     try {
       setUpdatingRole(userId);
       
+      console.log(`Updating role for user ${userId} to ${newRole}`);
+      
       // First try to update existing role
-      const { error: updateError } = await supabase
+      const { data: updateData, error: updateError } = await supabase
         .from('user_roles')
         .update({ role: newRole })
-        .eq('user_id', userId);
+        .eq('user_id', userId)
+        .select();
 
-      // If update fails (no existing record), insert new one
-      if (updateError) {
-        const { error: insertError } = await supabase
-          .from('user_roles')
-          .insert({
-            user_id: userId,
-            role: newRole
+      console.log('Update result:', { updateData, updateError, updateDataLength: updateData?.length });
+
+      // If update fails (no existing record) or returns 0 rows, insert new one
+      const hasUpdateError = !!updateError;
+      const hasNoData = !updateData || (updateData && updateData.length === 0);
+      const errorMessage = updateError ? (updateError as any).message : null;
+      const errorCode = updateError ? (updateError as any).code : null;
+      
+      if (hasUpdateError || hasNoData) {
+        console.log('Update failed or no rows updated, attempting to insert new role');
+        if (updateError) {
+          console.error('Update error details:', {
+            message: errorMessage,
+            code: errorCode,
+            details: (updateError as any).details,
+            hint: (updateError as any).hint
           });
+        }
+        
+        // Check if it's a "not found" error (PGRST116) or no rows were updated
+        const isNotFoundError = updateError && (errorCode === 'PGRST116' || errorMessage?.includes('No rows found'));
+        const shouldInsert = !updateError || isNotFoundError || hasNoData;
+        
+        if (shouldInsert) {
+          console.log('No existing role found, inserting new role');
+          const { data: insertData, error: insertError } = await supabase
+            .from('user_roles')
+            .insert({
+              user_id: userId,
+              role: newRole
+            })
+            .select();
 
-        if (insertError) {
-          console.error('Error inserting user role:', insertError);
-          console.error('Permission denied or other error:', insertError.message);
+          console.log('Insert result:', { insertData, insertError });
+
+          if (insertError) {
+            console.error('Error inserting user role:', insertError);
+            console.error('Insert error details:', {
+              message: insertError.message,
+              code: insertError.code,
+              details: insertError.details,
+              hint: insertError.hint
+            });
+            alert(`Failed to update user role: ${insertError.message}`);
+            return;
+          }
+        } else if (hasUpdateError) {
+          // Other update errors (like permission denied)
+          console.error('Update error (not a "not found" error):', updateError);
+          alert(`Failed to update user role: ${errorMessage || 'Unknown error'}`);
           return;
         }
       }
@@ -209,10 +301,10 @@ const ManageUsers: React.FC = () => {
         )
       );
 
-      console.log('User role updated successfully');
+      console.log(`User role updated successfully to ${newRole}`);
     } catch (error) {
       console.error('Error updating user role:', error);
-      console.error('Unexpected error:', error);
+      alert(`Unexpected error updating user role: ${error}`);
     } finally {
       setUpdatingRole(null);
     }
