@@ -4,9 +4,10 @@ import type { Listing } from '../../../types/listing';
 interface TabsSectionProps {
   listing: Listing | null;
   className?: string;
+  isLoading: boolean;
 }
 
-const TabsSection: React.FC<TabsSectionProps> = ({ listing, className = '' }) => {
+const TabsSection: React.FC<TabsSectionProps> = ({ listing, isLoading, className = '' }) => {
   const [activeTab, setActiveTab] = useState<'amenities' | 'management' | 'location'>('amenities');
 
   const amenities = listing?.amenities || [];
@@ -14,6 +15,24 @@ const TabsSection: React.FC<TabsSectionProps> = ({ listing, className = '' }) =>
   const longitude = listing?.longitude;
   const isClient = typeof window !== 'undefined';
   const hasCoords = latitude != null && longitude != null;
+
+
+  if (isLoading) {
+    return (
+      <div className={className} style={{ display: 'block' }}>
+        <div className="mt-10">
+          <div className="animate-pulse inline-grid grid-flow-col auto-cols-auto items-center gap-x-4 md:gap-x-6">
+            <div className="flex items-center">
+              <div className="h-6 w-24 bg-gray-300 rounded"></div>
+              <div className="h-6 w-24 bg-gray-300 rounded"></div>
+              <div className="h-6 w-24 bg-gray-300 rounded"></div>
+            </div>
+          </div>
+        </div>
+        <div className="border-b border-black mt-2" />
+      </div>
+    );
+  }
 
   return (
     <div className={className}>

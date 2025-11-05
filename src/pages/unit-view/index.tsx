@@ -413,7 +413,10 @@ const UnitView: React.FC = () => {
               />
               {/* On mobile (below xl) render the tabs & content under the reviews/sidebar */}
               <div className="block xl:hidden mt-6">
-                <TabsSection listing={listing} />
+                <TabsSection 
+                listing={listing} 
+                isLoading={isLoading} 
+                />
               </div>
             </div>
           </div>

@@ -25,12 +25,6 @@ const LeftColumn: React.FC<LeftColumnProps> = ({
   // Description expansion state (inlined from DescriptionSection)
   const [showFullDescription, setShowFullDescription] = useState(false);
 
-  const amenities = listing?.amenities || [];
-  const latitude = listing?.latitude;
-  const longitude = listing?.longitude;
-
-  const isClient = typeof window !== 'undefined';
-  const hasCoords = latitude != null && longitude != null;
 
   const allImages = listing ? [listing.main_image_url || '/avida.jpg', ...(listing.image_urls || [])] : ['/avida.jpg'];
 
@@ -62,6 +56,49 @@ const LeftColumn: React.FC<LeftColumnProps> = ({
       setIsImageTransitioning(false);
     }, 150);
   };
+
+  if (isLoading) {
+    return (
+      <div className="flex-1">
+        <div className="mb-8">
+          <div className="w-full h-75 bg-gray-300 rounded-lg animate-pulse"></div>
+        </div>
+
+        <div className="mb-6 mt-8">
+          <div className="h-10 bg-gray-300 rounded w-3/4 mb-3 animate-pulse"></div>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <div className="h-5 w-5 bg-gray-300 rounded animate-pulse"></div>
+              <div className="h-6 bg-gray-300 rounded w-24 animate-pulse"></div>
+            </div>
+            <div className="flex items-center gap-4">
+              <div className="h-5 w-5 bg-gray-300 rounded animate-pulse"></div>
+              <div className="h-5 w-5 bg-gray-300 rounded animate-pulse"></div>
+              <div className="h-5 w-5 bg-gray-300 rounded animate-pulse"></div>
+            </div>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-0 border border-gray-200 rounded-xl overflow-hidden mb-8">
+          {[1,2,3,4].map((i) => (
+            <div key={i} className="p-6 border-r border-gray-200">
+              <div className="h-4 bg-gray-300 rounded w-16 mb-2 animate-pulse"></div>
+              <div className="h-6 bg-gray-300 rounded w-8 animate-pulse"></div>
+            </div>
+          ))}
+        </div>
+
+        <div>
+          <div className="h-6 bg-gray-300 rounded w-24 mb-3 animate-pulse"></div>
+          <div className="space-y-2">
+            <div className="h-4 bg-gray-300 rounded w-full animate-pulse"></div>
+            <div className="h-4 bg-gray-300 rounded w-5/6 animate-pulse"></div>
+            <div className="h-4 bg-gray-300 rounded w-4/6 animate-pulse"></div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   // ...existing code continues unchanged...
   if (error || !listing) {
@@ -267,7 +304,7 @@ const LeftColumn: React.FC<LeftColumnProps> = ({
       </div>
 
       {/* Tabs: show on desktop (xl and up) inside LeftColumn. On smaller screens TabsSection will be rendered under reviews in index.tsx */}
-      <TabsSection listing={listing} className="hidden xl:block" />
+      <TabsSection listing={listing} isLoading={isLoading} className="hidden xl:block" />
     </div>
   );
 };
