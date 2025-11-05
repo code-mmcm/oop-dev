@@ -58,7 +58,6 @@ const Calendar: React.FC<CalendarProps> = ({ hideNavbar = false }) => {
   // Toast notification state
   const [toast, setToast] = useState<{ visible: boolean; message: string; type: 'success' | 'error' }>({ visible: false, message: '', type: 'success' });
   const toastRef = useRef<HTMLDivElement | null>(null);
-  const [now, setNow] = useState<Date>(() => new Date());
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [loading, setLoading] = useState(true);
   
@@ -281,29 +280,14 @@ const Calendar: React.FC<CalendarProps> = ({ hideNavbar = false }) => {
   const HOUR_ROW_PX = 48; // tailwind h-12 equivalent
   const DOT_SIZE = 12;
 
-  // Mobile detection & mobile view mode
+  // Mobile detection & mobile view mode (keep same as desktop: monthly / weekly)
   const [isMobile, setIsMobile] = useState<boolean>(false);
-  const [mobileViewMode, setMobileViewMode] = useState<'monthly' | 'daily'>('monthly');
-
-  // Touch swipe for mobile day navigation
-  const touchStartX = useRef<number | null>(null);
 
   const monthNames = [
     'January','February','March','April','May','June',
     'July','August','September','October','November','December'
   ];
   const dayNames = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
-
-  // hours array (typed)
-  const hours: string[] = (() => {
-    const arr: string[] = [];
-    for (let i = 0; i < 24; i++) {
-      const period = i < 12 ? 'AM' : 'PM';
-      const h = i % 12 === 0 ? 12 : i % 12;
-      arr.push(`${h} ${period}`);
-    }
-    return arr;
-  })();
 
   // helpers (addDays is already defined above for use in state initializers)
 
@@ -610,16 +594,6 @@ const Calendar: React.FC<CalendarProps> = ({ hideNavbar = false }) => {
   };
 
 
-
-  // keep now updated every minute
-  useEffect(() => {
-    const t = setInterval(() => setNow(new Date()), 60_000);
-    return () => clearInterval(t);
-  }, []);
-
-  // current time line math
-  const minutesIntoDay = now.getHours() * 60 + now.getMinutes();
-  const currentLineTop = (minutesIntoDay / 60) * HOUR_ROW_PX;
 
   // slide-over and booking navigation
   const openSlideForDate = (date: Date) => {
@@ -960,21 +934,6 @@ const Calendar: React.FC<CalendarProps> = ({ hideNavbar = false }) => {
     navigate(`/booking-details/${booking.bookingId}`);
   };
 
-
-  // Mobile swipe handlers
-  const onTouchStart = (e: React.TouchEvent) => {
-    touchStartX.current = e.touches[0].clientX;
-  };
-  const onTouchEnd = (e: React.TouchEvent) => {
-    if (touchStartX.current == null) return;
-    const dx = e.changedTouches[0].clientX - touchStartX.current;
-    const threshold = 40;
-    if (Math.abs(dx) > threshold) {
-      setFocusedDate(prev => prev ? addDays(prev, dx < 0 ? 1 : -1) : addDays(new Date(), dx < 0 ? 1 : -1));
-    }
-    touchStartX.current = null;
-  };
-
   // Month grid data (for monthly view)
   const days = getDaysInMonth(currentDate);
 
@@ -1005,34 +964,6 @@ const Calendar: React.FC<CalendarProps> = ({ hideNavbar = false }) => {
   };
 
   /**
-   * Formats check-in time string, defaulting when time component is missing or is midnight/default.
-   * Uses original date string to properly detect if time information exists and if it's a default value.
-   */
-  const formatCheckInTime = (checkInDateString: string, checkIn: Date): string => {
-    const hasTime = checkInDateString.includes('T') && checkInDateString.includes(':');
-    if (!hasTime) return '2:00 PM check-in';
-    
-    // Check if the time is effectively "default/midnight" time
-    const hourInManila = getHourInTimeZone(checkIn, 'Asia/Manila');
-    
-    // Treat midnight (0) or UTC midnight converted to Manila (8 AM) as "no time specified"
-    // Also check if it's exactly 00:00:00 in the original string
-    const timeMatch = checkInDateString.match(/T(\d{2}):(\d{2}):(\d{2})/);
-    const isMidnightTime = timeMatch && timeMatch[1] === '00' && timeMatch[2] === '00' && timeMatch[3] === '00';
-    const isDefaultTime = isMidnightTime || hourInManila === 0 || hourInManila === 8;
-    
-    if (isDefaultTime) return '2:00 PM check-in';
-    
-    const label = new Intl.DateTimeFormat('en-US', {
-      hour: 'numeric',
-      minute: '2-digit',
-      hour12: true,
-      timeZone: 'Asia/Manila',
-    }).format(checkIn);
-    return `${label} check-in`;
-  };
-
-  /**
    * CalendarLegend
    * Renders a compact legend indicating the meaning of calendar colors.
    * Kept inline for locality with the calendar and to avoid cross-file coupling.
@@ -1053,12 +984,12 @@ const Calendar: React.FC<CalendarProps> = ({ hideNavbar = false }) => {
     ];
 
     return (
-      <div className="px-4 py-3 border-t border-gray-200 bg-white">
-        <div className="flex flex-wrap items-center gap-4" aria-label="Calendar legend">
+      <div className="px-3 sm:px-4 py-2 sm:py-3 border-t border-gray-200 bg-white">
+        <div className="flex flex-nowrap items-center justify-center sm:justify-start gap-2 sm:gap-4 overflow-x-auto" aria-label="Calendar legend">
           {items.map((item) => (
-            <div key={item.label} className="flex items-center gap-2">
-              <span aria-hidden="true" className={`inline-block rounded ${item.className}`} style={{ width: 14, height: 14 }} />
-              <span className="text-sm text-gray-700" style={{ fontFamily: 'Poppins' }}>{item.label}</span>
+            <div key={item.label} className="flex items-center gap-1.5 sm:gap-2 flex-shrink-0">
+              <span aria-hidden="true" className={`inline-block rounded ${item.className}`} style={{ width: isMobile ? 12 : 14, height: isMobile ? 12 : 14 }} />
+              <span className={`${isMobile ? 'text-[11px]' : 'text-sm'} text-gray-700 whitespace-nowrap`} style={{ fontFamily: 'Poppins' }}>{item.label}</span>
             </div>
           ))}
         </div>
@@ -1069,177 +1000,129 @@ const Calendar: React.FC<CalendarProps> = ({ hideNavbar = false }) => {
   //
   // Mobile subcomponents (inline for convenience)
   //
-  const MobileDay: React.FC<{
-    date: Date;
-    bookingsForDay: Booking[];
-  }> = ({ date, bookingsForDay }) => {
-    // map per-day segments by their start hour to render continuous blocks
-    const startsByHour = new Map<number, Array<{ booking: Booking; segStart: number; segEnd: number }>>();
-    bookingsForDay.forEach(b => {
-      const dayOnly = new Date(date.getFullYear(), date.getMonth(), date.getDate());
-      const startDay = new Date(b.checkInDate.getFullYear(), b.checkInDate.getMonth(), b.checkInDate.getDate());
-      const endDay = new Date(b.checkOutDate.getFullYear(), b.checkOutDate.getMonth(), b.checkOutDate.getDate());
-      // Mobile day view (time-grid): include checkout day (<= endDay)
-      if (!(dayOnly >= startDay && dayOnly <= endDay)) return;
-      const isStartDay = dayOnly.getTime() === startDay.getTime();
-      const isSameDayCheckout = startDay.getTime() === endDay.getTime();
-      const segStart = isStartDay ? b.startHour : 0;
-      const segEnd = isSameDayCheckout ? b.endHour : 24;
-      const arr = startsByHour.get(segStart) || [];
-      arr.push({ booking: b, segStart, segEnd });
-      startsByHour.set(segStart, arr);
-    });
-
-    // compute now position for mobile daily (position relative to content column)
-    const nowTopMobile = currentLineTop;
-
-    return (
-      // Added safe padding (px-3) so icons and header controls don't get cut off on small screens.
-      // This is the only mobile-specific change; it doesn't touch desktop weekly rendering.
-      <div
-        className="mobile-day px-3"
-        onTouchStart={onTouchStart}
-        onTouchEnd={onTouchEnd}
-        style={{ userSelect: 'none' }}
-      >
-        <div className="flex w-full">
-          {/* time column */}
-          <div className="w-20 flex-shrink-0 border-r border-gray-200 bg-white">
-            {hours.map((h) => (
-              <div key={h} style={{ height: HOUR_ROW_PX }} className="flex items-center justify-center text-xs text-gray-500">
-                {h}
-              </div>
-            ))}
-          </div>
-
-          {/* content column */}
-          <div className="flex-1 relative bg-white">
-            {hours.map((h, idx) => {
-              const hour = idx;
-              const starts = startsByHour.get(hour) || [];
-              return (
-                <div key={h} style={{ height: HOUR_ROW_PX }} className="border-b border-gray-100 relative">
-                  {starts.map(({ booking: b, segStart, segEnd }, i) => {
-                    const span = Math.max(1, segEnd - segStart);
-                    return (
-                      <button
-                        key={`${b.title}-${i}`}
-                        onClick={() => openSlideForDate(date)}
-                        className={`absolute left-2 right-2 ${getStatusBgClass(b.status)} text-white rounded-md p-2 text-left shadow`}
-                        style={{ top: 4, height: span * HOUR_ROW_PX - 8, zIndex: 10 }}
-                        aria-label={`${b.title} ${b.time}`}
-                      >
-                        <div className="font-semibold text-sm">{b.clientFirstName || 'Guest'}</div>
-                        <div className="text-xs opacity-90">{formatCheckInTime(b.checkInDateString, b.checkInDate)}</div>
-                      </button>
-                    );
-                  })}
-                </div>
-              );
-            })}
-
-            {/* small now indicator for mobile daily (thin line across content and a dot overlapping into time column) */}
-            {focusedDate.toDateString() === new Date().toDateString() && (
-              <>
-                <div
-                  aria-hidden="true"
-                  style={{
-                    position: 'absolute',
-                    left: 0,
-                    right: 8,
-                    top: nowTopMobile,
-                    borderTop: '2px solid #7CC6B0',
-                    zIndex: 40,
-                    opacity: 0.95
-                  }}
-                />
-                <div
-                  aria-hidden="true"
-                  style={{
-                    position: 'absolute',
-                    left: -8, // overlaps into the time column slightly
-                    top: nowTopMobile - DOT_SIZE / 2,
-                    width: DOT_SIZE,
-                    height: DOT_SIZE,
-                    borderRadius: 9999,
-                    background: '#0B5858',
-                    border: '2px solid white',
-                    transform: 'translateX(-50%)',
-                    zIndex: 41
-                  }}
-                />
-              </>
-            )}
-          </div>
-        </div>
-      </div>
-    );
-  };
-
   const MobileMonth: React.FC<{
     days: ReturnType<typeof getDaysInMonth>;
     onDayPress: (d: Date) => void;
   }> = ({ days, onDayPress }) => {
     return (
-      <div className="mobile-month px-1">
-        <div className="grid grid-cols-7 gap-1 text-xs">
-          {dayNames.map(d => (
-            <div key={d} className="text-center py-1 text-gray-500">{d.slice(0, 3)}</div>
+      <div className="mobile-month">
+        {/* Day names header - perfectly aligned with date grid below */}
+        <div className="grid grid-cols-7 gap-1 mb-2">
+          {dayNames.map((d) => (
+            <div 
+              key={d} 
+              className="w-full flex items-center justify-center font-medium text-gray-700"
+              style={{
+                fontSize: 'clamp(8px, 2.2vw, 10px)',
+                letterSpacing: 'clamp(0px, 0.2vw, 0.05em)',
+                lineHeight: '1.2',
+                padding: 0,
+                margin: 0
+              }}
+            >
+              {d}
+            </div>
           ))}
         </div>
-        <div className="grid grid-cols-7 gap-1 mt-2">
-          {days.map((dayObj, idx) => {
-            const bookingsForDay = getBookingsForDate(dayObj.fullDate);
-            const hasBookings = bookingsForDay.length > 0;
-            const isBlocked = isDateBlocked(dayObj.fullDate);
-            const blockedTooltip = isBlocked ? getBlockedDateTooltip(dayObj.fullDate) : '';
-            const dayButton = (
-              <button
-                key={idx}
-                onClick={() => {
-                  if (!isBlocked) {
-                    onDayPress(dayObj.fullDate);
-                    setMobileViewMode('daily');
-                  }
-                }}
-                className={`day-button p-2 rounded-md text-left ${dayObj.isCurrentMonth ? (isBlocked ? 'bg-blocked opacity-75 cursor-not-allowed' : 'bg-white') : 'bg-gray-50'} ${isBlocked ? 'opacity-75' : ''}`}
-                aria-label={`Day ${dayObj.date}${dayObj.isToday ? ' today' : ''}${isBlocked ? ' blocked' : ''}`}
-                disabled={isBlocked}
+
+        {/* Calendar grid - perfectly square cells with 1:1 aspect ratio */}
+        <div className="grid grid-cols-7 gap-1">
+          {days.map((day, index) => {
+            const bookingsForDay = getBookingsForDate(day.fullDate);
+            const isCurrentMonth = day.isCurrentMonth;
+            const isBlocked = isDateBlocked(day.fullDate);
+            const blockedTooltip = isBlocked ? getBlockedDateTooltip(day.fullDate) : '';
+
+            // Blocked dates override booking status - same logic as desktop
+            const bgClass = isBlocked 
+              ? 'bg-blocked' 
+              : bookingsForDay.length > 0 
+                ? getStatusBgClass(bookingsForDay[0].status) 
+                : 'bg-available';
+            const maxVisible = 2; // Show max 2 bookings by default - same as desktop
+            const visibleBookings = bookingsForDay.slice(0, maxVisible);
+            const remainingCount = bookingsForDay.length - maxVisible;
+            
+            const dayCard = (
+              <div 
+                key={index} 
+                className={`w-full aspect-square rounded-lg p-1 relative transition-all duration-200 overflow-hidden flex flex-col flex-shrink-0 ${
+                  isCurrentMonth ? `${bgClass} ${bookingsForDay.length > 0 && !isBlocked ? 'cursor-pointer' : ''}` : 'bg-gray-50/50'
+                } hover:opacity-95`}
+                onClick={() => bookingsForDay.length > 0 && isCurrentMonth && !isBlocked && onDayPress(day.fullDate)}
               >
-                <div className="flex items-center justify-between">
-                  <div className={`date-number ${hasBookings ? 'has-booking' : ''} text-xs font-medium`}>{dayObj.date}</div>
-                  {dayObj.isToday && <div className="text-xs text-green-600">•</div>}
+                <div className={`text-[clamp(9px,2.5vw,11px)] font-semibold mb-0.5 flex-shrink-0 leading-tight ${isCurrentMonth ? 'text-gray-900' : 'text-gray-400'}`}>
+                  {day.date}
                 </div>
 
-                {/* booking indicator: colored dot + count/guest name preview */}
-                <div className="mt-1">
-                  {hasBookings && (
-                    <div className="flex flex-col gap-0.5">
-                      {bookingsForDay.length === 1 ? (
-                        <>
-                          <div className="text-[10px] font-semibold text-gray-900 truncate leading-tight">
-                            {bookingsForDay[0].title || 'Unit'}
+                {bookingsForDay.length > 0 && isCurrentMonth && (
+                  <div className="flex flex-col gap-0.5 flex-1 overflow-hidden min-h-0">
+                    {visibleBookings.map((booking, idx) => {
+                      // Map status classes to solid colors (same as desktop)
+                      const statusClass = getStatusBgClass(booking.status);
+                      const statusColorMap: Record<string, string> = {
+                        'bg-booked': '#B84C4C',
+                        'bg-pending': '#F6D658',
+                        'bg-available': '#558B8B',
+                        'bg-blocked': '#4D504E'
+                      };
+                      const accentColor = statusColorMap[statusClass] || '#B84C4C';
+                      
+              return (
+                        <div 
+                          key={idx} 
+                          className="rounded border border-white/40 backdrop-blur-sm relative flex-shrink-0"
+                          style={{ backgroundColor: 'rgba(255,255,255,0.5)' }}
+                        >
+                          {/* Status color indicator bar on the left - using solid color */}
+                          <div 
+                            className="h-full w-1 absolute left-0 top-0 bottom-0 rounded-l"
+                            style={{ backgroundColor: accentColor }}
+                            aria-label={`${booking.status} booking`}
+                          />
+                          {/* Compact booking info with responsive typography */}
+                          <div className="flex-1 min-w-0 pl-2 pr-1 py-0.5 flex flex-col gap-0 relative">
+                            {/* Unit Name */}
+                            <div className="text-[clamp(7px,2vw,9px)] font-semibold text-gray-900 truncate leading-tight">
+                              {booking.title || 'Unit'}
+          </div>
+                            {/* Guest | Stay Range */}
+                            <div className="text-[clamp(6px,1.8vw,8px)] font-medium text-gray-700 truncate leading-tight">
+                              {booking.clientFirstName || 'Guest'} | {formatStayRange(booking.checkInDate, booking.checkOutDate)}
+        </div>
+      </div>
+        </div>
+                      );
+                    })}
+                    {/* Show indicator card if there are more bookings than displayed - same design as desktop */}
+                    {remainingCount > 0 && (
+                      <div 
+                        className="rounded border border-white/40 backdrop-blur-sm relative flex-shrink-0"
+                        style={{ backgroundColor: 'rgba(255,255,255,0.5)' }}
+                      >
+                        {/* Status color indicator bar on the left */}
+                        <div 
+                          className="h-full w-1 bg-gray-400 absolute left-0 top-0 bottom-0 rounded-l"
+                          aria-label="More bookings indicator"
+                        />
+                        {/* Compact more bookings info with responsive typography */}
+                        <div className="flex-1 min-w-0 pl-2 pr-1 py-0.5 flex flex-col gap-0 relative">
+                          <div className="text-[clamp(6px,1.8vw,8px)] font-semibold text-gray-900 truncate leading-tight">
+                            +{remainingCount} more
+                </div>
                           </div>
-                          <div className="text-[9px] text-gray-600 truncate leading-tight">
-                            {bookingsForDay[0].clientFirstName || 'Guest'}
-                          </div>
-                        </>
-                      ) : (
-                        <div className="text-[9px] font-semibold text-gray-700 truncate">
-                          +{bookingsForDay.length} bookings
                         </div>
                       )}
                     </div>
                   )}
                 </div>
-              </button>
             );
             
             return blockedTooltip ? (
-              <Tooltip key={idx} content={blockedTooltip}>
-                {dayButton}
+              <Tooltip key={index} content={blockedTooltip}>
+                {dayCard}
               </Tooltip>
-            ) : dayButton;
+            ) : dayCard;
           })}
         </div>
       </div>
@@ -1421,30 +1304,32 @@ const Calendar: React.FC<CalendarProps> = ({ hideNavbar = false }) => {
       `}</style>
 
       <div className={hideNavbar ? "pt-4" : "pt-16"}>
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+        <div className="max-w-7xl mx-auto px-3 sm:px-4 md:px-6 lg:px-8 py-4 sm:py-6">
           {/* header + controls */}
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center space-x-4">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-0 mb-4">
+            {/* Mobile: Date and toggle on same row, Desktop: Date only */}
+            <div className={`flex items-center ${isMobile ? 'justify-between w-full' : 'space-x-2 sm:space-x-4'}`}>
+              <div className="flex items-center space-x-2 sm:space-x-4">
               {viewMode !== 'weekly' && (
                 <>
                   <button 
                     onClick={() => navigateMonth('prev')} 
-                    className="p-2 hover-soft-teal rounded-full transition-colors cursor-pointer" 
+                      className="p-1.5 sm:p-2 hover-soft-teal rounded-full transition-colors cursor-pointer" 
                     aria-label="Prev month"
                   >
-                    <svg className="w-7 h-7 text-[#0B5858]" fill="none" viewBox="0 0 24 24"><path stroke="#0B5858" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" /></svg>
+                      <svg className="w-6 h-6 sm:w-7 sm:h-7 text-[#0B5858]" fill="none" viewBox="0 0 24 24"><path stroke="#0B5858" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" /></svg>
                   </button>
 
-                  <h1 className={`text-2xl font-bold text-black ${headerAnimating ? 'header-pop-enter' : ''}`} style={{ fontFamily: 'Poppins' }}>
+                    <h1 className={`text-lg sm:text-xl md:text-2xl font-bold text-black ${headerAnimating ? 'header-pop-enter' : ''}`} style={{ fontFamily: 'Poppins' }}>
                     {`${monthNames[currentDate.getMonth()]} ${currentDate.getFullYear()}`}
                   </h1>
 
                   <button 
                     onClick={() => navigateMonth('next')} 
-                    className="p-2 hover-soft-teal rounded-full transition-colors cursor-pointer" 
+                      className="p-1.5 sm:p-2 hover-soft-teal rounded-full transition-colors cursor-pointer" 
                     aria-label="Next month"
                   >
-                    <svg className="w-7 h-7 text-[#0B5858]" fill="none" viewBox="0 0 24 24"><path stroke="#0B5858" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" /></svg>
+                      <svg className="w-6 h-6 sm:w-7 sm:h-7 text-[#0B5858]" fill="none" viewBox="0 0 24 24"><path stroke="#0B5858" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" /></svg>
                   </button>
                 </>
               )}
@@ -1452,7 +1337,7 @@ const Calendar: React.FC<CalendarProps> = ({ hideNavbar = false }) => {
               {viewMode === 'weekly' && (
                 <>
                   {/* Month label header - shows currently visible month */}
-                  <h1 className="text-2xl font-bold text-black" style={{ fontFamily: 'Poppins' }}>
+                    <h1 className="text-lg sm:text-xl md:text-2xl font-bold text-black" style={{ fontFamily: 'Poppins' }}>
                     {`${monthNames[visibleMonth.getMonth()]} ${visibleMonth.getFullYear()}`}
                   </h1>
                   
@@ -1494,7 +1379,7 @@ const Calendar: React.FC<CalendarProps> = ({ hideNavbar = false }) => {
                         });
                       }
                     }}
-                    className="px-4 py-2 text-sm font-medium rounded-md text-white shadow-sm hover:shadow-md active:scale-95 transition-all duration-200 cursor-pointer"
+                      className="px-3 py-1.5 sm:px-4 sm:py-2 text-xs sm:text-sm font-medium rounded-md text-white shadow-sm hover:shadow-md active:scale-95 transition-all duration-200 cursor-pointer"
                     style={{ 
                       fontFamily: 'Poppins',
                       backgroundColor: '#0B5858',
@@ -1513,20 +1398,70 @@ const Calendar: React.FC<CalendarProps> = ({ hideNavbar = false }) => {
               )}
             </div>
 
-            <div className="flex items-center gap-2">
+              {/* View toggle button group - same row as date on mobile only, right-aligned */}
               {isMobile && (
-                <div className="flex gap-2 items-center mr-2">
-                  <button onClick={() => setMobileViewMode('monthly')} className={`toggle-button px-3 py-1 rounded ${mobileViewMode === 'monthly' ? 'bg-gray-200 font-semibold' : 'bg-white'}`}>Month</button>
-                  <button onClick={() => setMobileViewMode('daily')} className={`toggle-button px-3 py-1 rounded ${mobileViewMode === 'daily' ? 'bg-gray-200 font-semibold' : 'bg-white'}`}>Day</button>
+                <div className="flex gap-0.5 items-center bg-gray-100 p-0.5 rounded-lg ml-auto">
+                <button
+                  onClick={() => setViewMode('monthly')}
+                  className={`toggle-button px-2.5 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm font-medium rounded-md ${
+                    viewMode === 'monthly'
+                      ? 'bg-white text-gray-900 shadow-sm'
+                      : 'text-gray-600 hover:text-gray-900'
+                  }`}
+                  style={{ fontFamily: 'Poppins' }}
+                >
+                  Month
+                </button>
+                <button
+                  onClick={() => {
+                    // Reset timeline to focus on current month when switching to timeline view
+                    const today = new Date();
+                    const monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
+                    const monthEnd = new Date(today.getFullYear(), today.getMonth() + 2, 0); // Last day of next month
+                    setTimelineStartDate(monthStart);
+                    setTimelineEndDate(monthEnd);
+                    
+                    // Reset auto-scroll flag so it scrolls to today when view opens
+                    hasAutoScrolledToToday.current = false;
+                    
+                    // When switching from Month → Week, use focusedDate if it's set, otherwise center on a day from the current month
+                    if (viewMode === 'monthly') {
+                      if (!focusedDate || 
+                          focusedDate.getMonth() !== currentDate.getMonth() || 
+                          focusedDate.getFullYear() !== currentDate.getFullYear()) {
+                        // focusedDate not set or not in current month, use today or first of month
+                        const isTodayInMonth = today.getMonth() === currentDate.getMonth() && 
+                                             today.getFullYear() === currentDate.getFullYear();
+                        const dayToFocus = isTodayInMonth ? today : new Date(currentDate.getFullYear(), currentDate.getMonth(), 1);
+                        setFocusedDate(dayToFocus);
+                      }
+                      // If focusedDate is already set and in current month, keep it
+                    } else if (!focusedDate) {
+                      setFocusedDate(new Date());
+                    }
+                    setViewMode('weekly');
+                  }}
+                  className={`toggle-button px-2.5 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm font-medium rounded-md ${
+                    viewMode === 'weekly'
+                      ? 'bg-white text-gray-900 shadow-sm'
+                      : 'text-gray-600 hover:text-gray-900'
+                  }`}
+                  style={{ fontFamily: 'Poppins' }}
+                >
+                  Timeline
+                </button>
                 </div>
               )}
+            </div>
 
-              {/* View toggle button group for desktop */}
+            {/* Desktop: Toggle and settings on separate row */}
               {!isMobile && (
-                <div className="flex gap-1 items-center bg-gray-100 p-1 rounded-lg">
+              <div className="flex items-center gap-1.5 sm:gap-2">
+                {/* View toggle button group */}
+                <div className="flex gap-0.5 sm:gap-1 items-center bg-gray-100 p-0.5 sm:p-1 rounded-lg">
                   <button
                     onClick={() => setViewMode('monthly')}
-                    className={`toggle-button px-4 py-2 text-sm font-medium rounded-md ${
+                    className={`toggle-button px-2.5 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm font-medium rounded-md ${
                       viewMode === 'monthly'
                         ? 'bg-white text-gray-900 shadow-sm'
                         : 'text-gray-600 hover:text-gray-900'
@@ -1564,7 +1499,7 @@ const Calendar: React.FC<CalendarProps> = ({ hideNavbar = false }) => {
                       }
                       setViewMode('weekly');
                     }}
-                    className={`toggle-button px-4 py-2 text-sm font-medium rounded-md ${
+                    className={`toggle-button px-2.5 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm font-medium rounded-md ${
                       viewMode === 'weekly'
                         ? 'bg-white text-gray-900 shadow-sm'
                         : 'text-gray-600 hover:text-gray-900'
@@ -1574,9 +1509,7 @@ const Calendar: React.FC<CalendarProps> = ({ hideNavbar = false }) => {
                     Timeline
                   </button>
                 </div>
-              )}
 
-              {/* Settings button - Only show for admin */}
               {isAdmin && (
               <button
                 onClick={() => {
@@ -1608,34 +1541,35 @@ const Calendar: React.FC<CalendarProps> = ({ hideNavbar = false }) => {
               </button>
               )}
             </div>
+            )}
           </div>
 
           <div className="bg-white border border-gray-200 rounded-lg overflow-hidden relative">
             {/* Show loading skeleton */}
             {loading ? (
-              <div className="p-6 animate-pulse">
+              <div className="p-3 sm:p-4 md:p-6 animate-pulse">
                 {/* Header with month/year and controls */}
-                <div className="flex items-center justify-between mb-6">
-                  <div className="h-8 bg-gray-300 rounded w-48"></div>
-                  <div className="flex gap-2">
-                    <div className="h-10 w-10 bg-gray-300 rounded"></div>
-                    <div className="h-10 w-10 bg-gray-300 rounded"></div>
+                <div className="flex items-center justify-between mb-4 sm:mb-6">
+                  <div className="h-6 sm:h-8 bg-gray-300 rounded w-32 sm:w-48"></div>
+                  <div className="flex gap-1.5 sm:gap-2">
+                    <div className="h-8 w-8 sm:h-10 sm:w-10 bg-gray-300 rounded"></div>
+                    <div className="h-8 w-8 sm:h-10 sm:w-10 bg-gray-300 rounded"></div>
                   </div>
                 </div>
                 {/* Day names */}
-                <div className="grid grid-cols-7 gap-3 mb-3">
+                <div className="grid grid-cols-7 gap-1 sm:gap-2 md:gap-3 mb-2 sm:mb-3">
                   {Array.from({ length: 7 }).map((_, i) => (
-                    <div key={i} className="h-4 bg-gray-200 rounded"></div>
+                    <div key={i} className="h-3 sm:h-4 bg-gray-200 rounded"></div>
                   ))}
                 </div>
                 {/* Calendar grid */}
-                <div className="grid grid-cols-7 gap-3">
+                <div className="grid grid-cols-7 gap-1 sm:gap-2 md:gap-3">
                   {Array.from({ length: 35 }).map((_, i) => (
-                    <div key={i} className="min-h-[140px] rounded-xl bg-gray-100 p-3">
-                      <div className="h-5 bg-gray-300 rounded w-8 mb-2"></div>
-                      <div className="space-y-2">
-                        <div className="h-6 bg-gray-300 rounded"></div>
-                        <div className="h-6 bg-gray-300 rounded w-3/4"></div>
+                    <div key={i} className="min-h-[80px] sm:min-h-[100px] md:min-h-[140px] rounded-lg sm:rounded-xl bg-gray-100 p-1.5 sm:p-2 md:p-3">
+                      <div className="h-4 sm:h-5 bg-gray-300 rounded w-6 sm:w-8 mb-1 sm:mb-2"></div>
+                      <div className="space-y-1 sm:space-y-2">
+                        <div className="h-4 sm:h-6 bg-gray-300 rounded"></div>
+                        <div className="h-4 sm:h-6 bg-gray-300 rounded w-3/4"></div>
                       </div>
                     </div>
                   ))}
@@ -1643,29 +1577,21 @@ const Calendar: React.FC<CalendarProps> = ({ hideNavbar = false }) => {
               </div>
             ) : (
               <>
-                {/* Mobile view takes precedence when isMobile */}
-                {isMobile ? (
-                  mobileViewMode === 'monthly' ? (
-                    <div className="p-3">
-                      <MobileMonth days={days} onDayPress={(d) => { setFocusedDate(d); setMobileViewMode('daily'); }} />
+                {/* Use same viewMode for both mobile and desktop */}
+                {viewMode === 'monthly' ? (
+                  isMobile ? (
+                    <div className="p-2 sm:p-3">
+                      <MobileMonth days={days} onDayPress={(d) => { setFocusedDate(d); openSlideForDate(d); }} />
                     </div>
                   ) : (
-                    <div className="p-0">
-                      <MobileDay date={focusedDate} bookingsForDay={bookings} />
-                    </div>
-                  )
-                ) : (
-                  // Desktop: existing monthly / weekly experience
-                  <>
-                    {viewMode === 'monthly' ? (
-                      <div className="p-6">
-                    <div className="grid grid-cols-7 gap-3 mb-3">
+                      <div className="p-3 sm:p-4 md:p-6">
+                    <div className="grid grid-cols-7 gap-1 sm:gap-2 md:gap-3 mb-2 sm:mb-3">
                       {dayNames.map((d) => (
-                        <div key={d} className="text-center text-sm font-medium text-gray-700 tracking-wide">{d}</div>
+                        <div key={d} className="text-center text-xs sm:text-sm font-medium text-gray-700 tracking-wide">{d}</div>
                       ))}
                     </div>
 
-                    <div className="grid grid-cols-7 gap-3">
+                    <div className="grid grid-cols-7 gap-1 sm:gap-2 md:gap-3">
                       {days.map((day, index) => {
                         const bookingsForDay = getBookingsForDate(day.fullDate);
                         const isCurrentMonth = day.isCurrentMonth;
@@ -1685,12 +1611,12 @@ const Calendar: React.FC<CalendarProps> = ({ hideNavbar = false }) => {
                         const dayCard = (
                           <div 
                             key={index} 
-                            className={`min-h-[140px] max-h-[140px] rounded-xl p-3 relative transition-all duration-200 overflow-hidden flex flex-col ${
+                            className={`min-h-[80px] sm:min-h-[100px] md:min-h-[140px] max-h-[80px] sm:max-h-[100px] md:max-h-[140px] rounded-lg sm:rounded-xl p-1.5 sm:p-2 md:p-3 relative transition-all duration-200 overflow-hidden flex flex-col ${
                               isCurrentMonth ? `${bgClass} ${bookingsForDay.length > 0 && !isBlocked ? 'cursor-pointer' : ''}` : 'bg-gray-50/50'
                             } hover:opacity-95`}
                             onClick={() => bookingsForDay.length > 0 && isCurrentMonth && !isBlocked && openSlideForDate(day.fullDate)}
                           >
-                            <div className={`text-sm font-semibold mb-1 ${isCurrentMonth ? 'text-gray-900' : 'text-gray-400'}`}>
+                            <div className={`text-xs sm:text-sm font-semibold mb-0.5 sm:mb-1 ${isCurrentMonth ? 'text-gray-900' : 'text-gray-400'}`}>
                               {day.date}
                             </div>
 
@@ -1765,14 +1691,17 @@ const Calendar: React.FC<CalendarProps> = ({ hideNavbar = false }) => {
                       })}
                     </div>
                   </div>
+                  )
                 ) : (
+                  // Weekly / Timeline view (same for mobile and desktop, with horizontal scroll on mobile)
                   <>
-                    {/* Timeline view (desktop) - Horizontal timeline with units as rows */}
+                    {/* Timeline view - Horizontal timeline with units as rows */}
                     {/* Generate date range: starts 1 week before today, ends 1 month ahead, expands on scroll */}
                     {(() => {
                       const units = getUniqueUnits();
                       const DAY_WIDTH = 120; // Width of each day column in pixels (increased for better spacing)
                       const ROW_HEIGHT = 60; // Height of each unit row
+                      const UNIT_COL_WIDTH = isMobile ? 120 : 350; // Unit column width (responsive)
                       
                       // Use state-based date range (starts 1 week before today, ends 1 month ahead, expands on scroll)
                       const numDays = Math.ceil((timelineEndDate.getTime() - timelineStartDate.getTime()) / (1000 * 60 * 60 * 24)) + 1;
@@ -1783,13 +1712,18 @@ const Calendar: React.FC<CalendarProps> = ({ hideNavbar = false }) => {
                           ref={timelineScrollRef}
                           className="bg-white"
                           style={{
-                            height: 'calc(100vh - 300px)',
-                            overflow: 'auto',
-                            position: 'relative'
+                            height: isMobile ? 'calc(100vh - 250px)' : 'calc(100vh - 300px)',
+                            overflowX: 'auto',
+                            overflowY: 'auto',
+                            position: 'relative',
+                            WebkitOverflowScrolling: 'touch',
+                            overscrollBehavior: 'contain',
+                            scrollbarWidth: 'thin',
+                            scrollbarColor: '#cbd5e1 transparent'
                           }}
                           aria-label="Timeline schedule"
                         >
-                          <div style={{ position: 'relative', minWidth: `${dateRange.length * DAY_WIDTH + 350}px` }}>
+                          <div style={{ position: 'relative', minWidth: `${dateRange.length * DAY_WIDTH + UNIT_COL_WIDTH}px` }}>
                             {/* Date headers row - sticky at top */}
                             <div style={{ 
                               display: 'flex',
@@ -1801,8 +1735,8 @@ const Calendar: React.FC<CalendarProps> = ({ hideNavbar = false }) => {
                             }}>
                               {/* Unit label header cell */}
                               <div style={{ 
-                                width: '350px',
-                                minWidth: '350px',
+                                width: isMobile ? '120px' : '350px',
+                                minWidth: isMobile ? '120px' : '350px',
                                 borderRight: '1px solid #E5E7EB',
                                 backgroundColor: '#F9FAFB',
                                 position: 'sticky',
@@ -1811,9 +1745,9 @@ const Calendar: React.FC<CalendarProps> = ({ hideNavbar = false }) => {
                                 display: 'flex',
                                 alignItems: 'center',
                                 justifyContent: 'center',
-                                padding: '8px 4px'
+                                padding: isMobile ? '8px 2px' : '8px 4px'
                               }}>
-                                <div className="text-sm font-semibold text-gray-700" style={{ fontFamily: 'Poppins' }}>
+                                <div className={`${isMobile ? 'text-xs' : 'text-sm'} font-semibold text-gray-700`} style={{ fontFamily: 'Poppins' }}>
                                   Unit
                                 </div>
                               </div>
@@ -1898,9 +1832,9 @@ const Calendar: React.FC<CalendarProps> = ({ hideNavbar = false }) => {
                                     {/* Unit name cell - sticky on left */}
                                     <div
                                       style={{
-                                        width: '350px',
-                                        minWidth: '350px',
-                                        padding: '12px 16px',
+                                        width: isMobile ? '120px' : '350px',
+                                        minWidth: isMobile ? '120px' : '350px',
+                                        padding: isMobile ? '12px 8px' : '12px 16px',
                                         borderRight: '1px solid #E5E7EB',
                                         backgroundColor: '#F9FAFB',
                                         position: 'sticky',
@@ -1910,7 +1844,7 @@ const Calendar: React.FC<CalendarProps> = ({ hideNavbar = false }) => {
                                         alignItems: 'center'
                                       }}
                                     >
-                                      <div className="text-sm font-normal text-gray-900 truncate" style={{ fontFamily: 'Poppins' }}>
+                                      <div className={`${isMobile ? 'text-xs' : 'text-sm'} font-normal text-gray-900 truncate`} style={{ fontFamily: 'Poppins' }}>
                                         {unitTitle}
                                       </div>
                                     </div>
@@ -2042,8 +1976,6 @@ const Calendar: React.FC<CalendarProps> = ({ hideNavbar = false }) => {
                         </div>
                       );
                     })()}
-                  </>
-                )}
               </>
             )}
               </>
@@ -2058,34 +1990,104 @@ const Calendar: React.FC<CalendarProps> = ({ hideNavbar = false }) => {
         <>
           <div className={`fixed inset-0 bg-black/30 z-[100] ${isClosing ? 'animate-fade-out' : 'animate-fade-in'}`} onClick={closeSlide} />
           <div className={`fixed inset-y-0 right-0 ${isMobile ? 'inset-x-0' : 'w-full sm:w-[640px]'} bg-white shadow-xl z-[110] flex flex-col ${isClosing ? 'animate-panel-out' : 'animate-panel-in'}`} role="dialog" aria-modal="true">
-            <div className="px-6 py-5 border-b border-gray-200 flex items-center justify-between">
-              <div>
-                <div className="text-xl font-semibold" style={{ color: '#0B5858', fontFamily: 'Poppins' }}>This Day’s Lineup</div>
-                <div className="text-xs mt-1 text-gray-500 uppercase tracking-wide">{selectedDate?.toDateString()}</div>
+            <div className={`${isMobile ? 'px-4 py-4' : 'px-6 py-5'} border-b border-gray-200 flex items-center justify-between`}>
+              <div className="flex-1 min-w-0 pr-2">
+                <div className={`${isMobile ? 'text-lg' : 'text-xl'} font-semibold`} style={{ color: '#0B5858', fontFamily: 'Poppins' }}>This Day's Lineup</div>
+                <div className={`${isMobile ? 'text-[10px]' : 'text-xs'} mt-1 text-gray-500 uppercase tracking-wide truncate`}>{selectedDate?.toDateString()}</div>
               </div>
-              <button onClick={closeSlide} className="p-2 rounded-full hover:bg-gray-100" aria-label="Close panel">
-                <svg className="w-6 h-6 text-gray-600" fill="none" viewBox="0 0 24 24"><path stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+              <button onClick={closeSlide} className={`${isMobile ? 'p-1.5' : 'p-2'} rounded-full hover:bg-gray-100 flex-shrink-0`} aria-label="Close panel">
+                <svg className={`${isMobile ? 'w-5 h-5' : 'w-6 h-6'} text-gray-600`} fill="none" viewBox="0 0 24 24"><path stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
               </button>
             </div>
 
-            <div className="flex-1 overflow-y-auto p-6 space-y-6">
+            <div className={`flex-1 overflow-y-auto ${isMobile ? 'p-4' : 'p-6'} ${isMobile ? 'space-y-4' : 'space-y-6'}`}>
               {selectedDate && getBookingsForDate(selectedDate).map((b, idx) => (
-                <div key={idx} className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 transform transition-transform duration-200 hover:-translate-y-1">
+                <div key={idx} className={`bg-white rounded-lg shadow-sm border border-gray-200 ${isMobile ? 'p-0' : 'p-6'} transform transition-transform duration-200 ${!isMobile ? 'hover:-translate-y-1' : ''}`}>
+                  {isMobile ? (
+                    // Mobile card format matching the booking card design
+                    <div className="flex flex-col">
+                      {/* Header: Date range at top left */}
+                      <div className="px-4 pt-4 pb-3 flex items-center justify-between">
+                        <div className="text-sm font-medium text-gray-700" style={{ fontFamily: 'Poppins' }}>
+                          {b.checkInDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })} - {b.checkOutDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                        </div>
+                      </div>
+                      
+                      {/* Image section - full width */}
+                      <div className="w-full">
+                        <img src={b.mainImageUrl || '/heroimage.png'} alt={b.title} className="w-full h-48 object-cover rounded-lg" />
+                      </div>
+                      
+                      {/* Content section */}
+                      <div className="px-4 pt-4 pb-4">
+                        {/* Title */}
+                        <h3 className="text-lg font-semibold text-gray-900 mb-2" style={{ fontFamily: 'Poppins' }}>{b.title}</h3>
+                        
+                        {/* Booking details */}
+                        <div className="space-y-2 mb-4">
+                          <div className="flex items-center text-gray-600">
+                            <svg className="w-4 h-4 mr-2 flex-shrink-0 text-gray-500" fill="currentColor" viewBox="0 0 20 20">
+                              <path fillRule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clipRule="evenodd"/>
+                            </svg>
+                            <span className="text-sm" style={{ fontFamily: 'Poppins' }}>
+                              {b.clientFirstName ? `Booked by Client - ${b.clientFirstName}` : 'Booked by Client'}
+                            </span>
+                          </div>
+                          {b.bookingId && (
+                            <div className="flex items-center text-gray-600">
+                              <svg className="w-4 h-4 mr-2 flex-shrink-0 text-gray-500" fill="currentColor" viewBox="0 0 20 20">
+                                <path fillRule="evenodd" d="M4 4a2 2 0 00-2 2v8a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2H4zm2 6a1 1 0 011-1h6a1 1 0 110 2H7a1 1 0 01-1-1zm1 3a1 1 0 100 2h6a1 1 0 100-2H7z" clipRule="evenodd"/>
+                              </svg>
+                              <span className="text-sm" style={{ fontFamily: 'Poppins' }}>Transaction No. {b.bookingId}</span>
+                            </div>
+                          )}
+                        </div>
+                        
+                        {/* Status badge */}
+                        <div className="mb-4">
+                          <span className="text-sm font-semibold" style={{ 
+                            fontFamily: 'Poppins',
+                            color: b.status === 'pending' ? '#F6D658' : b.status === 'ongoing' ? '#0B5858' : b.status === 'confirmed' ? '#0B5858' : '#9CA3AF'
+                          }}>
+                            {b.status === 'ongoing' ? 'On-going' : b.status === 'confirmed' ? 'Confirmed' : b.status === 'completed' ? 'Completed' : b.status || 'Pending'}
+                          </span>
+                        </div>
+                        
+                        {/* Footer: Total Bill and View button */}
+                        <div className="flex items-center justify-between border-t border-gray-200 pt-4">
+                          <div>
+                            <p className="text-xs text-gray-500 mb-1" style={{ fontFamily: 'Poppins' }}>Total Bill</p>
+                            <p className="text-lg font-bold text-gray-900" style={{ fontFamily: 'Poppins' }}>₱ {b.totalAmount?.toLocaleString() || '0'}</p>
+                          </div>
+                          <button 
+                            onClick={() => handleViewBooking(b)} 
+                            className="bg-teal-900 text-white px-5 py-2.5 rounded-lg font-medium hover:opacity-95 transition-colors text-sm" 
+                            style={{ fontFamily: 'Poppins' }}
+                          >
+                            View
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    // Desktop layout (original horizontal layout)
                   <div className="flex gap-6">
-                    <div className="flex-shrink-0"><img src={b.mainImageUrl || '/heroimage.png'} alt={b.title} className="w-40 h-28 object-cover rounded-lg" /></div>
+                      <div className="flex-shrink-0">
+                        <img src={b.mainImageUrl || '/heroimage.png'} alt={b.title} className="w-40 h-28 object-cover rounded-lg" />
+                      </div>
                     <div className="flex-1">
                       <h3 className="text-lg font-semibold text-gray-800 mb-1" style={{ fontFamily: 'Poppins' }}>{b.title}</h3>
-                      <p className="text-gray-600 mb-3" style={{ fontFamily: 'Poppins' }}>
+                        <p className="text-base text-gray-600 mb-3" style={{ fontFamily: 'Poppins' }}>
                         {b.checkInDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })} - {b.checkOutDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
                       </p>
                       <div className="space-y-2">
                         <div className="flex items-center text-gray-500">
-                          <svg className="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clipRule="evenodd"/></svg>
+                            <svg className="w-4 h-4 mr-2 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clipRule="evenodd"/></svg>
                           <span className="text-sm" style={{ fontFamily: 'Poppins' }}>Booked for Client</span>
                         </div>
                         {b.bookingId && (
                           <div className="flex items-center text-gray-500">
-                            <svg className="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M4 4a2 2 0 00-2 2v8a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2H4zm2 6a1 1 0 011-1h6a1 1 0 110 2H7a1 1 0 01-1-1zm1 3a1 1 0 100 2h6a1 1 0 100-2H7z" clipRule="evenodd"/></svg>
+                              <svg className="w-4 h-4 mr-2 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M4 4a2 2 0 00-2 2v8a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2H4zm2 6a1 1 0 011-1h6a1 1 0 110 2H7a1 1 0 01-1-1zm1 3a1 1 0 100 2h6a1 1 0 100-2H7z" clipRule="evenodd"/></svg>
                             <span className="text-sm" style={{ fontFamily: 'Poppins' }}>Transaction No. {b.bookingId}</span>
                           </div>
                         )}
@@ -2093,17 +2095,18 @@ const Calendar: React.FC<CalendarProps> = ({ hideNavbar = false }) => {
                     </div>
                     <div className="flex-shrink-0 text-right">
                       <div className="mb-3">
-                        <span className="font-medium text-orange-500" style={{ fontFamily: 'Poppins' }}>
+                          <span className="text-base font-medium text-orange-500" style={{ fontFamily: 'Poppins' }}>
                           {b.status === 'ongoing' ? 'On-going' : b.status === 'confirmed' ? 'Confirmed' : b.status || 'Pending'}
                         </span>
                       </div>
                       <div className="mb-4">
-                        <p className="text-gray-500 text-sm mb-1" style={{ fontFamily: 'Poppins' }}>Total Bill</p>
+                          <p className="text-sm text-gray-500 mb-1" style={{ fontFamily: 'Poppins' }}>Total Bill</p>
                         <p className="text-xl font-bold text-gray-800" style={{ fontFamily: 'Poppins' }}>₱ {b.totalAmount?.toLocaleString() || '0'}</p>
                       </div>
-                      <button onClick={() => handleViewBooking(b)} className="bg-teal-900 text-white px-6 py-2 rounded-lg font-medium hover:opacity-95 transition-colors" style={{ fontFamily: 'Poppins' }}>View</button>
+                        <button onClick={() => handleViewBooking(b)} className="px-6 py-2 bg-teal-900 text-white rounded-lg font-medium hover:opacity-95 transition-colors" style={{ fontFamily: 'Poppins' }}>View</button>
                     </div>
                   </div>
+                  )}
                 </div>
               ))}
 
@@ -2128,27 +2131,36 @@ const Calendar: React.FC<CalendarProps> = ({ hideNavbar = false }) => {
           />
 
           {/* Drawer */}
-          <div className={`fixed inset-y-0 right-0 w-full sm:w-[640px] bg-white shadow-xl z-50 flex flex-col ${isDrawerClosing ? 'animate-slide-out' : 'animate-slide-in'}`}>
+          <div 
+            className={`fixed inset-y-0 right-0 w-full sm:w-[640px] bg-white shadow-xl z-50 flex flex-col ${isDrawerClosing ? 'animate-slide-out' : 'animate-slide-in'}`}
+            style={{ 
+              height: '100vh',
+              maxHeight: '100vh',
+              top: 0,
+              bottom: 0,
+              overflow: 'hidden'
+            }}
+          >
             {/* Drawer Header */}
-            <div className="px-6 py-6 pb-6">
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-2xl font-bold text-gray-900" style={{ fontFamily: 'Poppins' }}>
+            <div className={`flex-shrink-0 ${isMobile ? 'px-4 py-4 pb-4' : 'px-6 py-6 pb-6'} border-b border-gray-200 bg-white`}>
+              <div className="flex items-center justify-between mb-3">
+                <h2 className={`${isMobile ? 'text-xl' : 'text-2xl'} font-bold text-gray-900`} style={{ fontFamily: 'Poppins' }}>
                   Booking Details
                 </h2>
                 <button
                   onClick={closeDrawer}
-                  className="p-2 rounded-full hover:bg-gray-100 active:bg-gray-200 transition-all duration-200 cursor-pointer"
+                  className={`${isMobile ? 'p-1.5' : 'p-2'} rounded-full hover:bg-gray-100 active:bg-gray-200 transition-all duration-200 cursor-pointer flex-shrink-0`}
                 >
-                  <svg className="w-6 h-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg className={`${isMobile ? 'w-5 h-5' : 'w-6 h-6'} text-gray-600`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                   </svg>
                 </button>
               </div>
               {/* Booking Status */}
-              <div className="flex items-center justify-between">
+              <div className="flex items-center justify-between flex-wrap gap-2">
                 <div className="flex items-center gap-2">
-                  <span className="text-base font-bold text-gray-900" style={{ fontFamily: 'Poppins' }}>Status:</span>
-                  <span className="text-base font-semibold text-gray-900" style={{ fontFamily: 'Poppins' }}>
+                  <span className={`${isMobile ? 'text-sm' : 'text-base'} font-bold text-gray-900`} style={{ fontFamily: 'Poppins' }}>Status:</span>
+                  <span className={`${isMobile ? 'text-sm' : 'text-base'} font-semibold text-gray-900`} style={{ fontFamily: 'Poppins' }}>
                     {(() => {
                       const status = selectedBooking.status;
                       if (status === 'pending') return 'Pending';
@@ -2160,14 +2172,14 @@ const Calendar: React.FC<CalendarProps> = ({ hideNavbar = false }) => {
                     })()}
                   </span>
                 </div>
-                {selectedBooking.status === 'pending' && (
+                {selectedBooking.status === 'pending' && !isAdmin && (
                   <button
                     onClick={() => {
                       if (selectedBooking) {
                         navigate(`/booking-details/${selectedBooking.id}`);
                       }
                     }}
-                    className="text-sm font-semibold transition-all duration-200 cursor-pointer hover:scale-105 active:scale-100 relative group"
+                    className={`${isMobile ? 'text-xs' : 'text-sm'} font-semibold transition-all duration-200 cursor-pointer hover:scale-105 active:scale-100 relative group`}
                     style={{ fontFamily: 'Poppins', color: '#0B5858' }}
                   >
                     <span className="relative inline-block">
@@ -2178,11 +2190,19 @@ const Calendar: React.FC<CalendarProps> = ({ hideNavbar = false }) => {
                 )}
               </div>
             </div>
-            {/* Divider */}
-            <div className="border-b border-gray-200"></div>
 
-            {/* Drawer Content */}
-            <div className="flex-1 overflow-y-auto p-6">
+            {/* Drawer Content - Scrollable */}
+            <div 
+              className={`flex-1 overflow-y-auto overflow-x-hidden ${isMobile ? 'p-4' : 'p-6'}`}
+              style={{ 
+                minHeight: 0,
+                height: 0, // Force flex child to respect parent constraints
+                WebkitOverflowScrolling: 'touch',
+                overscrollBehavior: 'contain',
+                scrollbarWidth: 'thin',
+                scrollbarColor: '#cbd5e1 transparent'
+              }}
+            >
               {/* Client and Agent Info */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
                 {/* Client Details */}
@@ -2346,12 +2366,12 @@ const Calendar: React.FC<CalendarProps> = ({ hideNavbar = false }) => {
 
               {/* Special Request */}
               {selectedBooking.request_description && (
-                <div className="mb-6">
-                  <h3 className="text-base font-bold text-gray-900 mb-3" style={{ fontFamily: 'Poppins' }}>
+                <div className={`${isMobile ? 'mb-4' : 'mb-6'}`}>
+                  <h3 className={`${isMobile ? 'text-sm' : 'text-base'} font-bold text-gray-900 ${isMobile ? 'mb-2' : 'mb-3'}`} style={{ fontFamily: 'Poppins' }}>
                     Special Request
                   </h3>
-                  <div className="p-4 bg-gradient-to-br from-gray-50 to-gray-100 rounded-xl border border-gray-200">
-                    <p className="text-xs leading-relaxed text-gray-700" style={{ fontFamily: 'Poppins' }}>
+                  <div className={`${isMobile ? 'p-3' : 'p-4'} bg-gradient-to-br from-gray-50 to-gray-100 rounded-xl border border-gray-200`}>
+                    <p className={`${isMobile ? 'text-xs' : 'text-xs'} leading-relaxed text-gray-700 break-words`} style={{ fontFamily: 'Poppins', wordWrap: 'break-word', overflowWrap: 'break-word' }}>
                       {selectedBooking.request_description}
                     </p>
                   </div>
@@ -2395,11 +2415,14 @@ const Calendar: React.FC<CalendarProps> = ({ hideNavbar = false }) => {
             </div>
 
             {/* Drawer Actions */}
-            <div className="px-6 py-5 border-t border-gray-200 flex gap-3">
+            <div className={`flex-shrink-0 ${isMobile ? 'px-4 py-4' : 'px-6 py-5'} border-t border-gray-200 bg-white flex gap-3`}>
+              {isAdmin ? (
+                // Admin view: Show approve/decline for pending, or view full details for others
+                <>
               <button
                 onClick={closeDrawer}
                 disabled={isProcessing}
-                className="flex-1 px-6 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-all duration-200 active:scale-95 cursor-pointer font-medium disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100"
+                    className={`flex-1 ${isMobile ? 'px-4 py-2.5 text-sm' : 'px-6 py-3'} border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-all duration-200 active:scale-95 cursor-pointer font-medium disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100`}
                 style={{ fontFamily: 'Poppins' }}
               >
                 Close
@@ -2409,7 +2432,7 @@ const Calendar: React.FC<CalendarProps> = ({ hideNavbar = false }) => {
                   <button
                     onClick={() => selectedBooking && openConfirmModal(selectedBooking)}
                     disabled={isProcessing}
-                    className="flex-1 px-6 py-3 text-white rounded-lg transition-all duration-200 hover:opacity-90 hover:scale-105 active:scale-95 cursor-pointer font-medium disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 disabled:active:scale-100"
+                        className={`flex-1 ${isMobile ? 'px-4 py-2.5 text-sm' : 'px-6 py-3'} text-white rounded-lg transition-all duration-200 hover:opacity-90 hover:scale-105 active:scale-95 cursor-pointer font-medium disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 disabled:active:scale-100`}
                     style={{ fontFamily: 'Poppins', backgroundColor: '#B84C4C' }}
                   >
                     Decline
@@ -2417,7 +2440,7 @@ const Calendar: React.FC<CalendarProps> = ({ hideNavbar = false }) => {
                   <button
                     onClick={() => selectedBooking && handleApprove(selectedBooking)}
                     disabled={isProcessing}
-                    className="flex-1 px-6 py-3 text-white rounded-lg transition-all duration-200 hover:opacity-90 hover:scale-105 active:scale-95 cursor-pointer font-medium disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 disabled:active:scale-100"
+                        className={`flex-1 ${isMobile ? 'px-4 py-2.5 text-sm' : 'px-6 py-3'} text-white rounded-lg transition-all duration-200 hover:opacity-90 hover:scale-105 active:scale-95 cursor-pointer font-medium disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 disabled:active:scale-100`}
                     style={{ fontFamily: 'Poppins', backgroundColor: '#05807E' }}
                   >
                     Approve
@@ -2431,11 +2454,36 @@ const Calendar: React.FC<CalendarProps> = ({ hideNavbar = false }) => {
                       navigate(`/booking-details/${selectedBooking.id}`);
                     }
                   }}
-                  className="flex-1 px-6 py-3 text-white rounded-lg transition-all duration-200 hover:opacity-90 hover:scale-105 active:scale-95 cursor-pointer font-medium"
+                      className={`flex-1 ${isMobile ? 'px-4 py-2.5 text-sm' : 'px-6 py-3'} text-white rounded-lg transition-all duration-200 hover:opacity-90 hover:scale-105 active:scale-95 cursor-pointer font-medium`}
                   style={{ fontFamily: 'Poppins', backgroundColor: '#0B5858' }}
                 >
                   View Full Details
                 </button>
+                  )}
+                </>
+              ) : (
+                // Non-admin view: Always show Close and View Full Details
+                <>
+                  <button
+                    onClick={closeDrawer}
+                    disabled={isProcessing}
+                    className={`flex-1 ${isMobile ? 'px-4 py-2.5 text-sm' : 'px-6 py-3'} border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-all duration-200 active:scale-95 cursor-pointer font-medium disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100`}
+                    style={{ fontFamily: 'Poppins' }}
+                  >
+                    Close
+                  </button>
+                  <button
+                    onClick={() => {
+                      if (selectedBooking) {
+                        navigate(`/booking-details/${selectedBooking.id}`);
+                      }
+                    }}
+                    className={`flex-1 ${isMobile ? 'px-4 py-2.5 text-sm' : 'px-6 py-3'} text-white rounded-lg transition-all duration-200 hover:opacity-90 hover:scale-105 active:scale-95 cursor-pointer font-medium`}
+                    style={{ fontFamily: 'Poppins', backgroundColor: '#0B5858' }}
+                  >
+                    View Full Details
+                  </button>
+                </>
               )}
             </div>
           </div>
