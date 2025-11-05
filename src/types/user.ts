@@ -7,6 +7,8 @@ export interface UserProfile {
   gender: string;
   address: string;
   profile_photo?: string;
+  Bio?: string; // Note: capitalized in database
+  active_status?: boolean; // Profile status: true for Active, false for Inactive
 }
 
 export interface UserProfileUpdate {
@@ -16,4 +18,6 @@ export interface UserProfileUpdate {
   gender?: string;
   address?: string;
   profile_photo?: string;
+  Bio?: string; // Note: capitalized in database
+  active_status?: boolean; // Profile status: true for Active, false for Inactive
 }

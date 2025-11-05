@@ -12,6 +12,7 @@ import PersonalInfoCard from './components/PersonalInfoCard';
 import PreviousBookings from './components/PreviousBookings';
 import ContactInfoCard from './components/ContactInfoCard';
 import ProfileSkeleton from './components/ProfileSkeleton';
+import WelcomeToast from './components/WelcomeToast';
 
 //hi
 const ProfileCard: React.FC = () => {
@@ -20,6 +21,8 @@ const ProfileCard: React.FC = () => {
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [showWelcomeToast, setShowWelcomeToast] = useState(true);
+  const [isBannerVisible, setIsBannerVisible] = useState(true);
   const lastUserIdRef = useRef<string | null>(null);
   const hasFetchedProfile = useRef(false);
 
@@ -87,21 +90,30 @@ const ProfileCard: React.FC = () => {
     }
   }, [user, authLoading, navigate]);
 
-  const handleEditAccount = () => {
-    console.log('Edit account clicked');
-  };
 
   const handleProfileUpdate = async (updatedProfile: UserProfile) => {
+    // Update local state immediately for better UX
     setProfile(updatedProfile);
+    
     // Refresh user data in AuthContext to update navbar
     if (refreshUserData) {
       await refreshUserData();
     }
+    
+    // Also fetch fresh data from database to ensure consistency
+    if (user) {
+      try {
+        const { data: freshProfile } = await UserService.getUserProfile(user.id);
+        if (freshProfile) {
+          setProfile(freshProfile);
+        }
+      } catch (error) {
+        console.error('Error refreshing profile after update:', error);
+        // Keep the updated profile if refresh fails
+      }
+    }
   };
 
-  const handleEditSection = () => {
-    console.log('Edit section clicked');
-  };
 
   const handleMostRecent = () => {
     console.log('Most recent clicked');
@@ -161,7 +173,13 @@ const ProfileCard: React.FC = () => {
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
       <Navbar />
       <div className="h-16" />
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
+      {/* Content container - dynamic padding based on banner visibility */}
+      <div 
+        className="max-w-6xl mx-auto px-4 sm:px-6 py-6 sm:py-8 transition-all duration-300 ease-in-out"
+        style={{
+          paddingTop: showWelcomeToast && isBannerVisible ? '7rem' : '1.5rem' // Dynamic padding that collapses when banner is closed
+        }}
+      >
         {isLoading ? (
           <ProfileSkeleton />
         ) : error ? (
@@ -195,7 +213,6 @@ const ProfileCard: React.FC = () => {
           <>
             <ProfileHeader 
               profile={profile} 
-              onEditAccount={handleEditAccount}
               onProfileUpdate={handleProfileUpdate}
             />
 
@@ -206,7 +223,6 @@ const ProfileCard: React.FC = () => {
                   <div className="lg:col-span-2 space-y-4">
                     <PersonalInfoCard
                       profile={profile}
-                      onEditSection={handleEditSection}
                       formatDate={formatDate}
                     />
                     <PreviousBookings
@@ -216,8 +232,8 @@ const ProfileCard: React.FC = () => {
                   <div className="space-y-4">
                     <ContactInfoCard
                       profile={profile}
-                      onEditSection={handleEditSection}
                       formatPhoneNumber={formatPhoneNumber}
+                      onProfileUpdate={handleProfileUpdate}
                     />
                   </div>
                 </>
@@ -227,7 +243,6 @@ const ProfileCard: React.FC = () => {
                   <div className="space-y-4">
                     <PersonalInfoCard
                       profile={profile}
-                      onEditSection={handleEditSection}
                       formatDate={formatDate}
                     />
                   </div>
@@ -235,8 +250,8 @@ const ProfileCard: React.FC = () => {
                   <div className="space-y-4">
                     <ContactInfoCard
                       profile={profile}
-                      onEditSection={handleEditSection}
                       formatPhoneNumber={formatPhoneNumber}
+                      onProfileUpdate={handleProfileUpdate}
                     />
                   </div>
 
@@ -251,6 +266,15 @@ const ProfileCard: React.FC = () => {
           </>
         )}
       </div>
+
+      {/* Welcome Toast Notification */}
+      {showWelcomeToast && (
+        <WelcomeToast
+          message="Welcome to your profile! Here you can view and manage your personal information and booking history."
+          onDismiss={() => setShowWelcomeToast(false)}
+          onVisibilityChange={(visible) => setIsBannerVisible(visible)}
+        />
+      )}
 
       <Footer />
     </div>

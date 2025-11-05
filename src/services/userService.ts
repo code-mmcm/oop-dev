@@ -105,17 +105,26 @@ export class UserService {
   // Update user profile
   static async updateUserProfile(userId: string, updates: Partial<UserProfile>): Promise<{ error: any }> {
     try {
-      const { error } = await supabase
+      // Log the update data for debugging
+      console.log('UserService.updateUserProfile:', {
+        userId,
+        updates,
+        is_active_value: updates.is_active,
+        is_active_type: typeof updates.is_active
+      });
+
+      const { error, data } = await supabase
         .from('users')
         .update(updates)
-        .eq('id', userId);
+        .eq('id', userId)
+        .select();
 
       if (error) {
         console.error('Error updating user profile:', error);
         return { error };
       }
 
-      console.log('User profile updated successfully');
+      console.log('User profile updated successfully. Returned data:', data);
       return { error: null };
     } catch (err) {
       console.error('Unexpected error updating user profile:', err);

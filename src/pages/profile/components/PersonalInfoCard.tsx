@@ -1,26 +1,19 @@
 import React from 'react';
 import type { UserProfile } from '../../../types/user';
 
-//hi
 type Props = {
   profile: UserProfile;
-  onEditSection: () => void;
   formatDate: (s?: string | null) => string;
 };
 
-const PersonalInfoCard: React.FC<Props> = ({ profile, onEditSection, formatDate }) => {
+const PersonalInfoCard: React.FC<Props> = ({ profile, formatDate }) => {
   return (
     <div className="bg-white rounded-xl shadow-lg border border-gray-200 hover:shadow-xl transition-shadow duration-200">
       <div className="flex items-center justify-between px-4 sm:px-5 py-3 sm:py-4 border-b border-gray-100">
         <h2 className="text-base sm:text-lg text-black" style={{ fontFamily: 'Poppins', fontWeight: 700 }}>All Personal Information</h2>
-        <button 
-          onClick={onEditSection} 
-          className="text-xs sm:text-sm px-3 py-1.5 rounded-md text-white hover:opacity-90 transition-opacity shadow-sm" 
-          style={{ backgroundColor: '#0B5858', fontFamily: 'Poppins', fontWeight: 600 }}
-        >
-          Edit
-        </button>
       </div>
+      
+      {/* View Mode - Always Display Only */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6 px-4 sm:px-5 py-5 sm:py-6">
         <div className="space-y-0.5 sm:space-y-1">
           <p className="text-sm sm:text-base text-black" style={{ fontFamily: 'Poppins', fontWeight: 600 }}>
