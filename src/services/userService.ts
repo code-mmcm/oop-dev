@@ -109,8 +109,8 @@ export class UserService {
       console.log('UserService.updateUserProfile:', {
         userId,
         updates,
-        is_active_value: updates.is_active,
-        is_active_type: typeof updates.is_active
+        active_status_value: updates.active_status,
+        active_status_type: typeof updates.active_status
       });
 
       const { error, data } = await supabase
