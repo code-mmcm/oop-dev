@@ -176,7 +176,7 @@ const StayDetailsStep: React.FC<StayDetailsStepProps> = ({ formData, listingId, 
     setSelectedDates({ start, end });
   }, [formData.checkInDate, formData.checkOutDate, minAllowedDate, onUpdate]);
 
-  
+
   const baseGuests: number = (formData as any).baseGuests ?? 2;
   const handleGuestChange = (field: 'numberOfGuests' | 'extraGuests', value: number) => {
     if (field === 'numberOfGuests') {
@@ -226,11 +226,37 @@ const StayDetailsStep: React.FC<StayDetailsStepProps> = ({ formData, listingId, 
     if (!existingBookings.length) return false;
     const checkDate = toDateOnly(date);
     if (!checkDate) return false;
+    const parseTimeToMinutes = (t?: string | null) => {
+      if (!t) return null;
+      const parts = t.split(':').map(Number);
+      if (parts.length < 2) return null;
+      const [hh, mm] = parts;
+      if (isNaN(hh) || isNaN(mm)) return null;
+      return hh * 60 + mm;
+    };
+
     return existingBookings.some((booking) => {
       const bookingStart = toDateOnly(parseYMD(booking.check_in_date));
       const bookingEnd = toDateOnly(parseYMD(booking.check_out_date));
       if (!bookingStart || !bookingEnd) return false;
-      return checkDate.getTime() >= bookingStart.getTime() && checkDate.getTime() < bookingEnd.getTime();
+
+      // If the date falls strictly within the booking (start <= date < end) it's booked
+      if (checkDate.getTime() >= bookingStart.getTime() && checkDate.getTime() < bookingEnd.getTime()) return true;
+
+      // If the date is exactly the previous booking's checkout date (bookingEnd), allow check-in
+      // only when the host's check-in time is later than (or equal to) the host's check-out time.
+      if (checkDate.getTime() === bookingEnd.getTime()) {
+        const hostCheckIn = listing?.check_in_time ?? defaultCheckInTime;
+        const hostCheckOut = listing?.check_out_time ?? defaultCheckOutTime;
+        const inMin = parseTimeToMinutes(hostCheckIn);
+        const outMin = parseTimeToMinutes(hostCheckOut);
+        // If we can't parse times, be conservative and treat as booked
+        if (inMin == null || outMin == null) return true;
+        // If host allows check-in after the previous checkout time, then this date is NOT booked
+        return !(inMin >= outMin);
+      }
+
+      return false;
     });
   };
 
@@ -345,7 +371,10 @@ const StayDetailsStep: React.FC<StayDetailsStepProps> = ({ formData, listingId, 
     selectedDates.start,
     selectedDates.end,
     minAllowedDate,
-    existingBookings.length
+    existingBookings.length,
+    blockedDatesCache.size,
+    defaultCheckInTime,
+    defaultCheckOutTime
   ]);
 
   const onCalendarClick = (dayData: { day: number; date: Date; isDisabled?: boolean } | null) => {
