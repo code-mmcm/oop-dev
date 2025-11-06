@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import Navbar from '../../components/Navbar';
 import Footer from '../../components/Footer';
 
@@ -64,11 +64,56 @@ interface FAQItem {
   answer: string;
 }
 
+type TicketCategory = 
+  | 'Billing & Payments'
+  | 'Technical Support'
+  | 'Bug Report'
+  | 'Feature Request'
+  | 'Account Issues'
+  | 'General Inquiry'
+  | 'Sales Question'
+  | 'Emergency/Critical Issue';
+
+type PriorityLevel = 'Low' | 'Normal' | 'High' | 'Critical';
+
+interface TicketFormData {
+  email: string;
+  subject: string;
+  category: TicketCategory | '';
+  priority: PriorityLevel;
+  description: string;
+  productService: string;
+  orderAccountNumber: string;
+  attachments: File[];
+}
+
 const HelpAndSupport: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [expandedFAQ, setExpandedFAQ] = useState<number | null>(null);
-  const [ticketEmail, setTicketEmail] = useState('');
-  const [ticketIssue, setTicketIssue] = useState('');
+  
+  // Ticket form state
+  const [formData, setFormData] = useState<TicketFormData>({
+    email: '',
+    subject: '',
+    category: '',
+    priority: 'Normal',
+    description: '',
+    productService: '',
+    orderAccountNumber: '',
+    attachments: []
+  });
+  
+  const [formErrors, setFormErrors] = useState<Partial<Record<keyof TicketFormData, string>>>({});
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitSuccess, setSubmitSuccess] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  
+  const MAX_SUBJECT_LENGTH = 100;
+  const MAX_DESCRIPTION_LENGTH = 5000;
+  const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
+  const ALLOWED_FILE_TYPES = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp', 'application/pdf', 'text/plain', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'];
+  const MAX_ATTACHMENTS = 5;
 
   const faqItems: FAQItem[] = [
     {
@@ -93,22 +138,224 @@ const HelpAndSupport: React.FC = () => {
     setExpandedFAQ(expandedFAQ === index ? null : index);
   };
 
-  const handleSubmitTicket = (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    // Validate email format
+  // Validate email format
+  const validateEmail = (email: string): boolean => {
     const emailPattern = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
-    if (!emailPattern.test(ticketEmail)) {
-      alert('Please enter a valid email address (e.g., yourname@gmail.com)');
+    return emailPattern.test(email);
+  };
+
+  // Validate file before adding
+  const validateFile = (file: File): string | null => {
+    if (file.size > MAX_FILE_SIZE) {
+      return `File "${file.name}" exceeds the maximum size of 10MB.`;
+    }
+    if (!ALLOWED_FILE_TYPES.includes(file.type)) {
+      return `File "${file.name}" is not a supported file type. Allowed types: images (JPEG, PNG, GIF, WebP), PDF, or documents (TXT, DOC, DOCX).`;
+    }
+    return null;
+  };
+
+  // Handle file selection
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!e.target.files || e.target.files.length === 0) return;
+
+    const files = Array.from(e.target.files);
+    const errors: string[] = [];
+    const validFiles: File[] = [];
+
+    // Check total file count
+    if (formData.attachments.length + files.length > MAX_ATTACHMENTS) {
+      setSubmitError(`You can only attach up to ${MAX_ATTACHMENTS} files total.`);
       return;
     }
-    
-    // Handle ticket submission logic here
-    console.log('Ticket submitted:', { email: ticketEmail, issue: ticketIssue });
-    // Reset form
-    setTicketEmail('');
-    setTicketIssue('');
-    // You can add a success message or API call here
+
+    files.forEach((file: File) => {
+      const error = validateFile(file);
+      if (error) {
+        errors.push(error);
+      } else {
+        validFiles.push(file);
+      }
+    });
+
+    if (errors.length > 0) {
+      setSubmitError(errors.join('\n'));
+    }
+
+    if (validFiles.length > 0) {
+      setFormData((prev: TicketFormData) => ({
+        ...prev,
+        attachments: [...prev.attachments, ...validFiles]
+      }));
+      setSubmitError(null);
+    }
+
+    // Reset input
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
+
+  // Remove attachment
+  const handleRemoveAttachment = (index: number) => {
+    setFormData((prev: TicketFormData) => ({
+      ...prev,
+      attachments: prev.attachments.filter((_: File, i: number) => i !== index)
+    }));
+  };
+
+  // Format file size for display
+  const formatFileSize = (bytes: number): string => {
+    if (bytes < 1024) return bytes + ' B';
+    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+    return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+  };
+
+  // Handle form field changes
+  const handleFieldChange = (field: keyof TicketFormData, value: string | PriorityLevel | TicketCategory | File[]) => {
+    setFormData((prev: TicketFormData) => ({ ...prev, [field]: value }));
+    // Clear error for this field when user starts typing
+    if (formErrors[field]) {
+      setFormErrors((prev: Partial<Record<keyof TicketFormData, string>>) => {
+        const newErrors = { ...prev };
+        delete newErrors[field];
+        return newErrors;
+      });
+    }
+    setSubmitError(null);
+  };
+
+  // Progressive disclosure: Show priority for critical categories
+  const shouldShowPriority = (category: TicketCategory | ''): boolean => {
+    return category === 'Emergency/Critical Issue' || 
+           category === 'Bug Report' || 
+           category === 'Technical Support' ||
+           category === 'Billing & Payments';
+  };
+
+  // Progressive disclosure: Show product/service for relevant categories
+  const shouldShowProductService = (category: TicketCategory | ''): boolean => {
+    return category === 'Bug Report' || 
+           category === 'Feature Request' || 
+           category === 'Technical Support' ||
+           category === 'Sales Question';
+  };
+
+  // Progressive disclosure: Show order/account for relevant categories
+  const shouldShowOrderAccount = (category: TicketCategory | ''): boolean => {
+    return category === 'Billing & Payments' || 
+           category === 'Account Issues' ||
+           category === 'Bug Report';
+  };
+
+  // Validate form
+  const validateForm = (): boolean => {
+    const errors: Partial<Record<keyof TicketFormData, string>> = {};
+
+    if (!formData.email.trim()) {
+      errors.email = 'Email address is required.';
+    } else if (!validateEmail(formData.email)) {
+      errors.email = 'Please enter a valid email address (e.g., yourname@gmail.com).';
+    }
+
+    if (!formData.subject.trim()) {
+      errors.subject = 'Subject line is required.';
+    } else if (formData.subject.length > MAX_SUBJECT_LENGTH) {
+      errors.subject = `Subject line cannot exceed ${MAX_SUBJECT_LENGTH} characters.`;
+    }
+
+    if (!formData.category) {
+      errors.category = 'Please select a category.';
+    }
+
+    if (!formData.description.trim()) {
+      errors.description = 'Please provide a detailed description of your issue.';
+    } else if (formData.description.length < 20) {
+      errors.description = 'Description must be at least 20 characters. Please provide more details.';
+    } else if (formData.description.length > MAX_DESCRIPTION_LENGTH) {
+      errors.description = `Description cannot exceed ${MAX_DESCRIPTION_LENGTH} characters.`;
+    }
+
+    setFormErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
+
+  // Handle form submission
+  const handleSubmitTicket = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSubmitError(null);
+    setSubmitSuccess(false);
+
+    if (!validateForm()) {
+      // Scroll to first error
+      const firstErrorField = Object.keys(formErrors)[0];
+      if (firstErrorField) {
+        const element = document.getElementById(firstErrorField);
+        element?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        element?.focus();
+      }
+      return;
+    }
+
+    setIsSubmitting(true);
+
+    try {
+      // Simulate API call (replace with actual API endpoint)
+      await new Promise(resolve => setTimeout(resolve, 1500));
+
+      // Prepare form data for submission
+      const ticketData = {
+        email: formData.email,
+        subject: formData.subject,
+        category: formData.category,
+        priority: formData.priority,
+        description: formData.description,
+        productService: formData.productService || undefined,
+        orderAccountNumber: formData.orderAccountNumber || undefined,
+        attachmentCount: formData.attachments.length,
+        submittedAt: new Date().toISOString()
+      };
+
+      console.log('Ticket submitted:', ticketData);
+      console.log('Attachments:', formData.attachments.map((f: File) => ({ name: f.name, size: f.size, type: f.type })));
+
+      // Here you would typically:
+      // 1. Upload files to storage
+      // 2. Create ticket record in database
+      // 3. Send confirmation email
+      // Example:
+      // const response = await fetch('/api/tickets', {
+      //   method: 'POST',
+      //   headers: { 'Content-Type': 'application/json' },
+      //   body: JSON.stringify(ticketData)
+      // });
+
+      setSubmitSuccess(true);
+      
+      // Reset form after success
+      setTimeout(() => {
+        setFormData({
+          email: '',
+          subject: '',
+          category: '',
+          priority: 'Normal',
+          description: '',
+          productService: '',
+          orderAccountNumber: '',
+          attachments: []
+        });
+        setSubmitSuccess(false);
+        if (fileInputRef.current) {
+          fileInputRef.current.value = '';
+        }
+      }, 3000);
+
+    } catch (error) {
+      console.error('Error submitting ticket:', error);
+      setSubmitError('Failed to submit ticket. Please try again or contact support directly.');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -141,7 +388,7 @@ const HelpAndSupport: React.FC = () => {
               type="text"
               placeholder="Search for topics or questions..."
               value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSearchQuery(e.target.value)}
               className="w-full pl-10 sm:pl-12 pr-4 py-3 sm:py-4 text-sm sm:text-base border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:border-transparent transition-all duration-300"
               style={{
                 fontFamily: 'Poppins',
@@ -347,47 +594,367 @@ const HelpAndSupport: React.FC = () => {
               >
                 Submit a Ticket
               </h3>
-              <form onSubmit={handleSubmitTicket} className="space-y-3 sm:space-y-4">
+
+              {/* Success Message */}
+              {submitSuccess && (
+                <div className="mb-4 p-4 bg-green-50 border border-green-200 rounded-lg animate-slideDown">
+                  <div className="flex items-start gap-3">
+                    <svg className="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                    </svg>
+                    <div>
+                      <p className="text-sm font-semibold text-green-800" style={{ fontFamily: 'Poppins' }}>
+                        Ticket submitted successfully!
+                      </p>
+                      <p className="text-sm text-green-700 mt-1" style={{ fontFamily: 'Poppins' }}>
+                        We've received your request and will get back to you soon. A confirmation email has been sent to {formData.email}.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Error Message */}
+              {submitError && (
+                <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg animate-slideDown">
+                  <div className="flex items-start gap-3">
+                    <svg className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                    </svg>
+                    <p className="text-sm text-red-800 whitespace-pre-line" style={{ fontFamily: 'Poppins' }}>
+                      {submitError}
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              <form onSubmit={handleSubmitTicket} className="space-y-4 sm:space-y-5" noValidate>
+                {/* Email Address */}
                 <div>
+                  <label htmlFor="email" className="block mb-1.5 text-sm font-medium" style={{ color: '#1F2937', fontFamily: 'Poppins' }}>
+                    Email Address <span className="text-red-500">*</span>
+                  </label>
                   <input
+                    id="email"
                     type="email"
-                    placeholder="Your Email Address"
-                    value={ticketEmail}
-                    onChange={(e) => setTicketEmail(e.target.value)}
+                    value={formData.email}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleFieldChange('email', e.target.value)}
+                    placeholder="yourname@example.com"
                     required
-                    pattern="[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}"
-                    title="Please enter a valid email address (e.g., yourname@gmail.com, user@yahoo.com)"
-                    className="w-full px-3 sm:px-4 py-2.5 sm:py-3 text-sm sm:text-base bg-gray-50 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:border-transparent transition-all duration-300"
+                    className={`w-full px-3 sm:px-4 py-2.5 sm:py-3 text-sm sm:text-base bg-gray-50 border rounded-lg focus:outline-none focus:ring-2 focus:border-transparent transition-all duration-300 ${
+                      formErrors.email ? 'border-red-300 focus:ring-red-500' : 'border-gray-300'
+                    }`}
                     style={{
                       fontFamily: 'Poppins',
-                      '--tw-ring-color': '#549F74',
+                      '--tw-ring-color': formErrors.email ? '#ef4444' : '#549F74',
                     } as React.CSSProperties}
+                    aria-invalid={!!formErrors.email}
+                    aria-describedby={formErrors.email ? 'email-error' : undefined}
                   />
+                  {formErrors.email && (
+                    <p id="email-error" className="mt-1 text-xs text-red-600" style={{ fontFamily: 'Poppins' }}>
+                      {formErrors.email}
+                    </p>
+                  )}
                 </div>
+
+                {/* Subject Line */}
                 <div>
-                  <textarea
-                    placeholder="Describe your issue..."
-                    value={ticketIssue}
-                    onChange={(e) => setTicketIssue(e.target.value)}
+                  <label htmlFor="subject" className="block mb-1.5 text-sm font-medium" style={{ color: '#1F2937', fontFamily: 'Poppins' }}>
+                    Subject <span className="text-red-500">*</span>
+                    <span className="ml-2 text-xs font-normal text-gray-500">
+                      ({formData.subject.length}/{MAX_SUBJECT_LENGTH} characters)
+                    </span>
+                  </label>
+                  <input
+                    id="subject"
+                    type="text"
+                    value={formData.subject}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+                      const value = e.target.value.slice(0, MAX_SUBJECT_LENGTH);
+                      handleFieldChange('subject', value);
+                    }}
+                    placeholder="Brief summary of your issue"
                     required
-                    rows={5}
-                    className="w-full px-3 sm:px-4 py-2.5 sm:py-3 text-sm sm:text-base bg-gray-50 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:border-transparent transition-all duration-300 resize-y"
+                    maxLength={MAX_SUBJECT_LENGTH}
+                    className={`w-full px-3 sm:px-4 py-2.5 sm:py-3 text-sm sm:text-base bg-gray-50 border rounded-lg focus:outline-none focus:ring-2 focus:border-transparent transition-all duration-300 ${
+                      formErrors.subject ? 'border-red-300 focus:ring-red-500' : 'border-gray-300'
+                    }`}
                     style={{
                       fontFamily: 'Poppins',
-                      '--tw-ring-color': '#549F74',
+                      '--tw-ring-color': formErrors.subject ? '#ef4444' : '#549F74',
                     } as React.CSSProperties}
+                    aria-invalid={!!formErrors.subject}
+                    aria-describedby={formErrors.subject ? 'subject-error' : undefined}
                   />
+                  {formErrors.subject && (
+                    <p id="subject-error" className="mt-1 text-xs text-red-600" style={{ fontFamily: 'Poppins' }}>
+                      {formErrors.subject}
+                    </p>
+                  )}
                 </div>
+
+                {/* Category Selection */}
+                <div>
+                  <label htmlFor="category" className="block mb-1.5 text-sm font-medium" style={{ color: '#1F2937', fontFamily: 'Poppins' }}>
+                    Category <span className="text-red-500">*</span>
+                  </label>
+                  <select
+                    id="category"
+                    value={formData.category}
+                    onChange={(e: React.ChangeEvent<HTMLSelectElement>) => handleFieldChange('category', e.target.value as TicketCategory)}
+                    required
+                    className={`w-full px-3 sm:px-4 py-2.5 sm:py-3 text-sm sm:text-base bg-gray-50 border rounded-lg focus:outline-none focus:ring-2 focus:border-transparent transition-all duration-300 appearance-none ${
+                      formErrors.category ? 'border-red-300 focus:ring-red-500' : 'border-gray-300'
+                    }`}
+                    style={{
+                      fontFamily: 'Poppins',
+                      '--tw-ring-color': formErrors.category ? '#ef4444' : '#549F74',
+                      backgroundImage: `url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e")`,
+                      backgroundPosition: 'right 0.5rem center',
+                      backgroundRepeat: 'no-repeat',
+                      backgroundSize: '1.5em 1.5em',
+                      paddingRight: '2.5rem'
+                    } as React.CSSProperties}
+                    aria-invalid={!!formErrors.category}
+                    aria-describedby={formErrors.category ? 'category-error' : undefined}
+                  >
+                    <option value="">Select a category...</option>
+                    <option value="Billing & Payments">Billing & Payments</option>
+                    <option value="Technical Support">Technical Support</option>
+                    <option value="Bug Report">Bug Report</option>
+                    <option value="Feature Request">Feature Request</option>
+                    <option value="Account Issues">Account Issues</option>
+                    <option value="General Inquiry">General Inquiry</option>
+                    <option value="Sales Question">Sales Question</option>
+                    <option value="Emergency/Critical Issue">Emergency/Critical Issue</option>
+                  </select>
+                  {formErrors.category && (
+                    <p id="category-error" className="mt-1 text-xs text-red-600" style={{ fontFamily: 'Poppins' }}>
+                      {formErrors.category}
+                    </p>
+                  )}
+                </div>
+
+                {/* Priority Level - Progressive Disclosure */}
+                {shouldShowPriority(formData.category) && (
+                  <div className="animate-slideDown">
+                    <label htmlFor="priority" className="block mb-1.5 text-sm font-medium" style={{ color: '#1F2937', fontFamily: 'Poppins' }}>
+                      Priority Level
+                    </label>
+                    <select
+                      id="priority"
+                      value={formData.priority}
+                      onChange={(e: React.ChangeEvent<HTMLSelectElement>) => handleFieldChange('priority', e.target.value as PriorityLevel)}
+                      className="w-full px-3 sm:px-4 py-2.5 sm:py-3 text-sm sm:text-base bg-gray-50 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:border-transparent transition-all duration-300 appearance-none"
+                      style={{
+                        fontFamily: 'Poppins',
+                        '--tw-ring-color': '#549F74',
+                        backgroundImage: `url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e")`,
+                        backgroundPosition: 'right 0.5rem center',
+                        backgroundRepeat: 'no-repeat',
+                        backgroundSize: '1.5em 1.5em',
+                        paddingRight: '2.5rem'
+                      } as React.CSSProperties}
+                    >
+                      <option value="Low">Low (General question, non-urgent)</option>
+                      <option value="Normal">Normal (Standard request)</option>
+                      <option value="High">High (Affecting functionality)</option>
+                      <option value="Critical">Critical (System down, security issue)</option>
+                    </select>
+                    <p className="mt-1 text-xs text-gray-500" style={{ fontFamily: 'Poppins' }}>
+                      Select the urgency level that best matches your issue.
+                    </p>
+                  </div>
+                )}
+
+                {/* Product/Service - Progressive Disclosure */}
+                {shouldShowProductService(formData.category) && (
+                  <div className="animate-slideDown">
+                    <label htmlFor="productService" className="block mb-1.5 text-sm font-medium" style={{ color: '#1F2937', fontFamily: 'Poppins' }}>
+                      Related Product/Service
+                    </label>
+                    <input
+                      id="productService"
+                      type="text"
+                      value={formData.productService}
+                      onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleFieldChange('productService', e.target.value)}
+                      placeholder="e.g., Booking System, Payment Portal, Mobile App"
+                      className="w-full px-3 sm:px-4 py-2.5 sm:py-3 text-sm sm:text-base bg-gray-50 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:border-transparent transition-all duration-300"
+                      style={{
+                        fontFamily: 'Poppins',
+                        '--tw-ring-color': '#549F74',
+                      } as React.CSSProperties}
+                    />
+                  </div>
+                )}
+
+                {/* Order/Account Number - Progressive Disclosure */}
+                {shouldShowOrderAccount(formData.category) && (
+                  <div className="animate-slideDown">
+                    <label htmlFor="orderAccountNumber" className="block mb-1.5 text-sm font-medium" style={{ color: '#1F2937', fontFamily: 'Poppins' }}>
+                      Order/Account Number
+                    </label>
+                    <input
+                      id="orderAccountNumber"
+                      type="text"
+                      value={formData.orderAccountNumber}
+                      onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleFieldChange('orderAccountNumber', e.target.value)}
+                      placeholder="e.g., ORD-12345 or ACC-67890"
+                      className="w-full px-3 sm:px-4 py-2.5 sm:py-3 text-sm sm:text-base bg-gray-50 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:border-transparent transition-all duration-300"
+                      style={{
+                        fontFamily: 'Poppins',
+                        '--tw-ring-color': '#549F74',
+                      } as React.CSSProperties}
+                    />
+                  </div>
+                )}
+
+                {/* Detailed Description */}
+                <div>
+                  <label htmlFor="description" className="block mb-1.5 text-sm font-medium" style={{ color: '#1F2937', fontFamily: 'Poppins' }}>
+                    Detailed Description <span className="text-red-500">*</span>
+                    <span className="ml-2 text-xs font-normal text-gray-500">
+                      ({formData.description.length}/{MAX_DESCRIPTION_LENGTH} characters)
+                    </span>
+                  </label>
+                  <textarea
+                    id="description"
+                    value={formData.description}
+                    onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => {
+                      const value = e.target.value.slice(0, MAX_DESCRIPTION_LENGTH);
+                      handleFieldChange('description', value);
+                    }}
+                    placeholder="Please provide as much detail as possible:
+• What were you trying to accomplish?
+• Exact steps to reproduce the issue
+• What actually happened vs. what you expected
+• Error messages received (if any)
+• When did the problem start?
+• Environment details (browser, OS, device)"
+                    required
+                    rows={8}
+                    maxLength={MAX_DESCRIPTION_LENGTH}
+                    className={`w-full px-3 sm:px-4 py-2.5 sm:py-3 text-sm sm:text-base bg-gray-50 border rounded-lg focus:outline-none focus:ring-2 focus:border-transparent transition-all duration-300 resize-y ${
+                      formErrors.description ? 'border-red-300 focus:ring-red-500' : 'border-gray-300'
+                    }`}
+                    style={{
+                      fontFamily: 'Poppins',
+                      '--tw-ring-color': formErrors.description ? '#ef4444' : '#549F74',
+                    } as React.CSSProperties}
+                    aria-invalid={!!formErrors.description}
+                    aria-describedby={formErrors.description ? 'description-error' : undefined}
+                  />
+                  {formErrors.description && (
+                    <p id="description-error" className="mt-1 text-xs text-red-600" style={{ fontFamily: 'Poppins' }}>
+                      {formErrors.description}
+                    </p>
+                  )}
+                  <p className="mt-1 text-xs text-gray-500" style={{ fontFamily: 'Poppins' }}>
+                    Minimum 20 characters. Include steps to reproduce, error messages, and environment details for faster resolution.
+                  </p>
+                </div>
+
+                {/* File Attachments */}
+                <div>
+                  <label className="block mb-1.5 text-sm font-medium" style={{ color: '#1F2937', fontFamily: 'Poppins' }}>
+                    Attachments
+                    <span className="ml-2 text-xs font-normal text-gray-500">
+                      (Optional, up to {MAX_ATTACHMENTS} files, 10MB each)
+                    </span>
+                  </label>
+                  <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 transition-colors hover:border-gray-400">
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      multiple
+                      onChange={handleFileSelect}
+                      accept="image/*,.pdf,.txt,.doc,.docx"
+                      className="hidden"
+                      id="file-upload"
+                      disabled={formData.attachments.length >= MAX_ATTACHMENTS}
+                    />
+                    <label
+                      htmlFor="file-upload"
+                      className={`flex flex-col items-center justify-center cursor-pointer ${
+                        formData.attachments.length >= MAX_ATTACHMENTS ? 'opacity-50 cursor-not-allowed' : ''
+                      }`}
+                    >
+                      <svg className="w-8 h-8 text-gray-400 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                      </svg>
+                      <span className="text-sm text-gray-600 text-center" style={{ fontFamily: 'Poppins' }}>
+                        Click to upload or drag and drop
+                      </span>
+                      <span className="text-xs text-gray-500 mt-1" style={{ fontFamily: 'Poppins' }}>
+                        Images (JPEG, PNG, GIF, WebP), PDF, or Documents (TXT, DOC, DOCX)
+                      </span>
+                    </label>
+                  </div>
+
+                  {/* Attached Files List */}
+                  {formData.attachments.length > 0 && (
+                    <div className="mt-3 space-y-2">
+                      {formData.attachments.map((file, index) => (
+                        <div
+                          key={index}
+                          className="flex items-center justify-between p-2 bg-gray-50 border border-gray-200 rounded-lg animate-slideDown"
+                        >
+                          <div className="flex items-center gap-2 flex-1 min-w-0">
+                            <svg className="w-4 h-4 text-gray-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                            </svg>
+                            <span className="text-xs text-gray-700 truncate flex-1" style={{ fontFamily: 'Poppins' }}>
+                              {file.name}
+                            </span>
+                            <span className="text-xs text-gray-500 flex-shrink-0" style={{ fontFamily: 'Poppins' }}>
+                              {formatFileSize(file.size)}
+                            </span>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveAttachment(index)}
+                            className="ml-2 p-1 text-red-500 hover:text-red-700 hover:bg-red-50 rounded transition-colors"
+                            aria-label={`Remove ${file.name}`}
+                          >
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* Submit Button */}
                 <button
                   type="submit"
-                  className="w-full py-2.5 sm:py-3 rounded-lg text-sm sm:text-base text-white font-semibold transition-all duration-300 hover:opacity-90"
+                  disabled={isSubmitting}
+                  className={`w-full py-2.5 sm:py-3 rounded-lg text-sm sm:text-base text-white font-semibold transition-all duration-300 flex items-center justify-center gap-2 ${
+                    isSubmitting ? 'opacity-75 cursor-not-allowed' : 'hover:opacity-90'
+                  }`}
                   style={{ 
                     backgroundColor: '#0B5858',
                     fontFamily: 'Poppins' 
                   }}
                 >
-                  Submit
+                  {isSubmitting ? (
+                    <>
+                      <svg className="animate-spin h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      </svg>
+                      Submitting...
+                    </>
+                  ) : (
+                    'Submit Ticket'
+                  )}
                 </button>
+
+                <p className="text-xs text-gray-500 text-center" style={{ fontFamily: 'Poppins' }}>
+                  By submitting this form, you agree to our terms of service. We typically respond within 24 hours.
+                </p>
               </form>
             </div>
           </div>
