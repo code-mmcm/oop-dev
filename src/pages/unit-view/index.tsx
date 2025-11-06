@@ -278,10 +278,10 @@ const UnitView: React.FC = () => {
             <div className="flex flex-col xl:flex-row gap-8">
               <LeftColumn 
                 listing={listing} 
-                isLoading={isLoading} 
                 error={error} 
                 onImageClick={handleImageClick}
-                onShareClick={() => setShowShareModal(true)} 
+                onShareClick={() => setShowShareModal(true)}
+                isLoading={isLoading}
               />
               <RightColumn 
                 listing={listing} 
@@ -396,10 +396,10 @@ const UnitView: React.FC = () => {
             <div className="flex-1">
               <LeftColumn 
                 listing={listing} 
-                isLoading={isLoading} 
                 error={error} 
                   onImageClick={handleImageClick}
                   onShareClick={() => setShowShareModal(true)} 
+                  isLoading={isLoading}
               />
             </div>
             {/* Right Column - Booking Sidebar */}
