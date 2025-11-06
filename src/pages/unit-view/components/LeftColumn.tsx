@@ -96,6 +96,10 @@ const LeftColumn: React.FC<LeftColumnProps> = ({
             <div className="h-4 bg-gray-300 rounded w-4/6 animate-pulse"></div>
           </div>
         </div>
+        {/* Desktop Tabs skeleton while left column is loading */}
+        <div className="mt-6 hidden xl:block">
+          <TabsSection listing={listing} isLoading={isLoading} className="hidden xl:block" />
+        </div>
       </div>
     );
   }
@@ -120,8 +124,8 @@ const LeftColumn: React.FC<LeftColumnProps> = ({
     <div>
       {/* Inlined Image Gallery */}
       <div className="mb-1">
-        { (listing.image_urls && listing.image_urls.length > 0) ? (
-          listing.image_urls.length >= 2 ? (
+        { (listing.image_urls && listing.image_urls.length > 1) ? (
+          listing.image_urls.length > 2 ? (
             <div className="grid grid-cols-3 gap-3 h-75">
               <div className="col-span-2 h-full w-full cursor-pointer overflow-hidden" onClick={() => handleOpenModal(0)}>
                 <img
@@ -147,7 +151,7 @@ const LeftColumn: React.FC<LeftColumnProps> = ({
             <div className="grid grid-cols-2 gap-3 h-75">
               <div className="col-span-1 h-full w-full cursor-pointer overflow-hidden flex items-center justify-center" onClick={() => handleOpenModal(0)}>
                 <img
-                  src={listing.main_image_url || '/avida.jpg'}
+                  src={listing.main_image_url}
                   className="h-full w-full object-cover rounded-lg hover:opacity-90 transition-opacity"
                   style={{aspectRatio: '16/9', maxHeight: '100%'}}
                   alt="main"
@@ -155,7 +159,7 @@ const LeftColumn: React.FC<LeftColumnProps> = ({
               </div>
               <div className="col-span-1 h-full w-full cursor-pointer overflow-hidden flex items-center justify-center" onClick={() => handleOpenModal(0)}>
                 <img
-                  src={listing.main_image_url || '/avida.jpg'}
+                  src={listing.image_urls[1]}
                   className="h-full w-full object-cover rounded-lg hover:opacity-90 transition-opacity"
                   style={{aspectRatio: '16/9', maxHeight: '100%'}}
                   alt="main"

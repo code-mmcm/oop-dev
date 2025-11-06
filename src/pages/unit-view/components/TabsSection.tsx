@@ -23,9 +23,9 @@ const TabsSection: React.FC<TabsSectionProps> = ({ listing, isLoading, className
         <div className="mt-10">
           <div className="animate-pulse inline-grid grid-flow-col auto-cols-auto items-center gap-x-4 md:gap-x-6">
             <div className="flex items-center">
-              <div className="h-6 w-24 bg-gray-300 rounded"></div>
-              <div className="h-6 w-24 bg-gray-300 rounded"></div>
-              <div className="h-6 w-24 bg-gray-300 rounded"></div>
+              <div className="h-6 w-24 bg-gray-300 rounded mr-5"></div>
+              <div className="h-6 w-24 bg-gray-300 rounded mr-5"></div>
+              <div className="h-6 w-24 bg-gray-300 rounded mr-5"></div>
             </div>
           </div>
         </div>

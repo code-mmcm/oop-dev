@@ -292,7 +292,6 @@ const UnitView: React.FC = () => {
             </div>
           </div>
         </section>
-        {/* Properties available in the same area skeletons */}
         <PropertiesInSameArea
           listings={[]}
           isLoading={true}
@@ -416,6 +415,7 @@ const UnitView: React.FC = () => {
                 <TabsSection 
                 listing={listing} 
                 isLoading={isLoading} 
+                className="block xl:hidden"
                 />
               </div>
             </div>
