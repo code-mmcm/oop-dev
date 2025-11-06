@@ -26,6 +26,11 @@ export interface Booking {
   transaction_number?: string;
   created_at: string;
   updated_at: string;
+  /** timestamp when admin confirmation expires (ISO string) */
+  confirmation_expires_at?: string | null;
+  /** convenience fields populated when joining payment data */
+  billing_document_url?: string;
+  proof_of_payment_url?: string;
   listing?: {
     id: string;
     title: string;
@@ -131,6 +136,11 @@ export interface BookingFormData {
   cvvCode?: string;
   expirationDate?: string;
   agreeToTerms: boolean;
+  /**
+   * When false this flow is a reserve-only / "pencil" booking and payment will be collected
+   * only after host/admin confirmation. Booking form sets this based on the BookingForm's requirePayment prop.
+   */
+  requirePayment?: boolean;
 }
 
 export interface AdditionalService {

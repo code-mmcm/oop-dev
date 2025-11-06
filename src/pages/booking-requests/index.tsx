@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { BookingService } from '../../services/bookingService';
+import { supabase } from '../../lib/supabase';
 import type { Booking } from '../../types/booking';
 import { useAuth } from '../../contexts/AuthContext';
 import { logger } from '../../lib/logger';
@@ -33,6 +34,11 @@ const BookingRequests: React.FC = () => {
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [confirmModalActive, setConfirmModalActive] = useState(false);
   const [pendingBooking, setPendingBooking] = useState<Booking | null>(null);
+  // Approve modal state (assign agent on approval)
+  const [showApproveModal, setShowApproveModal] = useState(false);
+  const [approveModalActive, setApproveModalActive] = useState(false);
+  const [selectedAgentId, setSelectedAgentId] = useState<string | null>(null);
+  const [agents, setAgents] = useState<Array<{ id: string; fullname: string }>>([]);
   
   // Summary stats
   const [allBookings, setAllBookings] = useState<Booking[]>([]);
@@ -105,7 +111,40 @@ const BookingRequests: React.FC = () => {
       try {
         setSummaryLoading(true);
         logger.info('Fetching all bookings for summary', { userId: user.id });
-        const allBookingsData = await BookingService.getAllBookings();
+        let allBookingsData = await BookingService.getAllBookings();
+
+        // Auto-decline any confirmed bookings whose confirmation_expires_at has passed.
+        // Prefer a single batched update rather than updating one-by-one to reduce churn.
+        const now = new Date();
+        const expiredIds: string[] = [];
+        for (const b of allBookingsData) {
+          try {
+            const expiresRaw = (b as any).confirmation_expires_at;
+            if (b.status === 'confirmed' && expiresRaw) {
+              const expires = new Date(expiresRaw);
+              if (expires.getTime() <= now.getTime()) {
+                expiredIds.push(b.id);
+              }
+            }
+          } catch (err) {
+            logger.warn('Failed to evaluate expiry for booking', { bookingId: b.id, err });
+          }
+        }
+
+        if (expiredIds.length > 0) {
+          try {
+            await supabase
+              .from('booking')
+              .update({ status: 'declined', updated_at: new Date().toISOString() })
+              .in('id', expiredIds);
+            logger.info('Auto-declined expired confirmed bookings', { count: expiredIds.length });
+          } catch (err) {
+            logger.warn('Failed to auto-decline expired bookings', { err });
+          }
+        }
+
+        // Re-fetch after potential auto-declines to show current state
+        allBookingsData = await BookingService.getAllBookings();
         setAllBookings(allBookingsData);
         hasFetchedAllBookings.current = true;
         logger.info('All bookings fetched successfully', { count: allBookingsData.length });
@@ -118,6 +157,22 @@ const BookingRequests: React.FC = () => {
     };
 
     fetchAllBookings();
+  }, [user, isAdmin]);
+
+  // Fetch list of agents for assigning to bookings when approving
+  useEffect(() => {
+    const fetchAgents = async () => {
+      if (!user || !isAdmin) return;
+      try {
+        const { data } = await supabase.from('users').select('id, fullname').eq('role', 'agent');
+        if (data && Array.isArray(data)) {
+          setAgents(data.map((a: any) => ({ id: a.id, fullname: a.fullname })));
+        }
+      } catch (err) {
+        logger.warn('Failed to fetch agents', { err });
+      }
+    };
+    fetchAgents();
   }, [user, isAdmin]);
 
 
@@ -192,15 +247,47 @@ const BookingRequests: React.FC = () => {
     }, 250);
   };
 
+  const openApproveModal = (booking: Booking) => {
+    setPendingBooking(booking);
+    setSelectedAgentId(booking.assigned_agent || (agents[0]?.id ?? null));
+    setShowApproveModal(true);
+    requestAnimationFrame(() => setApproveModalActive(true));
+  };
+
+  const closeApproveModal = () => {
+    setApproveModalActive(false);
+    setTimeout(() => {
+      setShowApproveModal(false);
+      setPendingBooking(null);
+      setSelectedAgentId(null);
+    }, 250);
+  };
+
   /**
    * Handle approve action (direct, no confirmation)
    */
-  const handleApprove = async (booking: Booking) => {
+  const handleApprove = async (booking: Booking, agentId?: string | null) => {
     try {
       setIsProcessing(true);
-      logger.info('Approving booking', { bookingId: booking.id });
+      logger.info('Approving booking', { bookingId: booking.id, agentId });
+
+      // Update status to confirmed
       await BookingService.updateBookingStatus(booking.id, 'confirmed');
-      
+
+      // Set assigned agent and confirmation_expires_at (24h grace period)
+      try {
+        const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
+        const updateBody: any = { confirmation_expires_at: expiresAt };
+        if (agentId) updateBody.assigned_agent = agentId;
+        const { error: updErr } = await supabase
+          .from('booking')
+          .update(updateBody)
+          .eq('id', booking.id);
+        if (updErr) logger.warn('Failed to set assigned_agent/expiry', { bookingId: booking.id, error: updErr });
+      } catch (err) {
+        logger.warn('Exception while setting assigned agent or expiry', { bookingId: booking.id, err });
+      }
+
       // Decline all overlapping pending bookings for the same unit
       await BookingService.declineOverlappingPendingBookings(
         booking.id,
@@ -208,10 +295,7 @@ const BookingRequests: React.FC = () => {
         booking.check_in_date,
         booking.check_out_date
       );
-      
-      // Create updated booking with new status
-      const updatedBooking = { ...booking, status: 'confirmed' as const };
-      
+
       // Refresh bookings list to show declined bookings removed and confirmed booking visible
       const refreshBookings = async () => {
         try {
@@ -225,16 +309,17 @@ const BookingRequests: React.FC = () => {
           logger.error('Error refreshing bookings after approval', { error });
         }
       };
-      
+
       await refreshBookings();
-      
+
       // Update selectedBooking if drawer is open for this booking
       if (isDrawerOpen && selectedBooking?.id === booking.id) {
-        setSelectedBooking(updatedBooking);
+        setSelectedBooking({ ...booking, status: 'confirmed', assigned_agent: agentId || booking.assigned_agent });
       }
-      
+
       logger.info('Booking approved successfully', { bookingId: booking.id });
       showToast('Booking request approved successfully', 'success');
+      closeApproveModal();
     } catch (error) {
       logger.error('Error approving booking', { error, bookingId: booking.id });
       console.error('Error approving booking:', error);
@@ -670,7 +755,8 @@ const BookingRequests: React.FC = () => {
    * Handle approve from list view - direct action
    */
   const handleApproveClick = (booking: Booking) => {
-    handleApprove(booking);
+    // Open approve modal to optionally assign an agent before confirming
+    openApproveModal(booking);
   };
 
   return (
@@ -701,6 +787,77 @@ const BookingRequests: React.FC = () => {
             }}
           >
             {toast.message}
+          </div>
+        </div>
+      )}
+
+      {/* Approve Modal (assign agent) */}
+      {showApproveModal && (
+        <div 
+          className="fixed inset-0 flex items-center justify-center z-50"
+          style={{
+            backdropFilter: 'blur(4px)',
+            backgroundColor: 'rgba(0, 0, 0, 0.25)',
+            transition: 'background-color 0.25s ease'
+          }}
+          onClick={closeApproveModal}
+        >
+          <div 
+            className="max-w-md w-full mx-4"
+            style={{
+              background: '#FFFFFF',
+              borderRadius: 16,
+              boxShadow: '0 10px 40px rgba(0, 0, 0, 0.25)',
+              transform: approveModalActive ? 'scale(1)' : 'scale(0.95)',
+              opacity: approveModalActive ? 1 : 0,
+              transition: 'all 0.25s ease'
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="p-6">
+              <h3 className="text-lg font-semibold mb-2" style={{fontFamily: 'Poppins'}}>
+                Approve Booking Request
+              </h3>
+              <p className="text-gray-700 mb-4" style={{fontFamily: 'Poppins'}}>
+                Assign an agent to handle this booking (optional). The guest will have 24 hours to complete payment.
+              </p>
+
+              <div className="mb-4">
+                <label className="block text-sm text-gray-700 mb-2">Assign agent</label>
+                <select
+                  value={selectedAgentId ?? ''}
+                  onChange={(e) => setSelectedAgentId(e.target.value || null)}
+                  className="w-full border rounded p-2"
+                >
+                  <option value="">(No assignment)</option>
+                  {agents.map(a => (
+                    <option key={a.id} value={a.id}>{a.fullname}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="flex justify-end space-x-3">
+                <button
+                  onClick={closeApproveModal}
+                  className="px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-all duration-200 active:scale-95 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100"
+                  style={{fontFamily: 'Poppins'}}
+                  disabled={isProcessing}
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={() => pendingBooking && handleApprove(pendingBooking, selectedAgentId)}
+                  disabled={isProcessing}
+                  className="px-4 py-2 text-white rounded-lg transition-all duration-200 hover:opacity-90 hover:scale-105 active:scale-95 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                  style={{
+                    backgroundColor: '#05807E',
+                    fontFamily: 'Poppins'
+                  }}
+                >
+                  {isProcessing ? 'Processing...' : 'Approve & Assign'}
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}

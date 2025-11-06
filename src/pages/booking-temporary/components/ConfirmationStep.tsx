@@ -76,7 +76,7 @@ const FieldRow: React.FC<{ icon?: React.ReactNode; title: React.ReactNode; subti
     </div>
     <div className="min-w-0">
       <div className="font-medium break-words" style={{ wordBreak: 'break-word' }}>{title}</div>
-      {subtitle && <div className="text-xs text-gray-500 truncate">{subtitle}</div>}
+      {subtitle && <div className="text-xs text-gray-500" style={{ wordBreak: 'break-word' }}>{subtitle}</div>}
     </div>
   </div>
 );
@@ -665,13 +665,21 @@ const ConfirmationStep: React.FC<ConfirmationStepProps> = ({
                 </h5>
 
                 <div className="space-y-3 text-sm text-gray-700" style={{ fontFamily: 'Poppins' }}>
-                  <FieldRow
-                    icon={<IconCard />}
-                    title={<>{paymentMethodLabel(formData.paymentMethod)}</>}
-                    subtitle="Payment type"
-                  />
+                  {formData.requirePayment === false ? (
+                    <FieldRow
+                      icon={<IconCalendar />}
+                      title={<>Temporary reservation — awaiting host confirmation</>}
+                      subtitle="Payment will open after host confirmation"
+                    />
+                  ) : (
+                    <FieldRow
+                      icon={<IconCard />}
+                      title={<>{paymentMethodLabel(formData.paymentMethod)}</>}
+                      subtitle="Payment type"
+                    />
+                  )}
 
-                  {formData.paymentMethod === 'credit_card' && (
+                  {formData.requirePayment !== false && formData.paymentMethod === 'credit_card' && (
                     <>
                       <FieldRow
                         icon={<IconCard />}
@@ -687,7 +695,7 @@ const ConfirmationStep: React.FC<ConfirmationStepProps> = ({
                     </>
                   )}
 
-                  {formData.paymentMethod === 'bank_transfer' && (
+                  {formData.requirePayment !== false && formData.paymentMethod === 'bank_transfer' && (
                     <>
                       <FieldRow
                         icon={<IconBank />}
@@ -739,7 +747,7 @@ const ConfirmationStep: React.FC<ConfirmationStepProps> = ({
                     </>
                   )}
 
-                  {formData.paymentMethod === 'company_account' && (
+                  {formData.requirePayment !== false && formData.paymentMethod === 'company_account' && (
                     <>
                       <FieldRow
                         icon={<svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M4 7h16v10H4z"></path></svg>}
@@ -792,7 +800,7 @@ const ConfirmationStep: React.FC<ConfirmationStepProps> = ({
                     </>
                   )}
 
-                  {formData.paymentMethod === 'cash' && (
+                  {formData.requirePayment !== false && formData.paymentMethod === 'cash' && (
                     <>
                       <FieldRow
                         icon={<IconUser />}
@@ -876,7 +884,18 @@ const ConfirmationStep: React.FC<ConfirmationStepProps> = ({
               <h5 className="text-sm font-semibold mb-2" style={{ fontFamily: 'Poppins' }}>Location</h5>
 
               <div>
-                {mapSrc ? (
+                {listing?.latitude && listing?.longitude ? (
+                  <div className="w-full overflow-hidden rounded" style={{ borderRadius: 8 }}>
+                    <iframe
+                      title="Booking location map"
+                      src={`https://www.google.com/maps?q=${listing.latitude},${listing.longitude}&output=embed`}
+                      className="w-full h-36 sm:h-48"
+                      style={{ border: 0 }}
+                      loading="lazy"
+                      referrerPolicy="no-referrer-when-downgrade"
+                    />
+                  </div>
+                ) : mapSrc ? (
                   <div className="w-full overflow-hidden rounded" style={{ borderRadius: 8 }}>
                     <iframe
                       title="Booking location map"
@@ -934,16 +953,18 @@ const ConfirmationStep: React.FC<ConfirmationStepProps> = ({
               <div className="mt-3 text-sm">
                 <div className="text-xs text-gray-500">Check-in instructions</div>
                 <div className="text-sm text-gray-700 break-words" style={{ wordBreak: 'break-word' }}>{location.checkInInstructions}</div>
-                <div className="mt-2">
-                  <a
-                    href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(location.coords)}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-block text-sm text-[#0B5858] hover:underline"
-                  >
-                    Open in Google Maps
-                  </a>
-                </div>
+                { (listing?.latitude && listing?.longitude) || location.coords ? (
+                  <div className="mt-2">
+                    <a
+                      href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(listing?.latitude && listing?.longitude ? `${listing.latitude},${listing.longitude}` : (location.coords || ''))}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-block text-sm text-[#0B5858] hover:underline"
+                    >
+                      Open in Google Maps
+                    </a>
+                  </div>
+                ) : null}
               </div>
             </div>
 

@@ -1,11 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
-import type { BookingFormData, BookingStep } from '../../../types/booking';
-import type { Listing } from '../../../types/listing';
-import StayDetailsStep from './StayDetailsStep';
-import ClientInfoStep from './ClientInfoStep';
-import AdditionalServicesStep from './AdditionalServicesStep';
-import PaymentInfoStep from './PaymentInfoStep';
-import ConfirmationStep from './ConfirmationStep';
+import type { BookingFormData, BookingStep } from '../../types/booking';
+import type { Listing } from '../../types/listing';
+import StayDetailsStep from './components/StayDetailsStep';
+import ClientInfoStep from './components/ClientInfoStep';
+import AdditionalServicesStep from './components/AdditionalServicesStep';
+import PaymentInfoStep from './components/PaymentInfoStep';
+import ConfirmationStep from './components/ConfirmationStep';
 
 interface BookingFormProps {
   listingId?: string;
@@ -16,9 +16,14 @@ interface BookingFormProps {
   baseGuests?: number;
   onCancel: () => void;
   onComplete: (formData: BookingFormData) => void;
+  /**
+   * If false, the payment step will be skipped and the flow will create a temporary/pencil booking
+   * (status = pending) which requires admin confirmation before payment.
+   */
+  requirePayment?: boolean;
 }
 
-const BookingForm: React.FC<BookingFormProps> = ({ listingId, listing, pricePerNight, priceUnit, extraGuestFeePerPerson, baseGuests, onCancel, onComplete }) => {
+const BookingForm: React.FC<BookingFormProps> = ({ listingId, listing, pricePerNight, priceUnit, extraGuestFeePerPerson, baseGuests, onCancel, onComplete, requirePayment = true }) => {
   const [currentStep, setCurrentStep] = useState(0);
 
   // Initial form data filled out with all commonly-referenced fields so child steps
@@ -54,6 +59,8 @@ const BookingForm: React.FC<BookingFormProps> = ({ listingId, listing, pricePerN
 
     // Payment Info (include all fields used by PaymentInfoStep and others)
     paymentMethod: 'bank_transfer',
+  // indicate whether this flow requires payment now
+  requirePayment: requirePayment,
     cardNumber: '',
     nameOnCard: '',
     cvvCode: '',
@@ -80,13 +87,19 @@ const BookingForm: React.FC<BookingFormProps> = ({ listingId, listing, pricePerN
     cashPayerContact: ''
   });
 
+  // Build steps dynamically so we can optionally skip payment when reserving (pencil booking)
   const steps: BookingStep[] = [
     { id: 'stay-details', title: 'Stay Details', completed: false, active: true },
     { id: 'client-info', title: 'Client Info', completed: false, active: false },
-    { id: 'additional-services', title: 'Additional Services', completed: false, active: false },
-    { id: 'payment-info', title: 'Payment Info', completed: false, active: false },
-    { id: 'confirmation', title: 'Confirm', completed: false, active: false }
+    { id: 'additional-services', title: 'Additional Services', completed: false, active: false }
   ];
+
+  if (requirePayment) {
+    steps.push({ id: 'payment-info', title: 'Payment Info', completed: false, active: false });
+  }
+
+  // Confirmation is always the last step
+  steps.push({ id: 'confirmation', title: 'Confirm', completed: false, active: false });
 
   const updateFormData = (data: Partial<BookingFormData>) => {
     setFormData(prev => ({ ...prev, ...data }));
@@ -121,8 +134,11 @@ const BookingForm: React.FC<BookingFormProps> = ({ listingId, listing, pricePerN
   };
 
   const getCurrentStepComponent = () => {
-    switch (currentStep) {
-      case 0:
+    const step = steps[currentStep];
+    const stepId = step?.id;
+
+    switch (stepId) {
+      case 'stay-details':
         return (
           <StayDetailsStep
             formData={formData}
@@ -133,7 +149,8 @@ const BookingForm: React.FC<BookingFormProps> = ({ listingId, listing, pricePerN
             onCancel={onCancel}
           />
         );
-      case 1:
+
+      case 'client-info':
         return (
           <ClientInfoStep
             formData={formData}
@@ -143,7 +160,8 @@ const BookingForm: React.FC<BookingFormProps> = ({ listingId, listing, pricePerN
             onCancel={onCancel}
           />
         );
-      case 2:
+
+      case 'additional-services':
         return (
           <AdditionalServicesStep
             formData={formData}
@@ -153,7 +171,8 @@ const BookingForm: React.FC<BookingFormProps> = ({ listingId, listing, pricePerN
             onCancel={onCancel}
           />
         );
-      case 3:
+
+      case 'payment-info':
         return (
           <PaymentInfoStep
             formData={formData}
@@ -163,7 +182,8 @@ const BookingForm: React.FC<BookingFormProps> = ({ listingId, listing, pricePerN
             onCancel={onCancel}
           />
         );
-      case 4:
+
+      case 'confirmation':
         return (
           <ConfirmationStep
             formData={formData}
@@ -172,6 +192,7 @@ const BookingForm: React.FC<BookingFormProps> = ({ listingId, listing, pricePerN
             onCancel={onCancel}
           />
         );
+
       default:
         return null;
     }

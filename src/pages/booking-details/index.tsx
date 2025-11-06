@@ -437,6 +437,27 @@ const BookingDetails: React.FC = () => {
             </div>
           </div>
 
+          {/* Proceed to payment CTA: shown when booking was confirmed by admin but payment not yet completed */}
+          {booking.status === 'confirmed' && (!booking.payment || booking.payment.payment_status !== 'paid') && (
+            <div className="mb-6">
+              <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 rounded-md flex items-center justify-between">
+                <div>
+                  <div className="text-sm font-semibold text-yellow-800" style={{ fontFamily: 'Poppins' }}>Proceed to payment</div>
+                  <div className="text-xs text-yellow-700">This booking was approved by admin — please complete payment within 24 hours to keep the reservation.</div>
+                </div>
+                <div>
+                  <button
+                    onClick={() => navigate(`/booking/${booking.id}/payment`)}
+                    className="inline-flex items-center gap-2 px-4 py-2 bg-[#0B5858] text-white rounded-md hover:bg-[#0a4a4a]"
+                    style={{ fontFamily: 'Poppins' }}
+                  >
+                    Proceed to payment →
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Main Content Grid */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             {/* Left Column - Main Content */}

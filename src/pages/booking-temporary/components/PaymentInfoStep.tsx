@@ -7,6 +7,11 @@ interface PaymentInfoStepProps {
   onNext: () => void;
   onBack: () => void;
   onCancel: () => void;
+  /**
+   * When true, PaymentInfoStep will NOT render its built-in desktop/mobile action buttons.
+   * Use this when the parent page provides its own Cancel/Submit buttons (e.g. standalone payment page).
+   */
+  hideActions?: boolean;
 }
 
 type PaymentMethod = 'bank_transfer' | 'credit_card' | 'company_account' | 'cash' | '';
@@ -16,7 +21,8 @@ const PaymentInfoStep: React.FC<PaymentInfoStepProps> = ({
   onUpdate,
   onNext,
   onBack,
-  onCancel
+  onCancel,
+  hideActions = false
 }) => {
   // Initialize from formData so the selection persists when navigating away/back
   // Do not show any details panel until the user explicitly selects a method.
@@ -1170,7 +1176,8 @@ const PaymentInfoStep: React.FC<PaymentInfoStepProps> = ({
       </div>
 
       {/* Desktop actions: visible on lg and up */}
-      <div className="hidden lg:flex justify-end space-x-4 mt-6 pt-4 border-t border-gray-200">
+      {!hideActions && (
+        <div className="hidden lg:flex justify-end space-x-4 mt-6 pt-4 border-t border-gray-200">
         <button
           onClick={onCancel}
           className="px-6 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors text-sm"
@@ -1190,39 +1197,42 @@ const PaymentInfoStep: React.FC<PaymentInfoStepProps> = ({
         >
           Next
         </button>
-      </div>
+        </div>
+      )}
 
       {/* Mobile fixed footer: Cancel + Back + Next */}
-      <div
-        className="fixed left-0 right-0 bottom-0 bg-white border-t border-gray-200 p-3 lg:hidden"
-        role="region"
-        aria-label="Payment actions"
-        style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 12px)' }}
-      >
-        <div className="max-w-6xl mx-auto flex items-center gap-3">
-          <button
-            onClick={onCancel}
-            className="flex-1 px-3 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors text-sm"
-          >
-            Cancel
-          </button>
+      {!hideActions && (
+        <div
+          className="fixed left-0 right-0 bottom-0 bg-white border-t border-gray-200 p-3 lg:hidden"
+          role="region"
+          aria-label="Payment actions"
+          style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 12px)' }}
+        >
+          <div className="max-w-6xl mx-auto flex items-center gap-3">
+            <button
+              onClick={onCancel}
+              className="flex-1 px-3 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors text-sm"
+            >
+              Cancel
+            </button>
 
-          <button
-            onClick={onBack}
-            className="flex-1 px-3 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors text-sm"
-          >
-            Back
-          </button>
-          <button
-            onClick={handleNext}
-            disabled={!isFormValid()}
-            aria-disabled={!isFormValid()}
-            className="flex-1 px-3 py-2 bg-[#0B5858] text-white rounded-lg hover:bg-[#0a4a4a] transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm"
-          >
-            Next
-          </button>
+            <button
+              onClick={onBack}
+              className="flex-1 px-3 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors text-sm"
+            >
+              Back
+            </button>
+            <button
+              onClick={handleNext}
+              disabled={!isFormValid()}
+              aria-disabled={!isFormValid()}
+              className="flex-1 px-3 py-2 bg-[#0B5858] text-white rounded-lg hover:bg-[#0a4a4a] transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm"
+            >
+              Next
+            </button>
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 };

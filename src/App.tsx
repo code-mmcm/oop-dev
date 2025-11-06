@@ -15,6 +15,7 @@ import Updates from "./pages/updates";
 import Calendar from "./pages/calendar";
 import UnitCalendar from "./pages/unit-calendar";
 import BookingDetails from "./pages/booking-details";
+import BookingPayment from "./pages/booking-payment";
 import Listings from "./pages/listings";
 import BookingRequests from "./pages/booking-requests";
 import HelpAndSupport from "./pages/help-and-support/help.support";
@@ -63,6 +64,7 @@ function App() {
           <Route path="/calendar" element={<Calendar />} />
           <Route path="/unit-calendar/:id" element={<UnitCalendar />} />
           <Route path="/booking-details/:id" element={<BookingDetails />} />
+          <Route path="/booking/:id/payment" element={<BookingPayment />} />
           <Route path="/listings" element={<Listings />} />
           <Route path="/booking-requests" element={<BookingRequests />} />
           <Route path="/help-and-support" element={<HelpAndSupport />} />
