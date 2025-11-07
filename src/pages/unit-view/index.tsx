@@ -7,7 +7,7 @@ import BookingForm from '../booking/components/BookingForm';
 import { ListingService } from '../../services/listingService';
 import type { Listing, ListingView } from '../../types/listing';
 import type { BookingFormData } from '../../types/booking';
-import { getLenis } from '../../App';
+import { getLenis } from '../../lib/lenis';
 import LeftColumn from './components/LeftColumn';
 import RightColumn from './components/RightColumn';
 import TabsSection from './components/TabsSection';
