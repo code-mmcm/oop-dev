@@ -184,7 +184,7 @@ export class BookingService {
         status
       `)
       .eq('listing_id', listingId)
-      .in('status', ['pending', 'confirmed', 'ongoing']) // Only active bookings
+      .in('status', ['pending', 'confirmed', 'booked', 'ongoing']) // Only active bookings
       .order('check_in_date', { ascending: true });
 
     if (error) {
