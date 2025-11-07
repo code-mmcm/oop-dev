@@ -1357,8 +1357,8 @@ const BookingRequests: React.FC = () => {
                         navigate(`/booking-details/${selectedBooking.id}`);
                       }
                     }}
-                    className="flex-1 px-6 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-all duration-200 hover:scale-105 active:scale-95 cursor-pointer font-medium whitespace-nowrap"
-                    style={{ fontFamily: 'Poppins' }}
+                    className="flex-1 px-6 py-3 text-white rounded-lg transition-all duration-200 hover:opacity-90 hover:scale-105 active:scale-95 cursor-pointer font-medium whitespace-nowrap"
+                    style={{ fontFamily: 'Poppins', backgroundColor: '#0B5858' }}
                   >
                     View Full Details
                   </button>
