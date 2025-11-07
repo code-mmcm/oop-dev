@@ -795,9 +795,9 @@ const BookingDetails: React.FC = () => {
                 {/* Assigned Agent */}
                 <div className="border border-gray-200 rounded-lg p-4 bg-white">
                   <h5 className="text-sm font-semibold mb-3" style={{ fontFamily: 'Poppins' }}>Assigned Agent</h5>
-                  <div className="flex items-start gap-3">
+                  <div className="flex items-start gap-3 md:flex-col lg:flex-col md:items-center md:text-center lg:items-center lg:text-center">
                     <div 
-                      className="w-10 h-10 rounded-full flex items-center justify-center overflow-hidden flex-shrink-0"
+                      className="w-10 h-10 rounded-full flex items-center justify-center overflow-hidden flex-shrink-0 lg:mx-auto md:w-25 md:h-25 lg:w-28 lg:h-28 xl:w-25 xl:h-25"
                       style={{
                         background: hasValidPhoto(booking.agent?.profile_photo, 'agent-main')
                           ? 'transparent'
@@ -821,7 +821,7 @@ const BookingDetails: React.FC = () => {
                       )}
                     </div>
 
-                    <div className="flex-1 text-sm" style={{ fontFamily: 'Poppins' }}>
+                    <div className="flex-1 text-sm min-w-0 lg:text-center md:mt-2 lg:mt-2 xl:mt-2" style={{ fontFamily: 'Poppins' }}>
                       <div className="font-medium break-words" style={{ wordBreak: 'break-word' }}>
                         {booking.agent?.fullname || 'Agent'}
                       </div>
