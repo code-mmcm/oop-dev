@@ -7,6 +7,7 @@ interface ImageUploadProps {
   disabled?: boolean;
 }
 
+//igat ka ha! yaar chutiya ho!
 const ImageUpload: React.FC<ImageUploadProps> = ({ 
   onImagesUploaded, 
   maxFiles = 10, 
