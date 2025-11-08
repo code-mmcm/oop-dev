@@ -39,7 +39,7 @@ const Calendar: React.FC<CalendarProps> = ({ hideNavbar = false }) => {
 
   // default to today on load
   const [currentDate, setCurrentDate] = useState<Date>(() => new Date());
-  const [viewMode, setViewMode] = useState<'monthly' | 'weekly'>('weekly');
+  const [viewMode, setViewMode] = useState<'monthly' | 'weekly'>('monthly');
   const [selectedDate, setSelectedDate] = useState<Date | null>(null); // for slide-over
   const [isSlideOpen, setIsSlideOpen] = useState(false);
   const [isClosing, setIsClosing] = useState(false);
@@ -97,7 +97,25 @@ const Calendar: React.FC<CalendarProps> = ({ hideNavbar = false }) => {
   const [hasInitiallyLoaded, setHasInitiallyLoaded] = useState(false);
   
   // State for visible month/year based on scroll position (for timeline view)
+  // Initialize to current month (will be updated by scroll handler)
   const [visibleMonth, setVisibleMonth] = useState<Date>(() => new Date());
+
+  // Initialize visible month on component mount
+  useEffect(() => {
+    const today = new Date();
+    setVisibleMonth(new Date(today.getFullYear(), today.getMonth(), 1));
+  }, []);
+
+  useEffect(() => {
+    if (viewMode === 'monthly') {
+      // Update month when in monthly view
+      setVisibleMonth(new Date(currentDate.getFullYear(), currentDate.getMonth(), 1));
+    } else if (viewMode === 'weekly') {
+      // Initialize to today's month for timeline view (scroll handler will update it)
+      const today = new Date();
+      setVisibleMonth(new Date(today.getFullYear(), today.getMonth(), 1));
+    }
+  }, [viewMode, currentDate]);
 
   // Auto-scroll to today on initial page load (when calendar first opens with timeline view)
   useEffect(() => {
@@ -150,9 +168,10 @@ const Calendar: React.FC<CalendarProps> = ({ hideNavbar = false }) => {
       const isMobileView = window.innerWidth < 640;
       const unitColumnWidth = isMobileView ? 120 : 350;
       
-      // Calculate visible day index from scroll position
-      const pixelsFromStart = scrollLeft + unitColumnWidth;
-      const visibleDayIndex = Math.floor(pixelsFromStart / DAY_WIDTH);
+      // Calculate visible day index from scroll position (focus on center of timeline viewport)
+      const timelineViewportWidth = Math.max(clientWidth - unitColumnWidth, DAY_WIDTH);
+      const centerPixel = Math.max(0, scrollLeft + unitColumnWidth + timelineViewportWidth / 2);
+      const visibleDayIndex = Math.max(0, Math.floor(centerPixel / DAY_WIDTH));
       
       // Calculate the visible date based on scroll position
       const visibleDate = addDays(timelineStartDate, visibleDayIndex);
@@ -176,6 +195,15 @@ const Calendar: React.FC<CalendarProps> = ({ hideNavbar = false }) => {
           return new Date(newYear, newMonth, 1);
         }
         return prev;
+      });
+
+      setFocusedDate(prev => {
+        if (!prev) return visibleDate;
+        const isSameDay =
+          prev.getFullYear() === visibleDate.getFullYear() &&
+          prev.getMonth() === visibleDate.getMonth() &&
+          prev.getDate() === visibleDate.getDate();
+        return isSameDay ? prev : visibleDate;
       });
       
       // Load more dates when scrolling within 200px of the right edge
@@ -208,9 +236,6 @@ const Calendar: React.FC<CalendarProps> = ({ hideNavbar = false }) => {
     
     scrollContainer.addEventListener('scroll', handleScroll, { passive: true });
     
-    // Initial calculation of visible month
-    handleScroll();
-    
     // Auto-scroll to today when timeline view is opened
     // Use a delay to ensure the DOM is fully rendered and booking data is loaded
     const scrollToToday = () => {
@@ -235,6 +260,9 @@ const Calendar: React.FC<CalendarProps> = ({ hideNavbar = false }) => {
         today: todayStart.toISOString().split('T')[0],
         startDate: startDateStart.toISOString().split('T')[0]
       });
+      
+      // Update month after scrolling
+      setTimeout(() => handleScroll(), 100);
     };
     
     // Delay scroll to ensure layout is complete (longer delay for initial load)
@@ -1446,6 +1474,17 @@ const Calendar: React.FC<CalendarProps> = ({ hideNavbar = false }) => {
               {isMobile && (
                 <div className="flex gap-0.5 items-center bg-gray-100 p-0.5 rounded-lg ml-auto">
                 <button
+                  onClick={() => setViewMode('monthly')}
+                  className={`toggle-button px-2.5 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm font-medium rounded-md ${
+                    viewMode === 'monthly'
+                      ? 'bg-white text-gray-900 shadow-sm'
+                      : 'text-gray-600 hover:text-gray-900'
+                  }`}
+                  style={{ fontFamily: 'Poppins' }}
+                >
+                  Month
+                </button>
+                <button
                   onClick={() => {
                     // Reset timeline to focus on current month when switching to timeline view
                     const today = new Date();
@@ -1483,17 +1522,6 @@ const Calendar: React.FC<CalendarProps> = ({ hideNavbar = false }) => {
                 >
                   Timeline
                 </button>
-                <button
-                  onClick={() => setViewMode('monthly')}
-                  className={`toggle-button px-2.5 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm font-medium rounded-md ${
-                    viewMode === 'monthly'
-                      ? 'bg-white text-gray-900 shadow-sm'
-                      : 'text-gray-600 hover:text-gray-900'
-                  }`}
-                  style={{ fontFamily: 'Poppins' }}
-                >
-                  Month
-                </button>
                 </div>
               )}
             </div>
@@ -1503,6 +1531,17 @@ const Calendar: React.FC<CalendarProps> = ({ hideNavbar = false }) => {
               <div className="flex items-center gap-1.5 sm:gap-2">
                 {/* View toggle button group */}
                 <div className="flex gap-0.5 sm:gap-1 items-center bg-gray-100 p-0.5 sm:p-1 rounded-lg">
+                  <button
+                    onClick={() => setViewMode('monthly')}
+                    className={`toggle-button px-2.5 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm font-medium rounded-md ${
+                      viewMode === 'monthly'
+                        ? 'bg-white text-gray-900 shadow-sm'
+                        : 'text-gray-600 hover:text-gray-900'
+                    }`}
+                    style={{ fontFamily: 'Poppins' }}
+                  >
+                    Month
+                  </button>
                   <button
                     onClick={() => {
                       // Reset timeline to focus on current month when switching to timeline view
@@ -1541,17 +1580,6 @@ const Calendar: React.FC<CalendarProps> = ({ hideNavbar = false }) => {
                   >
                     Timeline
                   </button>
-                  <button
-                    onClick={() => setViewMode('monthly')}
-                    className={`toggle-button px-2.5 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm font-medium rounded-md ${
-                      viewMode === 'monthly'
-                        ? 'bg-white text-gray-900 shadow-sm'
-                        : 'text-gray-600 hover:text-gray-900'
-                    }`}
-                    style={{ fontFamily: 'Poppins' }}
-                  >
-                    Month
-                  </button>
                 </div>
 
               {isAdmin && (
@@ -1588,17 +1616,14 @@ const Calendar: React.FC<CalendarProps> = ({ hideNavbar = false }) => {
             )}
           </div>
 
-          <div 
-            className="bg-white border border-gray-200 rounded-lg overflow-hidden relative"
-            style={{ 
-              minHeight: isMobile ? 'calc(100vh - 250px)' : 'calc(100vh - 300px)',
-              height: viewMode === 'weekly' ? (isMobile ? 'calc(100vh - 250px)' : 'calc(100vh - 300px)') : 'auto'
-            }}
-          >
+          <div className="bg-white border border-gray-200 rounded-lg overflow-hidden relative">
             {/* Show loading spinner */}
             {loading ? (
               <div 
-                className="flex items-center justify-center h-full"
+                className="flex items-center justify-center"
+                style={{ 
+                  minHeight: isMobile ? 'calc(100vh - 250px)' : 'calc(100vh - 300px)'
+                }}
               >
                 <div className="text-center">
                   <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-[#0B5858] mx-auto mb-4"></div>
@@ -1742,7 +1767,7 @@ const Calendar: React.FC<CalendarProps> = ({ hideNavbar = false }) => {
                           ref={timelineScrollRef}
                           className="bg-white timeline-container"
                           style={{
-                            height: '100%',
+                            height: isMobile ? 'calc(100vh - 250px)' : 'calc(100vh - 300px)',
                             overflowX: 'auto',
                             overflowY: 'auto',
                             position: 'relative',
