@@ -1,7 +1,8 @@
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 import { useEffect } from "react";
-import Lenis from "@studio-freight/lenis";
 import { AuthProvider } from "./contexts/AuthContext";
+import { initLenis, destroyLenis } from "./lib/lenis";
+import ProtectedRoute from "./components/ProtectedRoute";
 import Home from "./pages/home";
 import Login from "./pages/login";
 import ManageUnits from "./pages/manage-units";
@@ -20,30 +21,12 @@ import Listings from "./pages/listings";
 import BookingRequests from "./pages/booking-requests";
 import HelpAndSupport from "./pages/help-and-support/help.support";
 
-// Global Lenis instance
-let globalLenis: Lenis | null = null;
-
-// Export function to access Lenis instance
-export const getLenis = () => globalLenis;
-
 function App() {
   useEffect(() => {
-    // Initialize Lenis smooth scrolling
-    globalLenis = new Lenis({
-      duration: 0.4,
-      easing: (t) => Math.min(1, 1.001 - Math.pow(2, -10 * t)),
-    });
-
-    // Animation frame loop for Lenis
-    function raf(time: number) {
-      globalLenis?.raf(time);
-      requestAnimationFrame(raf);
-    }
-    requestAnimationFrame(raf);
+    initLenis();
 
     return () => {
-      globalLenis?.destroy();
-      globalLenis = null;
+      destroyLenis();
     };
   }, []);
 
@@ -54,19 +37,81 @@ function App() {
           <Route path="/" element={<Home />} />
           <Route path="/unit/:id" element={<UnitView />} />
           <Route path="/login" element={<Login />} />
-          <Route path="/manage-listings" element={<ManageUnits />} />
-          <Route path="/profile" element={<Profile />} />
-          <Route path="/booking" element={<Booking />} />
+          <Route
+            path="/manage-listings"
+            element={
+              <ProtectedRoute allowedRoles={['admin', 'agent']}>
+                <ManageUnits />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/profile"
+            element={
+              <ProtectedRoute>
+                <Profile />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/booking"
+            element={
+              <ProtectedRoute allowedRoles={['agent', 'admin']}>
+                <Booking />
+              </ProtectedRoute>
+            }
+          />
           <Route path="/signup" element={<SignUp />} />
-          <Route path="/admin" element={<AdminPanel />} />
-          <Route path="/manage-users" element={<ManageUsers />} />
+          <Route
+            path="/admin"
+            element={
+              <ProtectedRoute allowedRoles={['admin']}>
+                <AdminPanel />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/manage-users"
+            element={
+              <ProtectedRoute allowedRoles={['admin']}>
+                <ManageUsers />
+              </ProtectedRoute>
+            }
+          />
           <Route path="/updates" element={<Updates />} />
-          <Route path="/calendar" element={<Calendar />} />
-          <Route path="/unit-calendar/:id" element={<UnitCalendar />} />
-          <Route path="/booking-details/:id" element={<BookingDetails />} />
-          <Route path="/booking/:id/payment" element={<BookingPayment />} />
+          <Route
+            path="/calendar"
+            element={
+              <ProtectedRoute allowedRoles={['admin', 'agent']}>
+                <Calendar />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/unit-calendar/:id"
+            element={
+              <ProtectedRoute allowedRoles={['admin', 'agent']}>
+                <UnitCalendar />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/booking-details/:id"
+            element={
+              <ProtectedRoute allowedRoles={['admin', 'agent']}>
+                <BookingDetails />
+              </ProtectedRoute>
+            }
+          />
           <Route path="/listings" element={<Listings />} />
-          <Route path="/booking-requests" element={<BookingRequests />} />
+          <Route
+            path="/booking-requests"
+            element={
+              <ProtectedRoute allowedRoles={['admin']}>
+                <BookingRequests />
+              </ProtectedRoute>
+            }
+          />
           <Route path="/help-and-support" element={<HelpAndSupport />} />
         </Routes>
       </Router>

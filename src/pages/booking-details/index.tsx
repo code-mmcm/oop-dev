@@ -864,9 +864,51 @@ const BookingDetails: React.FC = () => {
               <div className="border border-gray-200 rounded-lg p-4 bg-white">
                 <div className="flex items-center justify-between">
                   <h5 className="text-sm font-semibold" style={{ fontFamily: 'Poppins' }}>Status</h5>
-                  <div className="text-sm text-green-600 font-medium flex items-center gap-2">
-                    <svg className="w-4 h-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd"/></svg>
-                    {booking.status.charAt(0).toUpperCase() + booking.status.slice(1)}
+                  <div 
+                    className="text-sm font-medium flex items-center gap-2"
+                    style={{
+                      color: booking.status === 'pending' 
+                        ? '#F1C40F' 
+                        : booking.status === 'confirmed' 
+                        ? '#2A7F9E' 
+                        : booking.status === 'booked' || booking.status === 'ongoing' || booking.status === 'completed'
+                        ? '#0B5858'
+                        : booking.status === 'declined' || booking.status === 'cancelled'
+                        ? '#B84C4C'
+                        : '#10B981'
+                    }}
+                  >
+                    {booking.status === 'pending' && (
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                    )}
+                    {booking.status === 'confirmed' && (
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                    )}
+                    {(booking.status === 'booked' || booking.status === 'ongoing' || booking.status === 'completed') && (
+                      <svg className="w-4 h-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                        <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd"/>
+                      </svg>
+                    )}
+                    {(booking.status === 'declined' || booking.status === 'cancelled') && (
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                    )}
+                    {(() => {
+                      const status = booking.status;
+                      if (status === 'pending') return 'Pending';
+                      if (status === 'confirmed') return 'Awaiting Payment';
+                      if (status === 'booked') return 'Booked';
+                      if (status === 'ongoing') return 'Ongoing';
+                      if (status === 'completed') return 'Completed';
+                      if (status === 'declined') return 'Declined';
+                      if (status === 'cancelled') return 'Cancelled';
+                      return status.charAt(0).toUpperCase() + status.slice(1);
+                    })()}
                   </div>
                 </div>
               </div>

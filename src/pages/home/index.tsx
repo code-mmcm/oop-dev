@@ -4,7 +4,7 @@ import Navbar from '../../components/Navbar';
 import Footer from '../../components/Footer';
 import { ListingService } from '../../services/listingService';
 import type { ListingView } from '../../types/listing';
-import { getLenis } from '../../App';
+import { getLenis } from '../../lib/lenis';
 import Hero from './components/Hero';
 import ResultsSection from './components/ResultsSection';
 

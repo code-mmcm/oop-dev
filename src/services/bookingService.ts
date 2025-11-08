@@ -202,7 +202,7 @@ export class BookingService {
       .from('booking')
       .select('*')
       .eq('listing_id', listingId)
-      .in('status', ['pending', 'confirmed', 'ongoing', 'completed']) // Only active bookings (exclude declined/cancelled)
+      .in('status', ['pending', 'confirmed', 'booked', 'ongoing', 'completed']) // Only active bookings (exclude declined/cancelled)
       .order('check_in_date', { ascending: true });
 
     if (error) {
@@ -306,6 +306,71 @@ export class BookingService {
     }
 
     return data as Booking;
+  }
+
+  /**
+   * Confirm payment for a booking and update status to 'booked'
+   * This is called when admin verifies that payment has been received
+   * Only bookings with status 'confirmed' can be marked as 'booked'
+   */
+  static async confirmPayment(bookingId: string): Promise<Booking> {
+    try {
+      // First, verify the booking exists and is in 'confirmed' status
+      const { data: booking, error: fetchError } = await supabase
+        .from('booking')
+        .select('id, status')
+        .eq('id', bookingId)
+        .single();
+
+      if (fetchError) {
+        console.error('Error fetching booking for payment confirmation:', fetchError);
+        throw fetchError;
+      }
+
+      if (!booking) {
+        throw new Error('Booking not found');
+      }
+
+      if (booking.status !== 'confirmed') {
+        throw new Error(`Cannot confirm payment for booking with status: ${booking.status}. Only 'confirmed' bookings can be marked as 'booked'.`);
+      }
+
+      // Update booking status to 'booked'
+      const { data: updatedBooking, error: updateError } = await supabase
+        .from('booking')
+        .update({ 
+          status: 'booked' as BookingStatus, 
+          updated_at: new Date().toISOString() 
+        })
+        .eq('id', bookingId)
+        .select('*')
+        .single();
+
+      if (updateError) {
+        console.error('Error updating booking to booked status:', updateError);
+        throw updateError;
+      }
+
+      // Optionally update payment status in payment table
+      const { error: paymentUpdateError } = await supabase
+        .from('payment')
+        .update({ 
+          payment_status: 'confirmed',
+          updated_at: new Date().toISOString()
+        })
+        .eq('booking_id', bookingId);
+
+      if (paymentUpdateError) {
+        console.warn('Error updating payment status:', paymentUpdateError);
+        // Don't throw - booking status update is more important
+      }
+
+      console.log('Payment confirmed successfully', { bookingId });
+      return updatedBooking as Booking;
+    } catch (error) {
+      console.error('Error in confirmPayment:', error);
+      throw error;
+    }
   }
 
   /**
