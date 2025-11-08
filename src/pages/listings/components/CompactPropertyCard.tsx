@@ -19,7 +19,7 @@ const CompactPropertyCard: React.FC<CompactPropertyCardProps> = ({ apartment, on
       {/* Image Container */}
       <div className="relative h-40 overflow-hidden">
         <div 
-          className="w-full h-full bg-cover bg-center transition-transform duration-300 group-hover:scale-105" 
+          className="w-full h-full bg-cover bg-center" 
           style={{backgroundImage: `url('${apartment.main_image_url || './avida.jpg'}')`}}
         ></div>
         
