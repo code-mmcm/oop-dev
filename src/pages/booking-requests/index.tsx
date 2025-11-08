@@ -34,6 +34,11 @@ const BookingRequests: React.FC = () => {
   const [confirmModalActive, setConfirmModalActive] = useState(false);
   const [pendingBooking, setPendingBooking] = useState<Booking | null>(null);
   
+  // Payment confirmation modal state
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [paymentModalActive, setPaymentModalActive] = useState(false);
+  const [pendingPaymentBooking, setPendingPaymentBooking] = useState<Booking | null>(null);
+  
   // Summary stats
   const [allBookings, setAllBookings] = useState<Booking[]>([]);
   const [summaryLoading, setSummaryLoading] = useState(true);
@@ -194,11 +199,28 @@ const BookingRequests: React.FC = () => {
 
   /**
    * Handle approve action (direct, no confirmation)
+   * Updates UI immediately for real-time feedback
    */
   const handleApprove = async (booking: Booking) => {
     try {
       setIsProcessing(true);
       logger.info('Approving booking', { bookingId: booking.id });
+      
+      // Show success toast immediately for instant feedback
+      showToast('Booking request approved', 'success');
+      
+      // Create updated booking with new status for immediate UI update
+      const updatedBooking = { ...booking, status: 'confirmed' as const };
+      
+      // Update UI immediately for real-time feedback
+      setAllBookings(prev => prev.map(b => b.id === booking.id ? updatedBooking : b));
+      
+      // Update selectedBooking if drawer is open for this booking
+      if (isDrawerOpen && selectedBooking?.id === booking.id) {
+        setSelectedBooking(updatedBooking);
+      }
+      
+      // Then perform the actual API call in background
       await BookingService.updateBookingStatus(booking.id, 'confirmed');
       
       // Decline all overlapping pending bookings for the same unit
@@ -209,10 +231,7 @@ const BookingRequests: React.FC = () => {
         booking.check_out_date
       );
       
-      // Create updated booking with new status
-      const updatedBooking = { ...booking, status: 'confirmed' as const };
-      
-      // Refresh bookings list to show declined bookings removed and confirmed booking visible
+      // Refresh bookings list to show declined bookings removed
       const refreshBookings = async () => {
         try {
           const fetchedBookings = await BookingService.getAllBookings();
@@ -228,17 +247,16 @@ const BookingRequests: React.FC = () => {
       
       await refreshBookings();
       
-      // Update selectedBooking if drawer is open for this booking
-      if (isDrawerOpen && selectedBooking?.id === booking.id) {
-        setSelectedBooking(updatedBooking);
-      }
-      
       logger.info('Booking approved successfully', { bookingId: booking.id });
-      showToast('Booking request approved successfully', 'success');
     } catch (error) {
       logger.error('Error approving booking', { error, bookingId: booking.id });
       console.error('Error approving booking:', error);
-      showToast('Failed to approve booking request', 'error');
+      // Revert UI update on error
+      setAllBookings(prev => prev.map(b => b.id === booking.id ? booking : b));
+      if (isDrawerOpen && selectedBooking?.id === booking.id) {
+        setSelectedBooking(booking);
+      }
+      showToast('Unable to approve booking. Please try again.', 'error');
     } finally {
       setIsProcessing(false);
     }
@@ -246,6 +264,7 @@ const BookingRequests: React.FC = () => {
 
   /**
    * Handle decline action (called after confirmation)
+   * Updates UI immediately for real-time feedback
    */
   const handleDecline = async () => {
     if (!pendingBooking) return;
@@ -253,12 +272,14 @@ const BookingRequests: React.FC = () => {
     try {
       setIsProcessing(true);
       logger.info('Declining booking', { bookingId: pendingBooking.id });
-      await BookingService.updateBookingStatus(pendingBooking.id, 'declined');
       
-      // Create updated booking with new status
+      // Show success toast immediately for instant feedback
+      showToast('Booking request declined', 'success');
+      
+      // Create updated booking with new status for immediate UI update
       const updatedBooking = { ...pendingBooking, status: 'declined' as const };
       
-      // Update allBookings with the new status
+      // Update UI immediately for real-time feedback
       setAllBookings(prev => prev.map(b => b.id === pendingBooking.id ? updatedBooking : b));
       
       // Update selectedBooking if drawer is open for this booking
@@ -266,13 +287,22 @@ const BookingRequests: React.FC = () => {
         setSelectedBooking(updatedBooking);
       }
       
-      logger.info('Booking declined successfully', { bookingId: pendingBooking.id });
-      showToast('Booking request declined', 'success');
+      // Close modal immediately
       closeConfirmModal();
+      
+      // Then perform the actual API call in background
+      await BookingService.updateBookingStatus(pendingBooking.id, 'declined');
+      
+      logger.info('Booking declined successfully', { bookingId: pendingBooking.id });
     } catch (error) {
       logger.error('Error declining booking', { error, bookingId: pendingBooking.id });
       console.error('Error declining booking:', error);
-      showToast('Failed to decline booking request', 'error');
+      // Revert UI update on error
+      setAllBookings(prev => prev.map(b => b.id === pendingBooking.id ? pendingBooking : b));
+      if (isDrawerOpen && selectedBooking?.id === pendingBooking.id) {
+        setSelectedBooking(pendingBooking);
+      }
+      showToast('Unable to decline booking. Please try again.', 'error');
     } finally {
       setIsProcessing(false);
     }
@@ -306,18 +336,30 @@ const BookingRequests: React.FC = () => {
 
   /**
    * Calculate summary stats from all bookings
+   * Status breakdown:
+   * - Pending: awaiting admin approval
+   * - Awaiting Payment: admin approved, awaiting payment (confirmed status)
+   * - Booked: payment confirmed, booking is official
+   * - Declined: rejected or cancelled bookings
    */
   const getSummaryStats = () => {
     const pending = allBookings.filter(b => b.status === 'pending').length;
-    const approved = allBookings.filter(b => b.status === 'confirmed' || b.status === 'ongoing' || b.status === 'completed').length;
+    const awaitingPayment = allBookings.filter(b => b.status === 'confirmed').length;
+    const booked = allBookings.filter(b => b.status === 'booked' || b.status === 'ongoing' || b.status === 'completed').length;
     const declined = allBookings.filter(b => b.status === 'declined' || b.status === 'cancelled').length;
     const total = allBookings.length;
 
-    return { pending, approved, declined, total };
+    return { pending, awaitingPayment, booked, declined, total };
   };
 
   /**
    * Filter bookings based on status
+   * Filter options:
+   * - All Status: show all bookings
+   * - Pending: awaiting admin approval
+   * - Awaiting Payment: admin approved, awaiting payment (confirmed status)
+   * - Booked: payment confirmed, booking is official
+   * - Declined: rejected or cancelled bookings
    */
   const getFilteredBookings = (bookings: Booking[]): Booking[] => {
     if (statusFilter === 'All Status') {
@@ -328,8 +370,10 @@ const BookingRequests: React.FC = () => {
       switch (statusFilter) {
         case 'Pending':
           return booking.status === 'pending';
-        case 'Approved':
-          return booking.status === 'confirmed' || booking.status === 'ongoing' || booking.status === 'completed';
+        case 'Awaiting Payment':
+          return booking.status === 'confirmed';
+        case 'Booked':
+          return booking.status === 'booked' || booking.status === 'ongoing' || booking.status === 'completed';
         case 'Declined':
           return booking.status === 'declined' || booking.status === 'cancelled';
         default:
@@ -340,16 +384,17 @@ const BookingRequests: React.FC = () => {
 
   /**
    * Get status order priority for sorting
-   * Pending = 1, Approved = 2, Declined = 3
+   * Pending = 1, Awaiting Payment = 2, Booked = 3, Declined = 4
    */
   const getStatusOrder = (status: string): number => {
     const statusOrder: Record<string, number> = {
       'pending': 1,
       'confirmed': 2,
-      'ongoing': 2,
-      'completed': 2,
-      'declined': 3,
-      'cancelled': 3
+      'booked': 3,
+      'ongoing': 3,
+      'completed': 3,
+      'declined': 4,
+      'cancelled': 4
     };
     return statusOrder[status] || 999;
   };
@@ -456,8 +501,8 @@ const BookingRequests: React.FC = () => {
           </div>
 
           {/* Summary Stats Skeleton */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-            {[...Array(4)].map((_, i) => (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 mb-8">
+            {[...Array(5)].map((_, i) => (
               <div key={i} className="bg-white rounded-lg p-5 shadow-sm animate-pulse">
                 <div className="h-4 bg-gray-200 rounded w-20 mb-3"></div>
                 <div className="h-8 bg-gray-200 rounded w-16"></div>
@@ -500,7 +545,9 @@ const BookingRequests: React.FC = () => {
       : 'No special requests';
 
     // Determine status styling
-    const isApproved = booking.status === 'confirmed' || booking.status === 'ongoing' || booking.status === 'completed';
+    const isPending = booking.status === 'pending';
+    const isAwaitingPayment = booking.status === 'confirmed';
+    const isBooked = booking.status === 'booked' || booking.status === 'ongoing' || booking.status === 'completed';
     const isDeclined = booking.status === 'declined' || booking.status === 'cancelled';
     
     const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
@@ -519,26 +566,30 @@ const BookingRequests: React.FC = () => {
         onClick={() => handleBookingClick(booking)}
         onMouseMove={handleMouseMove}
         onMouseLeave={handleMouseLeave}
-        className={`relative bg-white border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow cursor-pointer overflow-hidden ${
-          isApproved ? 'hover:border-[#05807E]/30' : isDeclined ? 'hover:border-[#B84C4C]/30' : ''
+        className={`relative border border-gray-200 rounded-lg p-4 hover:shadow-md transition-all cursor-pointer overflow-hidden ${
+          isPending ? 'bg-yellow-50/30 hover:border-[#F1C40F]/30' : 
+          isAwaitingPayment ? 'bg-blue-50/30 hover:border-[#2A7F9E]/30' : 
+          isBooked ? 'bg-teal-50/30 hover:border-[#0B5858]/30' : 
+          isDeclined ? 'bg-red-50/30 hover:border-[#B84C4C]/30' : 
+          'bg-white'
         }`}
       >
-        {/* Diagonal accent stripe for approved/declined */}
-        {(isApproved || isDeclined) && (
+        {/* Diagonal accent stripe for pending/awaiting payment/booked/declined */}
+        {(isPending || isAwaitingPayment || isBooked || isDeclined) && (
           <div
             className="absolute top-0 right-0 w-24 h-24 opacity-10 blur-xl"
             style={{
-              backgroundColor: isApproved ? '#05807E' : '#B84C4C'
+              backgroundColor: isPending ? '#F1C40F' : isAwaitingPayment ? '#2A7F9E' : isBooked ? '#0B5858' : '#B84C4C'
             }}
           />
         )}
         {/* Cursor-following glow effect */}
-        {(isApproved || isDeclined) && (
+        {(isPending || isAwaitingPayment || isBooked || isDeclined) && (
           <div
             className="absolute inset-0 pointer-events-none transition-opacity duration-300"
             style={{
               background: `radial-gradient(circle 250px at ${glowPosition.x}% ${glowPosition.y}%, ${
-                isApproved ? 'rgba(5, 128, 126, 0.08)' : 'rgba(184, 76, 76, 0.08)'
+                isPending ? 'rgba(241, 196, 15, 0.08)' : isAwaitingPayment ? 'rgba(42, 127, 158, 0.08)' : isBooked ? 'rgba(11, 88, 88, 0.08)' : 'rgba(184, 76, 76, 0.08)'
               } 0%, transparent 70%)`,
               opacity: 1
             }}
@@ -603,7 +654,7 @@ const BookingRequests: React.FC = () => {
             </p>
           </div>
 
-          {/* Action Buttons - Only show for pending bookings */}
+          {/* Action Buttons - Show different buttons based on status */}
           {booking.status === 'pending' ? (
             <div className="flex-shrink-0 flex flex-col gap-2 ml-4 w-[100px]">
               <button
@@ -611,7 +662,7 @@ const BookingRequests: React.FC = () => {
                   e.stopPropagation();
                   handleApproveClick(booking);
                 }}
-                className="w-full px-4 py-2 text-white text-sm font-medium rounded-lg transition-all duration-200 hover:opacity-90 hover:scale-105 active:scale-95 cursor-pointer"
+                className="w-full px-4 py-2 text-white text-sm font-medium rounded-lg transition-all duration-200 hover:opacity-90 hover:scale-105 active:scale-95 cursor-pointer shadow-md"
                 style={{ fontFamily: 'Poppins', backgroundColor: '#05807E' }}
               >
                 Approve
@@ -621,29 +672,43 @@ const BookingRequests: React.FC = () => {
                   e.stopPropagation();
                   handleDeclineClick(booking);
                 }}
-                className="w-full px-4 py-2 text-white text-sm font-medium rounded-lg transition-all duration-200 hover:opacity-90 hover:scale-105 active:scale-95 cursor-pointer"
+                className="w-full px-4 py-2 text-white text-sm font-medium rounded-lg transition-all duration-200 hover:opacity-90 hover:scale-105 active:scale-95 cursor-pointer shadow-md"
                 style={{ fontFamily: 'Poppins', backgroundColor: '#B84C4C' }}
               >
                 Decline
               </button>
             </div>
+          ) : booking.status === 'confirmed' ? (
+            // Show "Confirm Payment" button for bookings awaiting payment
+            <div className="flex-shrink-0 ml-4 w-[100px]">
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  openPaymentModal(booking);
+                }}
+                className="w-full px-4 py-2 text-white text-sm font-medium rounded-lg transition-all duration-200 hover:opacity-90 hover:scale-105 active:scale-95 cursor-pointer shadow-md"
+                style={{ fontFamily: 'Poppins', backgroundColor: '#2A7F9E' }}
+              >
+                Confirm Payment
+              </button>
+            </div>
           ) : (
-            // Status badge for approved/declined bookings
+            // Status badge for booked/declined bookings
             <div className="flex-shrink-0 ml-4 w-[100px]">
               <div
                 className="w-full px-4 py-2 rounded-lg text-white text-sm font-medium shadow-lg backdrop-blur-sm text-center"
                 style={{
                   fontFamily: 'Poppins',
-                  background: isApproved 
-                    ? 'linear-gradient(135deg, #05807E 0%, #04a6a4 100%)' 
+                  background: isBooked 
+                    ? 'linear-gradient(135deg, #0B5858 0%, #0d7070 100%)' 
                     : isDeclined 
                     ? 'linear-gradient(135deg, #B84C4C 0%, #c46666 100%)'
                     : 'linear-gradient(135deg, #9CA3AF 0%, #a8b3bf 100%)'
                 }}
               >
-                {isApproved && 'Approved'}
+                {isBooked && 'Booked'}
                 {isDeclined && 'Declined'}
-                {!isApproved && !isDeclined && booking.status}
+                {!isBooked && !isDeclined && booking.status}
               </div>
             </div>
           )}
@@ -671,6 +736,75 @@ const BookingRequests: React.FC = () => {
    */
   const handleApproveClick = (booking: Booking) => {
     handleApprove(booking);
+  };
+
+  /**
+   * Open payment confirmation modal
+   */
+  const openPaymentModal = (booking: Booking) => {
+    setPendingPaymentBooking(booking);
+    setShowPaymentModal(true);
+    requestAnimationFrame(() => {
+      setPaymentModalActive(true);
+    });
+  };
+
+  /**
+   * Close payment confirmation modal
+   */
+  const closePaymentModal = () => {
+    setPaymentModalActive(false);
+    setTimeout(() => {
+      setShowPaymentModal(false);
+      setPendingPaymentBooking(null);
+    }, 250);
+  };
+
+  /**
+   * Handle confirm payment action (called after modal confirmation)
+   * Updates booking status from 'confirmed' to 'booked'
+   * Updates UI immediately for real-time feedback
+   */
+  const handleConfirmPayment = async () => {
+    if (!pendingPaymentBooking) return;
+
+    try {
+      setIsProcessing(true);
+      logger.info('Confirming payment for booking', { bookingId: pendingPaymentBooking.id });
+      
+      // Show success toast immediately for instant feedback
+      showToast('Payment confirmed — booking is now official', 'success');
+      
+      // Create updated booking with new status for immediate UI update
+      const updatedBooking = { ...pendingPaymentBooking, status: 'booked' as const };
+      
+      // Update UI immediately for real-time feedback
+      setAllBookings(prev => prev.map(b => b.id === pendingPaymentBooking.id ? updatedBooking : b));
+      
+      // Update selectedBooking if drawer is open for this booking
+      if (isDrawerOpen && selectedBooking?.id === pendingPaymentBooking.id) {
+        setSelectedBooking(updatedBooking);
+      }
+      
+      // Close modal immediately
+      closePaymentModal();
+      
+      // Then perform the actual API call in background
+      await BookingService.confirmPayment(pendingPaymentBooking.id);
+      
+      logger.info('Payment confirmed successfully', { bookingId: pendingPaymentBooking.id });
+    } catch (error) {
+      logger.error('Error confirming payment', { error, bookingId: pendingPaymentBooking.id });
+      console.error('Error confirming payment:', error);
+      // Revert UI update on error
+      setAllBookings(prev => prev.map(b => b.id === pendingPaymentBooking.id ? pendingPaymentBooking : b));
+      if (isDrawerOpen && selectedBooking?.id === pendingPaymentBooking.id) {
+        setSelectedBooking(pendingPaymentBooking);
+      }
+      showToast('Unable to confirm payment. Please try again.', 'error');
+    } finally {
+      setIsProcessing(false);
+    }
   };
 
   return (
@@ -732,7 +866,7 @@ const BookingRequests: React.FC = () => {
 
         {/* Summary Bar */}
         {!summaryLoading && (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 mb-8">
             {(() => {
               const stats = getSummaryStats();
               return (
@@ -752,18 +886,33 @@ const BookingRequests: React.FC = () => {
                     </div>
                   </div>
 
-                  {/* Approved */}
-                  <div className="bg-gradient-to-br from-teal-50 to-teal-100 border-l-4 border-[#05807E] rounded-lg p-5 shadow-sm hover:shadow-md transition-shadow">
+                  {/* Awaiting Payment */}
+                  <div className="bg-gradient-to-br from-blue-50 to-blue-100 border-l-4 border-[#2A7F9E] rounded-lg p-5 shadow-sm hover:shadow-md transition-shadow">
                     <div className="flex flex-col">
                       <div className="flex items-center justify-between mb-3">
-                        <p className="text-gray-600 text-sm font-semibold" style={{ fontFamily: 'Poppins' }}>Approved</p>
-                        <div className="w-8 h-8 rounded-full flex items-center justify-center" style={{ backgroundColor: '#05807E' }}>
+                        <p className="text-gray-600 text-sm font-semibold" style={{ fontFamily: 'Poppins' }}>Awaiting Payment</p>
+                        <div className="w-8 h-8 rounded-full flex items-center justify-center" style={{ backgroundColor: '#2A7F9E' }}>
                           <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                           </svg>
                         </div>
                       </div>
-                      <p className="text-3xl font-bold text-gray-900" style={{ fontFamily: 'Poppins' }}>{stats.approved}</p>
+                      <p className="text-3xl font-bold text-gray-900" style={{ fontFamily: 'Poppins' }}>{stats.awaitingPayment}</p>
+                    </div>
+                  </div>
+
+                  {/* Booked */}
+                  <div className="bg-gradient-to-br from-cyan-50 to-cyan-100 border-l-4 border-[#0B5858] rounded-lg p-5 shadow-sm hover:shadow-md transition-shadow">
+                    <div className="flex flex-col">
+                      <div className="flex items-center justify-between mb-3">
+                        <p className="text-gray-600 text-sm font-semibold" style={{ fontFamily: 'Poppins' }}>Booked</p>
+                        <div className="w-8 h-8 rounded-full flex items-center justify-center" style={{ backgroundColor: '#0B5858' }}>
+                          <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                          </svg>
+                        </div>
+                      </div>
+                      <p className="text-3xl font-bold text-gray-900" style={{ fontFamily: 'Poppins' }}>{stats.booked}</p>
                     </div>
                   </div>
 
@@ -806,18 +955,19 @@ const BookingRequests: React.FC = () => {
         {!summaryLoading && allBookings.length > 0 && (
           <div className="mb-6 flex items-center gap-3">
             <span className="text-sm font-medium text-gray-700" style={{ fontFamily: 'Poppins' }}>Status:</span>
-            <div className="w-full md:w-auto min-w-[160px]">
+            <div className="w-full md:w-auto min-w-[180px]">
               <Dropdown
                 label={statusFilter}
                 options={[
                   { value: 'All Status', label: 'All Status' },
                   { value: 'Pending', label: 'Pending' },
-                  { value: 'Approved', label: 'Approved' },
+                  { value: 'Awaiting Payment', label: 'Awaiting Payment' },
+                  { value: 'Booked', label: 'Booked' },
                   { value: 'Declined', label: 'Declined' }
                 ]}
                 onSelect={(value) => setStatusFilter(value)}
                 placeholder="All Status"
-                className="min-w-[160px]"
+                className="min-w-[180px]"
               />
             </div>
             <span className="text-sm font-medium text-gray-700 ml-2" style={{ fontFamily: 'Poppins' }}>Sort by:</span>
@@ -904,7 +1054,8 @@ const BookingRequests: React.FC = () => {
                     {(() => {
                       const status = selectedBooking.status;
                       if (status === 'pending') return 'Pending';
-                      if (status === 'confirmed' || status === 'ongoing' || status === 'completed') return 'Approved';
+                      if (status === 'confirmed') return 'Awaiting Payment';
+                      if (status === 'booked' || status === 'ongoing' || status === 'completed') return 'Booked';
                       if (status === 'declined' || status === 'cancelled') return 'Declined';
                       // Fallback: capitalize first letter of status string
                       const statusStr = String(status);
@@ -912,7 +1063,7 @@ const BookingRequests: React.FC = () => {
                     })()}
                   </span>
                 </div>
-                {selectedBooking.status === 'pending' && (
+                {(selectedBooking.status === 'pending' || selectedBooking.status === 'confirmed') && (
                   <button
                     onClick={() => {
                       if (selectedBooking) {
@@ -1222,7 +1373,17 @@ const BookingRequests: React.FC = () => {
                   </button>
                 </>
               )}
-              {selectedBooking.status !== 'pending' && (
+              {selectedBooking.status === 'confirmed' && (
+                <button
+                  onClick={() => selectedBooking && openPaymentModal(selectedBooking)}
+                  disabled={isProcessing}
+                  className="flex-1 px-6 py-3 text-white rounded-lg transition-all duration-200 hover:opacity-90 hover:scale-105 active:scale-95 cursor-pointer font-medium disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 disabled:active:scale-100 whitespace-nowrap"
+                  style={{ fontFamily: 'Poppins', backgroundColor: '#2A7F9E' }}
+                >
+                  Confirm Payment
+                </button>
+              )}
+              {selectedBooking.status !== 'pending' && selectedBooking.status !== 'confirmed' && (
                 <button
                   onClick={() => {
                     if (selectedBooking) {
@@ -1240,7 +1401,138 @@ const BookingRequests: React.FC = () => {
         </>
       )}
 
-      {/* Confirmation Modal */}
+      {/* Payment Confirmation Modal */}
+      {showPaymentModal && pendingPaymentBooking && (
+        <div 
+          className="fixed inset-0 flex items-center justify-center z-50"
+          style={{
+            backdropFilter: 'blur(4px)',
+            backgroundColor: 'rgba(0, 0, 0, 0.25)',
+            transition: 'background-color 0.25s ease'
+          }}
+          onClick={closePaymentModal}
+        >
+          <div 
+            className="max-w-lg w-full mx-4"
+            style={{
+              background: '#FFFFFF',
+              borderRadius: 16,
+              boxShadow: '0 10px 40px rgba(0, 0, 0, 0.25)',
+              transform: paymentModalActive ? 'scale(1)' : 'scale(0.95)',
+              opacity: paymentModalActive ? 1 : 0,
+              transition: 'all 0.25s ease'
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="p-6 border-b border-gray-200">
+              {/* Modal Header */}
+              <h3 className="text-lg font-bold text-gray-900" style={{fontFamily: 'Poppins'}}>
+                Confirm Payment
+              </h3>
+            </div>
+            <div className="p-6">
+
+              {/* Payment Information */}
+              <div className="mb-5">
+                <h4 className="text-sm font-bold text-gray-900 mb-2" style={{fontFamily: 'Poppins'}}>
+                  Payment Information
+                </h4>
+                <div className="p-4 bg-gray-50 rounded-xl border border-gray-200">
+                  <div className="space-y-1.5">
+                  <div className="flex justify-between items-start">
+                    <span className="text-xs font-medium text-gray-600" style={{fontFamily: 'Poppins'}}>Payment Method</span>
+                    <span className="text-xs text-gray-900" style={{fontFamily: 'Poppins'}}>Cash</span>
+                  </div>
+                  <div className="flex justify-between items-start">
+                    <span className="text-xs font-medium text-gray-600" style={{fontFamily: 'Poppins'}}>Payer Name</span>
+                    <span className="text-xs text-gray-900 text-right" style={{fontFamily: 'Poppins'}}>
+                      {pendingPaymentBooking.client ? `${pendingPaymentBooking.client.first_name} ${pendingPaymentBooking.client.last_name}` : 'N/A'}
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-start">
+                    <span className="text-xs font-medium text-gray-600" style={{fontFamily: 'Poppins'}}>Payer Contact</span>
+                    <span className="text-xs text-gray-900 text-right" style={{fontFamily: 'Poppins'}}>
+                      {pendingPaymentBooking.client?.contact_number ? `+63 ${pendingPaymentBooking.client.contact_number}` : 'N/A'}
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-start">
+                    <span className="text-xs font-medium text-gray-600" style={{fontFamily: 'Poppins'}}>Total Amount</span>
+                    <span className="text-xs text-gray-900" style={{fontFamily: 'Poppins'}}>
+                      ₱ {pendingPaymentBooking.total_amount?.toLocaleString() || '0'}
+                    </span>
+                  </div>
+                </div>
+                </div>
+              </div>
+
+              {/* Booking Details Summary */}
+              <div className="mb-5">
+                <h4 className="text-sm font-bold text-gray-900 mb-2" style={{fontFamily: 'Poppins'}}>Booking Details</h4>
+                <div className="p-4 bg-gray-50 rounded-xl border border-gray-200">
+                  <div className="space-y-1.5">
+                  <div className="flex justify-between text-xs">
+                    <span className="text-gray-600" style={{fontFamily: 'Poppins'}}>Unit</span>
+                    <span className="text-gray-900 font-medium text-right" style={{fontFamily: 'Poppins'}}>
+                      {pendingPaymentBooking.listing?.title || 'Unknown Unit'}
+                    </span>
+                  </div>
+                  <div className="flex justify-between text-xs">
+                    <span className="text-gray-600" style={{fontFamily: 'Poppins'}}>Check-in</span>
+                    <span className="text-gray-900 font-medium" style={{fontFamily: 'Poppins'}}>
+                      {new Date(pendingPaymentBooking.check_in_date).toLocaleDateString('en-US', {
+                        month: 'short',
+                        day: 'numeric',
+                        year: 'numeric'
+                      })}
+                    </span>
+                  </div>
+                  <div className="flex justify-between text-xs">
+                    <span className="text-gray-600" style={{fontFamily: 'Poppins'}}>Check-out</span>
+                    <span className="text-gray-900 font-medium" style={{fontFamily: 'Poppins'}}>
+                      {new Date(pendingPaymentBooking.check_out_date).toLocaleDateString('en-US', {
+                        month: 'short',
+                        day: 'numeric',
+                        year: 'numeric'
+                      })}
+                    </span>
+                  </div>
+                </div>
+                </div>
+              </div>
+
+              {/* Confirmation Message */}
+              <p className="text-sm text-gray-700" style={{fontFamily: 'Poppins'}}>
+                <span className="font-semibold">Important:</span> By confirming, this booking will be marked as <span className="font-bold text-[#0B5858]">officially booked</span>. This action cannot be undone.
+              </p>
+            </div>
+
+            {/* Action Buttons */}
+            <div className="px-6 py-4 border-t border-gray-200 flex justify-end space-x-3">
+                <button
+                  onClick={closePaymentModal}
+                  className="px-5 py-2.5 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-all duration-200 active:scale-95 cursor-pointer font-medium"
+                  style={{fontFamily: 'Poppins'}}
+                  disabled={isProcessing}
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleConfirmPayment}
+                  disabled={isProcessing}
+                  className="px-5 py-2.5 text-white rounded-lg transition-all duration-200 hover:opacity-90 hover:scale-105 active:scale-95 cursor-pointer font-medium disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 disabled:active:scale-100"
+                  style={{
+                    backgroundColor: '#2A7F9E',
+                    fontFamily: 'Poppins'
+                  }}
+                >
+                  {isProcessing ? 'Processing...' : 'Confirm Payment'}
+                </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Decline Confirmation Modal */}
       {showConfirmModal && (
         <div 
           className="fixed inset-0 flex items-center justify-center z-50"
