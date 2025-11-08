@@ -8,8 +8,7 @@ type ToastProps = {
 
 const Toast: React.FC<ToastProps> = ({ 
   message, 
-  onClose,
-  duration = 5000 
+  onClose
 }) => {
   const [isVisible, setIsVisible] = useState(true);
   const [isClosing, setIsClosing] = useState(false);

@@ -42,17 +42,6 @@ const EditAccountModal: React.FC<Props> = ({ isOpen, onClose, profile, onProfile
     }
   }, [isOpen, profile]);
 
-  // Format phone number for display
-  const formatPhoneNumber = (phone: string) => {
-    // Remove all non-digit characters
-    const digits = phone.replace(/\D/g, '');
-    // Format as +63 XXX XXX XXXX if it starts with 63
-    if (digits.startsWith('63') && digits.length === 12) {
-      return `+${digits.slice(0, 2)} ${digits.slice(2, 5)} ${digits.slice(5, 8)} ${digits.slice(8)}`;
-    }
-    return phone;
-  };
-
   // Parse phone number to number (remove +, spaces, etc.)
   const parsePhoneNumber = (phone: string): number => {
     const digits = phone.replace(/\D/g, '');
@@ -173,14 +162,12 @@ const EditAccountModal: React.FC<Props> = ({ isOpen, onClose, profile, onProfile
     const textarea = bioTextareaRef.current;
     if (!textarea || !isOpen) return;
 
-    let lastScrollTop = textarea.scrollTop;
     let ticking = false;
 
     const handleScroll = () => {
       if (!ticking) {
         window.requestAnimationFrame(() => {
           // This just tracks scroll position, doesn't interfere
-          lastScrollTop = textarea.scrollTop;
           ticking = false;
         });
         ticking = true;

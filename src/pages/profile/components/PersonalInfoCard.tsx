@@ -8,7 +8,7 @@ type Props = {
   formatDate: (s?: string | null) => string;
 };
 
-const PersonalInfoCard: React.FC<Props> = ({ profile, onEditSection, formatDate }) => {
+const PersonalInfoCard: React.FC<Props> = ({ profile, formatDate }) => {
   return (
     <div className="bg-white rounded-xl shadow-lg border border-gray-200 hover:shadow-xl transition-shadow duration-200">
       <div className="px-4 sm:px-5 py-3 sm:py-4 border-b border-gray-100">

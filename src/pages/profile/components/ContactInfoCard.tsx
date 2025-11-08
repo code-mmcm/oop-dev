@@ -10,7 +10,7 @@ type Props = {
   onProfileUpdate?: (updatedProfile: UserProfile) => void;
 };
 
-const ContactInfoCard: React.FC<Props> = ({ profile, onEditSection, formatPhoneNumber, onProfileUpdate }) => {
+const ContactInfoCard: React.FC<Props> = ({ profile, onProfileUpdate }) => {
   const [isActive, setIsActive] = useState(profile.active_status ?? true);
   const [isUpdating, setIsUpdating] = useState(false);
 
