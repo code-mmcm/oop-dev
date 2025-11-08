@@ -7,6 +7,8 @@ export interface UserProfile {
   gender: string;
   address: string;
   profile_photo?: string;
+  Bio?: string; // Note: Database column is "Bio" with capital B
+  active_status?: boolean;
 }
 
 export interface UserProfileUpdate {
@@ -16,4 +18,6 @@ export interface UserProfileUpdate {
   gender?: string;
   address?: string;
   profile_photo?: string;
+  Bio?: string; // Note: Database column is "Bio" with capital B
+  active_status?: boolean;
 }

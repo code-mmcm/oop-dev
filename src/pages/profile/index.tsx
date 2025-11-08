@@ -12,6 +12,8 @@ import PersonalInfoCard from './components/PersonalInfoCard';
 import PreviousBookings from './components/PreviousBookings';
 import ContactInfoCard from './components/ContactInfoCard';
 import ProfileSkeleton from './components/ProfileSkeleton';
+import EditAccountModal from './components/EditAccountModal';
+import Toast from '../../components/Toast';
 
 //hi
 const ProfileCard: React.FC = () => {
@@ -20,6 +22,8 @@ const ProfileCard: React.FC = () => {
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [showToast, setShowToast] = useState(true);
   const lastUserIdRef = useRef<string | null>(null);
   const hasFetchedProfile = useRef(false);
 
@@ -88,7 +92,7 @@ const ProfileCard: React.FC = () => {
   }, [user, authLoading, navigate]);
 
   const handleEditAccount = () => {
-    console.log('Edit account clicked');
+    setIsEditModalOpen(true);
   };
 
   const handleProfileUpdate = async (updatedProfile: UserProfile) => {
@@ -193,6 +197,15 @@ const ProfileCard: React.FC = () => {
           </div>
         ) : (
           <>
+            {/* Toast Notification - Reserves space in layout */}
+            {showToast && (
+              <Toast
+                message="Welcome to your profile! Here you can view and manage your personal information and booking history."
+                onClose={() => setShowToast(false)}
+                duration={5000}
+              />
+            )}
+
             <ProfileHeader 
               profile={profile} 
               onEditAccount={handleEditAccount}
@@ -218,6 +231,7 @@ const ProfileCard: React.FC = () => {
                       profile={profile}
                       onEditSection={handleEditSection}
                       formatPhoneNumber={formatPhoneNumber}
+                      onProfileUpdate={handleProfileUpdate}
                     />
                   </div>
                 </>
@@ -237,6 +251,7 @@ const ProfileCard: React.FC = () => {
                       profile={profile}
                       onEditSection={handleEditSection}
                       formatPhoneNumber={formatPhoneNumber}
+                      onProfileUpdate={handleProfileUpdate}
                     />
                   </div>
 
@@ -253,6 +268,16 @@ const ProfileCard: React.FC = () => {
       </div>
 
       <Footer />
+
+      {/* Edit Account Modal */}
+      {profile && (
+        <EditAccountModal
+          isOpen={isEditModalOpen}
+          onClose={() => setIsEditModalOpen(false)}
+          profile={profile}
+          onProfileUpdate={handleProfileUpdate}
+        />
+      )}
     </div>
   );
 };

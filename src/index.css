@@ -1,5 +1,16 @@
 @import "tailwindcss";
 
+/* Native smooth scrolling for Bio textarea - optimized for native browser scrolling */
+.bio-scroll-area {
+  -webkit-overflow-scrolling: touch !important;
+  overscroll-behavior: contain !important;
+  /* GPU acceleration for smooth scrolling */
+  transform: translateZ(0) !important;
+  -webkit-transform: translateZ(0) !important;
+  /* Optimize rendering */
+  will-change: scroll-position !important;
+}
+
 /* Hide scrollbars for calendar */
 .scrollbar-hide {
   -ms-overflow-style: none;
