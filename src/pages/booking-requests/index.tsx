@@ -34,6 +34,11 @@ const BookingRequests: React.FC = () => {
   const [confirmModalActive, setConfirmModalActive] = useState(false);
   const [pendingBooking, setPendingBooking] = useState<Booking | null>(null);
   
+  // Payment confirmation modal state
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [paymentModalActive, setPaymentModalActive] = useState(false);
+  const [pendingPaymentBooking, setPendingPaymentBooking] = useState<Booking | null>(null);
+  
   // Summary stats
   const [allBookings, setAllBookings] = useState<Booking[]>([]);
   const [summaryLoading, setSummaryLoading] = useState(true);
@@ -679,7 +684,7 @@ const BookingRequests: React.FC = () => {
               <button
                 onClick={(e) => {
                   e.stopPropagation();
-                  handleConfirmPaymentClick(booking);
+                  openPaymentModal(booking);
                 }}
                 className="w-full px-4 py-2 text-white text-sm font-medium rounded-lg transition-all duration-200 hover:opacity-90 hover:scale-105 active:scale-95 cursor-pointer shadow-md"
                 style={{ fontFamily: 'Poppins', backgroundColor: '#2A7F9E' }}
@@ -734,40 +739,67 @@ const BookingRequests: React.FC = () => {
   };
 
   /**
-   * Handle confirm payment action
+   * Open payment confirmation modal
+   */
+  const openPaymentModal = (booking: Booking) => {
+    setPendingPaymentBooking(booking);
+    setShowPaymentModal(true);
+    requestAnimationFrame(() => {
+      setPaymentModalActive(true);
+    });
+  };
+
+  /**
+   * Close payment confirmation modal
+   */
+  const closePaymentModal = () => {
+    setPaymentModalActive(false);
+    setTimeout(() => {
+      setShowPaymentModal(false);
+      setPendingPaymentBooking(null);
+    }, 250);
+  };
+
+  /**
+   * Handle confirm payment action (called after modal confirmation)
    * Updates booking status from 'confirmed' to 'booked'
    * Updates UI immediately for real-time feedback
    */
-  const handleConfirmPaymentClick = async (booking: Booking) => {
+  const handleConfirmPayment = async () => {
+    if (!pendingPaymentBooking) return;
+
     try {
       setIsProcessing(true);
-      logger.info('Confirming payment for booking', { bookingId: booking.id });
+      logger.info('Confirming payment for booking', { bookingId: pendingPaymentBooking.id });
       
       // Show success toast immediately for instant feedback
       showToast('Payment confirmed — booking is now official', 'success');
       
       // Create updated booking with new status for immediate UI update
-      const updatedBooking = { ...booking, status: 'booked' as const };
+      const updatedBooking = { ...pendingPaymentBooking, status: 'booked' as const };
       
       // Update UI immediately for real-time feedback
-      setAllBookings(prev => prev.map(b => b.id === booking.id ? updatedBooking : b));
+      setAllBookings(prev => prev.map(b => b.id === pendingPaymentBooking.id ? updatedBooking : b));
       
       // Update selectedBooking if drawer is open for this booking
-      if (isDrawerOpen && selectedBooking?.id === booking.id) {
+      if (isDrawerOpen && selectedBooking?.id === pendingPaymentBooking.id) {
         setSelectedBooking(updatedBooking);
       }
       
-      // Then perform the actual API call in background
-      await BookingService.confirmPayment(booking.id);
+      // Close modal immediately
+      closePaymentModal();
       
-      logger.info('Payment confirmed successfully', { bookingId: booking.id });
+      // Then perform the actual API call in background
+      await BookingService.confirmPayment(pendingPaymentBooking.id);
+      
+      logger.info('Payment confirmed successfully', { bookingId: pendingPaymentBooking.id });
     } catch (error) {
-      logger.error('Error confirming payment', { error, bookingId: booking.id });
+      logger.error('Error confirming payment', { error, bookingId: pendingPaymentBooking.id });
       console.error('Error confirming payment:', error);
       // Revert UI update on error
-      setAllBookings(prev => prev.map(b => b.id === booking.id ? booking : b));
-      if (isDrawerOpen && selectedBooking?.id === booking.id) {
-        setSelectedBooking(booking);
+      setAllBookings(prev => prev.map(b => b.id === pendingPaymentBooking.id ? pendingPaymentBooking : b));
+      if (isDrawerOpen && selectedBooking?.id === pendingPaymentBooking.id) {
+        setSelectedBooking(pendingPaymentBooking);
       }
       showToast('Unable to confirm payment. Please try again.', 'error');
     } finally {
@@ -1031,7 +1063,7 @@ const BookingRequests: React.FC = () => {
                     })()}
                   </span>
                 </div>
-                {selectedBooking.status === 'pending' && (
+                {(selectedBooking.status === 'pending' || selectedBooking.status === 'confirmed') && (
                   <button
                     onClick={() => {
                       if (selectedBooking) {
@@ -1342,27 +1374,14 @@ const BookingRequests: React.FC = () => {
                 </>
               )}
               {selectedBooking.status === 'confirmed' && (
-                <>
-                  <button
-                    onClick={() => selectedBooking && handleConfirmPaymentClick(selectedBooking)}
-                    disabled={isProcessing}
-                    className="flex-1 px-6 py-3 text-white rounded-lg transition-all duration-200 hover:opacity-90 hover:scale-105 active:scale-95 cursor-pointer font-medium disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 disabled:active:scale-100 whitespace-nowrap"
-                    style={{ fontFamily: 'Poppins', backgroundColor: '#2A7F9E' }}
-                  >
-                    {isProcessing ? 'Processing...' : 'Confirm Payment'}
-                  </button>
-                  <button
-                    onClick={() => {
-                      if (selectedBooking) {
-                        navigate(`/booking-details/${selectedBooking.id}`);
-                      }
-                    }}
-                    className="flex-1 px-6 py-3 text-white rounded-lg transition-all duration-200 hover:opacity-90 hover:scale-105 active:scale-95 cursor-pointer font-medium whitespace-nowrap"
-                    style={{ fontFamily: 'Poppins', backgroundColor: '#0B5858' }}
-                  >
-                    View Full Details
-                  </button>
-                </>
+                <button
+                  onClick={() => selectedBooking && openPaymentModal(selectedBooking)}
+                  disabled={isProcessing}
+                  className="flex-1 px-6 py-3 text-white rounded-lg transition-all duration-200 hover:opacity-90 hover:scale-105 active:scale-95 cursor-pointer font-medium disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 disabled:active:scale-100 whitespace-nowrap"
+                  style={{ fontFamily: 'Poppins', backgroundColor: '#2A7F9E' }}
+                >
+                  Confirm Payment
+                </button>
               )}
               {selectedBooking.status !== 'pending' && selectedBooking.status !== 'confirmed' && (
                 <button
@@ -1382,7 +1401,138 @@ const BookingRequests: React.FC = () => {
         </>
       )}
 
-      {/* Confirmation Modal */}
+      {/* Payment Confirmation Modal */}
+      {showPaymentModal && pendingPaymentBooking && (
+        <div 
+          className="fixed inset-0 flex items-center justify-center z-50"
+          style={{
+            backdropFilter: 'blur(4px)',
+            backgroundColor: 'rgba(0, 0, 0, 0.25)',
+            transition: 'background-color 0.25s ease'
+          }}
+          onClick={closePaymentModal}
+        >
+          <div 
+            className="max-w-lg w-full mx-4"
+            style={{
+              background: '#FFFFFF',
+              borderRadius: 16,
+              boxShadow: '0 10px 40px rgba(0, 0, 0, 0.25)',
+              transform: paymentModalActive ? 'scale(1)' : 'scale(0.95)',
+              opacity: paymentModalActive ? 1 : 0,
+              transition: 'all 0.25s ease'
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="p-6 border-b border-gray-200">
+              {/* Modal Header */}
+              <h3 className="text-lg font-bold text-gray-900" style={{fontFamily: 'Poppins'}}>
+                Confirm Payment
+              </h3>
+            </div>
+            <div className="p-6">
+
+              {/* Payment Information */}
+              <div className="mb-5">
+                <h4 className="text-sm font-bold text-gray-900 mb-2" style={{fontFamily: 'Poppins'}}>
+                  Payment Information
+                </h4>
+                <div className="p-4 bg-gray-50 rounded-xl border border-gray-200">
+                  <div className="space-y-1.5">
+                  <div className="flex justify-between items-start">
+                    <span className="text-xs font-medium text-gray-600" style={{fontFamily: 'Poppins'}}>Payment Method</span>
+                    <span className="text-xs text-gray-900" style={{fontFamily: 'Poppins'}}>Cash</span>
+                  </div>
+                  <div className="flex justify-between items-start">
+                    <span className="text-xs font-medium text-gray-600" style={{fontFamily: 'Poppins'}}>Payer Name</span>
+                    <span className="text-xs text-gray-900 text-right" style={{fontFamily: 'Poppins'}}>
+                      {pendingPaymentBooking.client ? `${pendingPaymentBooking.client.first_name} ${pendingPaymentBooking.client.last_name}` : 'N/A'}
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-start">
+                    <span className="text-xs font-medium text-gray-600" style={{fontFamily: 'Poppins'}}>Payer Contact</span>
+                    <span className="text-xs text-gray-900 text-right" style={{fontFamily: 'Poppins'}}>
+                      {pendingPaymentBooking.client?.contact_number ? `+63 ${pendingPaymentBooking.client.contact_number}` : 'N/A'}
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-start">
+                    <span className="text-xs font-medium text-gray-600" style={{fontFamily: 'Poppins'}}>Total Amount</span>
+                    <span className="text-xs text-gray-900" style={{fontFamily: 'Poppins'}}>
+                      ₱ {pendingPaymentBooking.total_amount?.toLocaleString() || '0'}
+                    </span>
+                  </div>
+                </div>
+                </div>
+              </div>
+
+              {/* Booking Details Summary */}
+              <div className="mb-5">
+                <h4 className="text-sm font-bold text-gray-900 mb-2" style={{fontFamily: 'Poppins'}}>Booking Details</h4>
+                <div className="p-4 bg-gray-50 rounded-xl border border-gray-200">
+                  <div className="space-y-1.5">
+                  <div className="flex justify-between text-xs">
+                    <span className="text-gray-600" style={{fontFamily: 'Poppins'}}>Unit</span>
+                    <span className="text-gray-900 font-medium text-right" style={{fontFamily: 'Poppins'}}>
+                      {pendingPaymentBooking.listing?.title || 'Unknown Unit'}
+                    </span>
+                  </div>
+                  <div className="flex justify-between text-xs">
+                    <span className="text-gray-600" style={{fontFamily: 'Poppins'}}>Check-in</span>
+                    <span className="text-gray-900 font-medium" style={{fontFamily: 'Poppins'}}>
+                      {new Date(pendingPaymentBooking.check_in_date).toLocaleDateString('en-US', {
+                        month: 'short',
+                        day: 'numeric',
+                        year: 'numeric'
+                      })}
+                    </span>
+                  </div>
+                  <div className="flex justify-between text-xs">
+                    <span className="text-gray-600" style={{fontFamily: 'Poppins'}}>Check-out</span>
+                    <span className="text-gray-900 font-medium" style={{fontFamily: 'Poppins'}}>
+                      {new Date(pendingPaymentBooking.check_out_date).toLocaleDateString('en-US', {
+                        month: 'short',
+                        day: 'numeric',
+                        year: 'numeric'
+                      })}
+                    </span>
+                  </div>
+                </div>
+                </div>
+              </div>
+
+              {/* Confirmation Message */}
+              <p className="text-sm text-gray-700" style={{fontFamily: 'Poppins'}}>
+                <span className="font-semibold">Important:</span> By confirming, this booking will be marked as <span className="font-bold text-[#0B5858]">officially booked</span>. This action cannot be undone.
+              </p>
+            </div>
+
+            {/* Action Buttons */}
+            <div className="px-6 py-4 border-t border-gray-200 flex justify-end space-x-3">
+                <button
+                  onClick={closePaymentModal}
+                  className="px-5 py-2.5 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-all duration-200 active:scale-95 cursor-pointer font-medium"
+                  style={{fontFamily: 'Poppins'}}
+                  disabled={isProcessing}
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleConfirmPayment}
+                  disabled={isProcessing}
+                  className="px-5 py-2.5 text-white rounded-lg transition-all duration-200 hover:opacity-90 hover:scale-105 active:scale-95 cursor-pointer font-medium disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 disabled:active:scale-100"
+                  style={{
+                    backgroundColor: '#2A7F9E',
+                    fontFamily: 'Poppins'
+                  }}
+                >
+                  {isProcessing ? 'Processing...' : 'Confirm Payment'}
+                </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Decline Confirmation Modal */}
       {showConfirmModal && (
         <div 
           className="fixed inset-0 flex items-center justify-center z-50"
