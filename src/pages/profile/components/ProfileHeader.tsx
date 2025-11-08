@@ -222,7 +222,11 @@ const ProfileHeader: React.FC<Props> = ({ profile, onEditAccount, onProfileUpdat
             </button>
           </div>
           <p className="text-sm sm:text-base text-gray-600 leading-relaxed" style={{ fontFamily: 'Poppins', fontWeight: 400 }}>
-            Welcome to your profile! Here you can view and manage your personal information and booking history.
+            {profile.Bio ? (
+              profile.Bio
+            ) : (
+              <span className="italic">Add Bio Here</span>
+            )}
           </p>
         </div>
       </div>
