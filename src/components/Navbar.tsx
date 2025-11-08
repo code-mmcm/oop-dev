@@ -12,13 +12,17 @@ const Navbar: React.FC = () => {
 
   // Get user initials for default avatar
   const getInitials = () => {
-    if (userProfile?.fullname) {
-      const names = userProfile.fullname.trim().split(/\s+/);
+    // Try userProfile first, then userRole, then email as last resort
+    const fullname = userProfile?.fullname || userRole?.fullname;
+    
+    if (fullname) {
+      const names = fullname.trim().split(/\s+/);
       if (names.length >= 2) {
         return (names[0][0] + names[names.length - 1][0]).toUpperCase();
       }
       return names[0][0].toUpperCase();
     }
+    
     return user?.email?.charAt(0).toUpperCase() || 'U';
   };
 

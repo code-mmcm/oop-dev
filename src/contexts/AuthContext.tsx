@@ -146,6 +146,39 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               console.error('Error creating profile after confirmation:', error);
             } else {
               console.log('Profile created successfully after email confirmation');
+              
+              // Immediately set the user profile and role state
+              const newUserProfile: UserProfile = {
+                ...profileData,
+                role: 'user',
+                profile_photo: profileData.profile_photo || undefined,
+              };
+              
+              const newUserRole: UserRole = {
+                role: 'user',
+                user_id: session.user.id,
+                fullname: profileData.fullname,
+                email: profileData.email,
+              };
+              
+              setUserProfile(newUserProfile);
+              setUserRole(newUserRole);
+              setIsAdmin(false);
+              setIsAgent(false);
+              
+              // Mark as fetched to prevent useEffect from triggering a competing fetch
+              hasFetchedData.current = true;
+              
+              // Save to localStorage
+              try {
+                localStorage.setItem('userProfile', JSON.stringify(newUserProfile));
+                localStorage.setItem('userRole', JSON.stringify(newUserRole));
+                localStorage.setItem('isAdmin', 'false');
+                localStorage.setItem('isAgent', 'false');
+              } catch (error) {
+                console.error('Error saving user data to localStorage:', error);
+              }
+              
               localStorage.removeItem('pendingUserProfile');
             }
           } catch (err) {
@@ -251,7 +284,49 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
 
       console.log('User profile created successfully');
+      
+      // Immediately set the user profile and role state with the data we just created
+      // This prevents the navbar from showing incorrect/default data before the database fetch completes
+      const newUserProfile: UserProfile = {
+        id: authData.user.id,
+        fullname: userProfile.fullname,
+        birth: userProfile.birth,
+        email: email,
+        contact_number: userProfile.contact_number,
+        gender: userProfile.gender,
+        address: userProfile.address,
+        role: 'user',
+        profile_photo: undefined,
+      };
+      
+      const newUserRole: UserRole = {
+        role: 'user',
+        user_id: authData.user.id,
+        fullname: userProfile.fullname,
+        email: email,
+      };
+      
+      setUserProfile(newUserProfile);
+      setUserRole(newUserRole);
+      setIsAdmin(false);
+      setIsAgent(false);
+      
+      // Mark as fetched to prevent useEffect from triggering a competing fetch
+      hasFetchedData.current = true;
+      
+      // Save to localStorage immediately
+      try {
+        localStorage.setItem('userProfile', JSON.stringify(newUserProfile));
+        localStorage.setItem('userRole', JSON.stringify(newUserRole));
+        localStorage.setItem('isAdmin', 'false');
+        localStorage.setItem('isAgent', 'false');
+      } catch (error) {
+        console.error('Error saving user data to localStorage:', error);
+      }
+      
       if (authData.session) {
+        // Fetch complete data from database (including any server-side defaults)
+        // This will update the profile with any additional data
         await fetchUserData();
       } else {
         localStorage.setItem('pendingUserProfile', JSON.stringify({
