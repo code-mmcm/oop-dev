@@ -16,7 +16,6 @@ import Updates from "./pages/updates";
 import Calendar from "./pages/calendar";
 import UnitCalendar from "./pages/unit-calendar";
 import BookingDetails from "./pages/booking-details";
-import BookingPayment from "./pages/booking-payment";
 import Listings from "./pages/listings";
 import BookingRequests from "./pages/booking-requests";
 import HelpAndSupport from "./pages/help-and-support/help.support";
