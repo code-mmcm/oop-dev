@@ -12,6 +12,22 @@ interface PaymentInfoStepProps {
    * Use this when the parent page provides its own Cancel/Submit buttons (e.g. standalone payment page).
    */
   hideActions?: boolean;
+  /**
+   * Optional: Override the calculated total with the actual booking total.
+   * Use this when displaying payment for an existing booking to ensure accuracy.
+   */
+  bookingTotal?: number;
+  /**
+   * Optional: Override individual charges for display in summary.
+   */
+  actualCharges?: {
+    nights?: number;
+    subtotal?: number;
+    amenitiesCharge?: number;
+    extraGuestFees?: number;
+    serviceCharge?: number;
+    discount?: number;
+  };
 }
 
 type PaymentMethod = 'bank_transfer' | 'credit_card' | 'company_account' | 'cash' | '';
@@ -22,7 +38,9 @@ const PaymentInfoStep: React.FC<PaymentInfoStepProps> = ({
   onNext,
   onBack,
   onCancel,
-  hideActions = false
+  hideActions = false,
+  bookingTotal,
+  actualCharges
 }) => {
   // Initialize from formData so the selection persists when navigating away/back
   // Do not show any details panel until the user explicitly selects a method.
@@ -551,6 +569,20 @@ const PaymentInfoStep: React.FC<PaymentInfoStepProps> = ({
   };
 
   const summary = calculateSummary();
+  
+  // Use actual booking charges if provided, otherwise use calculated values
+  const displaySummary = {
+    unitCharge: summary.unitCharge,
+    baseGuests: summary.baseGuests ?? baseGuests,
+    extraGuests: summary.extraGuests ?? extraGuests,
+    nights: actualCharges?.nights ?? summary.nights ?? nights,
+    subtotal: actualCharges?.subtotal ?? (summary as any).subtotal ?? subtotal,
+    amenitiesCharge: actualCharges?.amenitiesCharge ?? summary.amenitiesCharge,
+    extraGuestFees: actualCharges?.extraGuestFees ?? (summary as any).extraGuestFees ?? extraGuestFees,
+    serviceCharge: actualCharges?.serviceCharge ?? summary.serviceCharge,
+    discount: actualCharges?.discount ?? summary.discount,
+    totalCharges: bookingTotal ?? summary.totalCharges
+  };
 
   const currentSelectedForUI = hasInteracted ? selectedMethod : '';
 
@@ -1077,53 +1109,53 @@ const PaymentInfoStep: React.FC<PaymentInfoStepProps> = ({
             <div className="space-y-2 sm:space-y-3 text-xs sm:text-sm">
               <div className="flex justify-between">
                 <span className="text-gray-600">Unit Charge (per night)</span>
-                <span className="text-gray-800">₱{summary.unitCharge.toFixed(2)}</span>
+                <span className="text-gray-800">₱{displaySummary.unitCharge.toFixed(2)}</span>
               </div>
 
               <div className="flex justify-between">
                 <span className="text-gray-600">Base guests included</span>
-                <span className="text-gray-800">{summary.baseGuests ?? baseGuests}</span>
+                <span className="text-gray-800">{displaySummary.baseGuests}</span>
               </div>
 
               <div className="flex justify-between">
                 <span className="text-gray-600">Extra Guests (one-time)</span>
-                <span className="text-gray-800">{summary.extraGuests ?? extraGuests}</span>
+                <span className="text-gray-800">{displaySummary.extraGuests}</span>
               </div>
 
               <div className="flex justify-between">
                 <span className="text-gray-600">Nights</span>
-                <span className="text-gray-800">{summary.nights ?? nights}</span>
+                <span className="text-gray-800">{displaySummary.nights}</span>
               </div>
 
               <div className="flex justify-between">
                 <span className="text-gray-600">Subtotal (base rate × nights)</span>
-                <span className="text-gray-800">₱{((summary as any).subtotal ?? subtotal).toFixed(2)}</span>
+                <span className="text-gray-800">₱{displaySummary.subtotal.toFixed(2)}</span>
               </div>
 
               <div className="flex justify-between">
                 <span className="text-gray-600">Amenities Charge</span>
-                <span className="text-gray-800">₱{summary.amenitiesCharge.toFixed(2)}</span>
+                <span className="text-gray-800">₱{displaySummary.amenitiesCharge.toFixed(2)}</span>
               </div>
 
               <div className="flex justify-between">
                 <span className="text-gray-600">Extra guest fees (one-time)</span>
-                <span className="text-gray-800">₱{((summary as any).extraGuestFees ?? extraGuestFees).toFixed(2)}</span>
+                <span className="text-gray-800">₱{displaySummary.extraGuestFees.toFixed(2)}</span>
               </div>
 
               <div className="flex justify-between">
                 <span className="text-gray-600">Service Charges</span>
-                <span className="text-gray-800">₱{summary.serviceCharge.toFixed(2)}</span>
+                <span className="text-gray-800">₱{displaySummary.serviceCharge.toFixed(2)}</span>
               </div>
 
               <div className="flex justify-between">
                 <span className="text-gray-600">Discounts</span>
-                <span className="text-gray-800">-₱{summary.discount.toFixed(2)}</span>
+                <span className="text-gray-800">-₱{displaySummary.discount.toFixed(2)}</span>
               </div>
 
               <div className="border-t border-gray-300 pt-3">
                 <div className="flex justify-between">
                   <span className="font-semibold text-gray-800">Total Charges</span>
-                  <span className="font-bold text-lg text-gray-800">₱{summary.totalCharges.toFixed(2)}</span>
+                  <span className="font-bold text-lg text-gray-800">₱{displaySummary.totalCharges.toFixed(2)}</span>
                 </div>
               </div>
             </div>

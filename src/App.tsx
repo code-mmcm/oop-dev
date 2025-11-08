@@ -20,6 +20,8 @@ import BookingDetails from "./pages/booking-details";
 import Listings from "./pages/listings";
 import BookingRequests from "./pages/booking-requests";
 import HelpAndSupport from "./pages/help-and-support/help.support";
+import BookingPayment from "./pages/booking-payment";
+import NotFound from "./components/NotFound";
 
 function App() {
   useEffect(() => {
@@ -38,6 +40,14 @@ function App() {
           <Route path="/" element={<Home />} />
           <Route path="/unit/:id" element={<UnitView />} />
           <Route path="/login" element={<Login />} />
+          <Route 
+            path="/booking/:id/payment" 
+            element={
+              <ProtectedRoute allowedRoles={['agent', 'admin']}>
+                <BookingPayment />
+              </ProtectedRoute>
+            }
+          />
           <Route
             path="/manage-listings"
             element={
@@ -114,6 +124,8 @@ function App() {
             }
           />
           <Route path="/help-and-support" element={<HelpAndSupport />} />
+          <Route path="/404" element={<NotFound />} />
+          <Route path="*" element={<NotFound />} />
         </Routes>
       </Router>
     </AuthProvider>

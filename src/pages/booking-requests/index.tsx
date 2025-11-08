@@ -56,6 +56,12 @@ const BookingRequests: React.FC = () => {
   // Track image errors for profile photos
   const [imageErrors, setImageErrors] = useState<Record<string, boolean>>({});
   
+  // Track which bookings have payment records
+  const [bookingPayments, setBookingPayments] = useState<Record<string, boolean>>({});
+  
+  // Store payment details for each booking
+  const [paymentDetails, setPaymentDetails] = useState<Record<string, any>>({});
+  
   // Track if we've already fetched bookings to avoid refetching on focus
   const hasFetchedAllBookings = useRef(false);
 
@@ -153,6 +159,36 @@ const BookingRequests: React.FC = () => {
         setAllBookings(allBookingsData);
         hasFetchedAllBookings.current = true;
         logger.info('All bookings fetched successfully', { count: allBookingsData.length });
+
+        // Check which confirmed bookings have payment records
+        const confirmedBookings = allBookingsData.filter(b => b.status === 'confirmed');
+        if (confirmedBookings.length > 0) {
+          const bookingIds = confirmedBookings.map(b => b.id);
+          try {
+            const { data: paymentData } = await supabase
+              .from('payment')
+              .select('booking_id, payer_name, payer_contact, payment_method')
+              .in('booking_id', bookingIds);
+            
+            if (paymentData) {
+              const paymentsMap: Record<string, boolean> = {};
+              const detailsMap: Record<string, any> = {};
+              paymentData.forEach((p: any) => {
+                paymentsMap[p.booking_id] = true;
+                detailsMap[p.booking_id] = {
+                  payer_name: p.payer_name,
+                  payer_contact: p.payer_contact,
+                  payment_method: p.payment_method
+                };
+              });
+              setBookingPayments(paymentsMap);
+              setPaymentDetails(detailsMap);
+              logger.info('Payment records checked', { count: paymentData.length });
+            }
+          } catch (err) {
+            logger.warn('Failed to check payment records', { err });
+          }
+        }
       } catch (error) {
         logger.error('Error fetching all bookings', { error });
         console.error('Error fetching all bookings:', error);
@@ -331,6 +367,27 @@ const BookingRequests: React.FC = () => {
       };
 
       await refreshBookings();
+
+      // Check for payment record for the newly confirmed booking
+      try {
+        const { data: paymentCheck } = await supabase
+          .from('payment')
+          .select('booking_id, payer_name, payer_contact, payment_method')
+          .eq('booking_id', booking.id)
+          .single();
+        
+        if (paymentCheck) {
+          setBookingPayments(prev => ({ ...prev, [booking.id]: true }));
+          setPaymentDetails(prev => ({ ...prev, [booking.id]: {
+            payer_name: paymentCheck.payer_name,
+            payer_contact: paymentCheck.payer_contact,
+            payment_method: paymentCheck.payment_method
+          }}));
+        }
+      } catch (err) {
+        // No payment record yet, which is expected for newly confirmed bookings
+        logger.info('No payment record yet for newly confirmed booking', { bookingId: booking.id });
+      }
       
       logger.info('Booking approved successfully', { bookingId: booking.id });
     } catch (error) {
@@ -653,7 +710,7 @@ const BookingRequests: React.FC = () => {
         onMouseLeave={handleMouseLeave}
         className={`relative border border-gray-200 rounded-lg p-4 hover:shadow-md transition-all cursor-pointer overflow-hidden ${
           isPending ? 'bg-yellow-50/30 hover:border-[#F1C40F]/30' : 
-          isAwaitingPayment ? 'bg-blue-50/30 hover:border-[#2A7F9E]/30' : 
+          isAwaitingPayment ? 'bg-orange-50/30 hover:border-[#F59E0B]/30' : 
           isBooked ? 'bg-teal-50/30 hover:border-[#0B5858]/30' : 
           isDeclined ? 'bg-red-50/30 hover:border-[#B84C4C]/30' : 
           'bg-white'
@@ -664,7 +721,7 @@ const BookingRequests: React.FC = () => {
           <div
             className="absolute top-0 right-0 w-24 h-24 opacity-10 blur-xl"
             style={{
-              backgroundColor: isPending ? '#F1C40F' : isAwaitingPayment ? '#2A7F9E' : isBooked ? '#0B5858' : '#B84C4C'
+              backgroundColor: isPending ? '#F1C40F' : isAwaitingPayment ? '#F59E0B' : isBooked ? '#0B5858' : '#B84C4C'
             }}
           />
         )}
@@ -674,7 +731,7 @@ const BookingRequests: React.FC = () => {
             className="absolute inset-0 pointer-events-none transition-opacity duration-300"
             style={{
               background: `radial-gradient(circle 250px at ${glowPosition.x}% ${glowPosition.y}%, ${
-                isPending ? 'rgba(241, 196, 15, 0.08)' : isAwaitingPayment ? 'rgba(42, 127, 158, 0.08)' : isBooked ? 'rgba(11, 88, 88, 0.08)' : 'rgba(184, 76, 76, 0.08)'
+                isPending ? 'rgba(241, 196, 15, 0.08)' : isAwaitingPayment ? 'rgba(245, 158, 11, 0.08)' : isBooked ? 'rgba(11, 88, 88, 0.08)' : 'rgba(184, 76, 76, 0.08)'
               } 0%, transparent 70%)`,
               opacity: 1
             }}
@@ -764,19 +821,34 @@ const BookingRequests: React.FC = () => {
               </button>
             </div>
           ) : booking.status === 'confirmed' ? (
-            // Show "Confirm Payment" button for bookings awaiting payment
-            <div className="flex-shrink-0 ml-4 w-[100px]">
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  openPaymentModal(booking);
-                }}
-                className="w-full px-4 py-2 text-white text-sm font-medium rounded-lg transition-all duration-200 hover:opacity-90 hover:scale-105 active:scale-95 cursor-pointer shadow-md"
-                style={{ fontFamily: 'Poppins', backgroundColor: '#2A7F9E' }}
-              >
-                Confirm Payment
-              </button>
-            </div>
+            // Show "Confirm Payment" button only if payment record exists
+            bookingPayments[booking.id] ? (
+              <div className="flex-shrink-0 ml-4 w-[100px]">
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    openPaymentModal(booking);
+                  }}
+                  className="w-full px-4 py-2 text-white text-sm font-medium rounded-lg transition-all duration-200 hover:opacity-90 hover:scale-105 active:scale-95 cursor-pointer shadow-md"
+                  style={{ fontFamily: 'Poppins', backgroundColor: '#2A7F9E' }}
+                >
+                  Confirm Payment
+                </button>
+              </div>
+            ) : (
+              // Status badge showing "Awaiting Payment" if no payment record yet
+              <div className="flex-shrink-0 ml-4 w-[100px]">
+                <div
+                  className="w-full px-4 py-2 rounded-lg text-white text-sm font-medium shadow-lg backdrop-blur-sm text-center"
+                  style={{
+                    fontFamily: 'Poppins',
+                    background: 'linear-gradient(135deg, #F59E0B 0%, #F97316 100%)'
+                  }}
+                >
+                  Awaiting Payment
+                </div>
+              </div>
+            )
           ) : (
             // Status badge for booked/declined bookings
             <div className="flex-shrink-0 ml-4 w-[100px]">
@@ -827,7 +899,26 @@ const BookingRequests: React.FC = () => {
   /**
    * Open payment confirmation modal
    */
-  const openPaymentModal = (booking: Booking) => {
+  const openPaymentModal = async (booking: Booking) => {
+    // Refresh payment details for this booking to ensure we have the latest data
+    try {
+      const { data: paymentCheck } = await supabase
+        .from('payment')
+        .select('booking_id, payer_name, payer_contact, payment_method')
+        .eq('booking_id', booking.id)
+        .single();
+      
+      if (paymentCheck) {
+        setPaymentDetails(prev => ({ ...prev, [booking.id]: {
+          payer_name: paymentCheck.payer_name,
+          payer_contact: paymentCheck.payer_contact,
+          payment_method: paymentCheck.payment_method
+        }}));
+      }
+    } catch (err) {
+      logger.warn('Failed to fetch payment details for modal', { bookingId: booking.id, err });
+    }
+    
     setPendingPaymentBooking(booking);
     setShowPaymentModal(true);
     requestAnimationFrame(() => {
@@ -928,7 +1019,7 @@ const BookingRequests: React.FC = () => {
       {/* Approve Modal (assign agent) */}
       {showApproveModal && (
         <div 
-          className="fixed inset-0 flex items-center justify-center z-50"
+          className="fixed inset-0 flex items-center justify-center z-[10000]"
           style={{
             backdropFilter: 'blur(4px)',
             backgroundColor: 'rgba(0, 0, 0, 0.25)',
@@ -1044,11 +1135,11 @@ const BookingRequests: React.FC = () => {
                   </div>
 
                   {/* Awaiting Payment */}
-                  <div className="bg-gradient-to-br from-blue-50 to-blue-100 border-l-4 border-[#2A7F9E] rounded-lg p-5 shadow-sm hover:shadow-md transition-shadow">
+                  <div className="bg-gradient-to-br from-orange-50 to-orange-100 border-l-4 border-[#F59E0B] rounded-lg p-5 shadow-sm hover:shadow-md transition-shadow">
                     <div className="flex flex-col">
                       <div className="flex items-center justify-between mb-3">
                         <p className="text-gray-600 text-sm font-semibold" style={{ fontFamily: 'Poppins' }}>Awaiting Payment</p>
-                        <div className="w-8 h-8 rounded-full flex items-center justify-center" style={{ backgroundColor: '#2A7F9E' }}>
+                        <div className="w-8 h-8 rounded-full flex items-center justify-center" style={{ backgroundColor: '#F59E0B' }}>
                           <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                           </svg>
@@ -1177,7 +1268,7 @@ const BookingRequests: React.FC = () => {
         <>
           {/* Overlay */}
           <div
-            className="fixed inset-0 z-40 cursor-pointer"
+            className="fixed inset-0 z-[9998] cursor-pointer"
             style={{
               backdropFilter: 'blur(4px)',
               backgroundColor: 'rgba(0, 0, 0, 0.25)',
@@ -1187,7 +1278,7 @@ const BookingRequests: React.FC = () => {
           />
 
           {/* Drawer */}
-          <div className={`fixed inset-y-0 right-0 w-full sm:w-[640px] bg-white shadow-xl z-50 flex flex-col ${isDrawerClosing ? 'animate-slide-out' : 'animate-slide-in'}`}>
+          <div className={`fixed inset-y-0 right-0 w-full sm:w-[640px] bg-white shadow-xl z-[9999] flex flex-col ${isDrawerClosing ? 'animate-slide-out' : 'animate-slide-in'}`}>
             {/* Drawer Header */}
             <div className="px-6 py-6 pb-6">
               <div className="flex items-center justify-between mb-4">
@@ -1530,7 +1621,7 @@ const BookingRequests: React.FC = () => {
                   </button>
                 </>
               )}
-              {selectedBooking.status === 'confirmed' && (
+              {selectedBooking.status === 'confirmed' && bookingPayments[selectedBooking.id] && (
                 <button
                   onClick={() => selectedBooking && openPaymentModal(selectedBooking)}
                   disabled={isProcessing}
@@ -1561,7 +1652,7 @@ const BookingRequests: React.FC = () => {
       {/* Payment Confirmation Modal */}
       {showPaymentModal && pendingPaymentBooking && (
         <div 
-          className="fixed inset-0 flex items-center justify-center z-50"
+          className="fixed inset-0 flex items-center justify-center z-[10000]"
           style={{
             backdropFilter: 'blur(4px)',
             backgroundColor: 'rgba(0, 0, 0, 0.25)',
@@ -1598,18 +1689,20 @@ const BookingRequests: React.FC = () => {
                   <div className="space-y-1.5">
                   <div className="flex justify-between items-start">
                     <span className="text-xs font-medium text-gray-600" style={{fontFamily: 'Poppins'}}>Payment Method</span>
-                    <span className="text-xs text-gray-900" style={{fontFamily: 'Poppins'}}>Cash</span>
+                    <span className="text-xs text-gray-900 capitalize" style={{fontFamily: 'Poppins'}}>
+                      {paymentDetails[pendingPaymentBooking.id]?.payment_method?.replace(/_/g, ' ') || 'N/A'}
+                    </span>
                   </div>
                   <div className="flex justify-between items-start">
                     <span className="text-xs font-medium text-gray-600" style={{fontFamily: 'Poppins'}}>Payer Name</span>
                     <span className="text-xs text-gray-900 text-right" style={{fontFamily: 'Poppins'}}>
-                      {pendingPaymentBooking.client ? `${pendingPaymentBooking.client.first_name} ${pendingPaymentBooking.client.last_name}` : 'N/A'}
+                      {paymentDetails[pendingPaymentBooking.id]?.payer_name || 'N/A'}
                     </span>
                   </div>
                   <div className="flex justify-between items-start">
                     <span className="text-xs font-medium text-gray-600" style={{fontFamily: 'Poppins'}}>Payer Contact</span>
                     <span className="text-xs text-gray-900 text-right" style={{fontFamily: 'Poppins'}}>
-                      {pendingPaymentBooking.client?.contact_number ? `+63 ${pendingPaymentBooking.client.contact_number}` : 'N/A'}
+                      {paymentDetails[pendingPaymentBooking.id]?.payer_contact || 'N/A'}
                     </span>
                   </div>
                   <div className="flex justify-between items-start">
@@ -1674,6 +1767,34 @@ const BookingRequests: React.FC = () => {
                   Cancel
                 </button>
                 <button
+                  onClick={async () => {
+                    if (!pendingPaymentBooking) return;
+                    try {
+                      setIsProcessing(true);
+                      await BookingService.updateBookingStatus(pendingPaymentBooking.id, 'declined');
+                      showToast('Payment declined — booking marked as declined', 'success');
+                      const updatedBooking = { ...pendingPaymentBooking, status: 'declined' as const };
+                      setAllBookings(prev => prev.map(b => b.id === pendingPaymentBooking.id ? updatedBooking : b));
+                      if (isDrawerOpen && selectedBooking?.id === pendingPaymentBooking.id) {
+                        setSelectedBooking(updatedBooking);
+                      }
+                      closePaymentModal();
+                    } catch (error) {
+                      showToast('Unable to decline payment. Please try again.', 'error');
+                    } finally {
+                      setIsProcessing(false);
+                    }
+                  }}
+                  disabled={isProcessing}
+                  className="px-5 py-2.5 text-white rounded-lg transition-all duration-200 hover:opacity-90 hover:scale-105 active:scale-95 cursor-pointer font-medium disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 disabled:active:scale-100"
+                  style={{
+                    backgroundColor: '#B84C4C',
+                    fontFamily: 'Poppins'
+                  }}
+                >
+                  Decline
+                </button>
+                <button
                   onClick={handleConfirmPayment}
                   disabled={isProcessing}
                   className="px-5 py-2.5 text-white rounded-lg transition-all duration-200 hover:opacity-90 hover:scale-105 active:scale-95 cursor-pointer font-medium disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 disabled:active:scale-100"
@@ -1692,7 +1813,7 @@ const BookingRequests: React.FC = () => {
       {/* Decline Confirmation Modal */}
       {showConfirmModal && (
         <div 
-          className="fixed inset-0 flex items-center justify-center z-50"
+          className="fixed inset-0 flex items-center justify-center z-[10000]"
           style={{
             backdropFilter: 'blur(4px)',
             backgroundColor: 'rgba(0, 0, 0, 0.25)',

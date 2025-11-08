@@ -73,14 +73,60 @@ const BookingPayment: React.FC = () => {
           .select('*, listing:listings(*)')
           .eq('id', id)
           .single();
-        if (error) throw error;
+        
+        if (error) {
+          // Check if it's a "not found" error
+          if (error.code === 'PGRST116' || error.message.includes('JSON object')) {
+            navigate('/404', { replace: true });
+            return;
+          }
+          throw error;
+        }
+        
+        if (!data) {
+          navigate('/404', { replace: true });
+          return;
+        }
+        
         setBooking(data as any);
 
-        // initialize some form fields from booking if available
+        // initialize form fields from booking data
+        const listing = Array.isArray(data.listing) ? data.listing[0] : data.listing;
+        
+        // Handle additional services/amenities
+        let additionalServices: any[] = [];
+        if (data.add_ons && Array.isArray(data.add_ons) && data.add_ons.length > 0) {
+          // If add_ons is properly structured, use it
+          additionalServices = data.add_ons;
+        } else if (data.amenities_charge && data.amenities_charge > 0) {
+          // If we only have amenities_charge value, create a synthetic entry for display
+          additionalServices = [{
+            id: 'amenities',
+            name: 'Amenities & Additional Services',
+            quantity: 1,
+            charge: Number(data.amenities_charge)
+          }];
+        }
+        
+        // Calculate extra guest rate from booking data if available
+        const extraGuestFee = data.extra_guest_fee || 0;
+        const extraGuests = data.extra_guests || 0;
+        const calculatedExtraGuestRate = extraGuests > 0 ? extraGuestFee / extraGuests : (listing?.extra_guest_fee_per_person || 0);
+        
         setFormData((prev) => ({
           ...prev,
-          listingId: data.id,
-          pricePerNight: data.unit_charge ? Number(data.unit_charge) : prev.pricePerNight,
+          listingId: data.listing_id,
+          pricePerNight: Number(data.unit_charge || 0),
+          checkInDate: data.check_in_date || '',
+          checkOutDate: data.check_out_date || '',
+          numberOfGuests: data.num_guests || 1,
+          extraGuests: extraGuests,
+          baseGuests: data.base_guest_included || listing?.base_guests || listing?.max_guests || 2,
+          extraGuestRate: calculatedExtraGuestRate,
+          extraGuestFeePerPerson: calculatedExtraGuestRate,
+          serviceCharge: Number(data.service_charge || 0),
+          discount: Number(data.discount || 0),
+          additionalServices,
           paymentMethod: prev.paymentMethod || 'bank_transfer'
         }));
       } catch (err: any) {
@@ -178,6 +224,15 @@ const BookingPayment: React.FC = () => {
               onBack={() => window.history.back()}
               onCancel={() => navigate(-1)}
               hideActions={true}
+              bookingTotal={booking.total_amount}
+              actualCharges={{
+                nights: booking.nights,
+                subtotal: booking.nights ? parseFloat(booking.unit_charge) * booking.nights : 0,
+                amenitiesCharge: booking.amenities_charge || 0,
+                extraGuestFees: booking.extra_guest_fee || 0,
+                serviceCharge: booking.service_charge || 0,
+                discount: booking.discount || 0
+              }}
             />
 
             {error && <div className="text-sm text-red-600">{error}</div>}

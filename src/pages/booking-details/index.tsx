@@ -134,7 +134,17 @@ const BookingDetails: React.FC = () => {
           .single();
 
         if (bookingError) {
+          // Check if it's a "not found" error
+          if (bookingError.code === 'PGRST116' || bookingError.message.includes('JSON object')) {
+            navigate('/404', { replace: true });
+            return;
+          }
           throw new Error(bookingError.message);
+        }
+        
+        if (!bookingData) {
+          navigate('/404', { replace: true });
+          return;
         }
 
         // Fetch agent details separately
@@ -437,8 +447,8 @@ const BookingDetails: React.FC = () => {
             </div>
           </div>
 
-          {/* Proceed to payment CTA: shown when booking was confirmed by admin but payment not yet completed */}
-          {booking.status === 'confirmed' && (!booking.payment || booking.payment.payment_status !== 'paid') && (
+          {/* Proceed to payment CTA: shown when booking was confirmed by admin but payment not yet submitted */}
+          {booking.status === 'confirmed' && !booking.payment && (
             <div className="mb-6">
               <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 rounded-md flex items-center justify-between">
                 <div>

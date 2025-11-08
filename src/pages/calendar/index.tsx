@@ -39,7 +39,7 @@ const Calendar: React.FC<CalendarProps> = ({ hideNavbar = false }) => {
 
   // default to today on load
   const [currentDate, setCurrentDate] = useState<Date>(() => new Date());
-  const [viewMode, setViewMode] = useState<'monthly' | 'weekly'>('monthly');
+  const [viewMode, setViewMode] = useState<'monthly' | 'weekly'>('weekly');
   const [selectedDate, setSelectedDate] = useState<Date | null>(null); // for slide-over
   const [isSlideOpen, setIsSlideOpen] = useState(false);
   const [isClosing, setIsClosing] = useState(false);
@@ -77,16 +77,16 @@ const Calendar: React.FC<CalendarProps> = ({ hideNavbar = false }) => {
     return c;
   };
   
-  // Timeline date range state - starts at beginning of current month, ends at end of current month + 1 month ahead
+  // Timeline date range state - starts 6 months before current month, ends 6 months after
   const [timelineStartDate, setTimelineStartDate] = useState<Date>(() => {
     const today = new Date();
-    // Start at the beginning of the current month
-    return new Date(today.getFullYear(), today.getMonth(), 1);
+    // Start 6 months before current month
+    return new Date(today.getFullYear(), today.getMonth() - 6, 1);
   });
   const [timelineEndDate, setTimelineEndDate] = useState<Date>(() => {
     const today = new Date();
-    // End 1 month after the end of current month
-    return new Date(today.getFullYear(), today.getMonth() + 2, 0); // Last day of next month
+    // End 6 months after current month
+    return new Date(today.getFullYear(), today.getMonth() + 7, 0); // Last day of 6 months ahead
   });
   
   // Ref for timeline scroll detection (moved to component level for React hooks rules)
@@ -94,9 +94,43 @@ const Calendar: React.FC<CalendarProps> = ({ hideNavbar = false }) => {
   
   // Track if we've auto-scrolled to today when switching to timeline view
   const hasAutoScrolledToToday = useRef(false);
+  const [hasInitiallyLoaded, setHasInitiallyLoaded] = useState(false);
   
   // State for visible month/year based on scroll position (for timeline view)
   const [visibleMonth, setVisibleMonth] = useState<Date>(() => new Date());
+
+  // Auto-scroll to today on initial page load (when calendar first opens with timeline view)
+  useEffect(() => {
+    if (viewMode === 'weekly' && !hasInitiallyLoaded && bookings.length > 0) {
+      const scrollContainer = timelineScrollRef.current;
+      if (scrollContainer) {
+        // Wait a bit longer to ensure everything is rendered
+        const timer = setTimeout(() => {
+          const today = new Date();
+          const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+          const startDateStart = new Date(timelineStartDate.getFullYear(), timelineStartDate.getMonth(), timelineStartDate.getDate());
+          
+          const timeDiff = todayStart.getTime() - startDateStart.getTime();
+          const daysFromStart = Math.round(timeDiff / (1000 * 60 * 60 * 24));
+          const DAY_WIDTH = 120;
+          const scrollLeft = daysFromStart * DAY_WIDTH;
+          
+          scrollContainer.scrollTo({ left: Math.max(0, scrollLeft), behavior: 'smooth' });
+          setHasInitiallyLoaded(true);
+          hasAutoScrolledToToday.current = true;
+          
+          logger.info('Initial auto-scroll to today on page load', { 
+            daysFromStart, 
+            scrollLeft,
+            today: todayStart.toISOString().split('T')[0],
+            startDate: startDateStart.toISOString().split('T')[0]
+          });
+        }, 500);
+        
+        return () => clearTimeout(timer);
+      }
+    }
+  }, [viewMode, bookings.length, hasInitiallyLoaded, timelineStartDate]);
 
   // Auto-load more dates when scrolling near the edge (Airbnb-style)
   useEffect(() => {
@@ -113,34 +147,45 @@ const Calendar: React.FC<CalendarProps> = ({ hideNavbar = false }) => {
       
       // Calculate which date is visible in the center of the viewport
       const DAY_WIDTH = 120;
-      const unitColumnWidth = 350;
-      const visibleDayIndex = Math.floor((scrollLeft + clientWidth / 2 - unitColumnWidth) / DAY_WIDTH);
+      const isMobileView = window.innerWidth < 640;
+      const unitColumnWidth = isMobileView ? 120 : 350;
+      
+      // Calculate visible day index from scroll position
+      const pixelsFromStart = scrollLeft + unitColumnWidth;
+      const visibleDayIndex = Math.floor(pixelsFromStart / DAY_WIDTH);
       
       // Calculate the visible date based on scroll position
-      if (visibleDayIndex >= 0) {
-        const visibleDate = addDays(timelineStartDate, visibleDayIndex);
-        // Update visible month only if it changed
-        setVisibleMonth(prev => {
-          const prevMonth = prev.getMonth();
-          const prevYear = prev.getFullYear();
-          const newMonth = visibleDate.getMonth();
-          const newYear = visibleDate.getFullYear();
-          
-          if (prevMonth !== newMonth || prevYear !== newYear) {
-            return new Date(newYear, newMonth, 1);
-          }
-          return prev;
-        });
-      }
+      const visibleDate = addDays(timelineStartDate, visibleDayIndex);
+      
+      // Always update visible month based on current scroll position
+      const newMonth = visibleDate.getMonth();
+      const newYear = visibleDate.getFullYear();
+      
+      setVisibleMonth(prev => {
+        const prevMonth = prev.getMonth();
+        const prevYear = prev.getFullYear();
+        
+        if (prevMonth !== newMonth || prevYear !== newYear) {
+          logger.info('Updating visible month', { 
+            from: `${prevYear}-${prevMonth + 1}`,
+            to: `${newYear}-${newMonth + 1}`,
+            scrollLeft,
+            visibleDayIndex,
+            visibleDate: visibleDate.toISOString().split('T')[0]
+          });
+          return new Date(newYear, newMonth, 1);
+        }
+        return prev;
+      });
       
       // Load more dates when scrolling within 200px of the right edge
       const threshold = 200;
       const distanceFromEnd = scrollWidth - (scrollLeft + clientWidth);
       
       if (distanceFromEnd < threshold) {
-        // Add 30 more days to the end
+        // Add 60 more days to the end (2 months at a time)
         setTimelineEndDate(prev => {
-          const newEndDate = addDays(prev, 30);
+          const newEndDate = addDays(prev, 60);
           logger.info('Auto-loading more dates', { newEndDate });
           return newEndDate;
         });
@@ -149,10 +194,10 @@ const Calendar: React.FC<CalendarProps> = ({ hideNavbar = false }) => {
       // Optional: Load more dates when scrolling near the left edge (past dates)
       if (scrollLeft < threshold) {
         const today = new Date();
-        const minPastDate = addDays(today, -90); // Don't load more than 90 days in the past
+        const minPastDate = addDays(today, -730); // Allow up to 2 years in the past
         setTimelineStartDate(prev => {
           if (prev > minPastDate) {
-            const newStartDate = addDays(prev, -30);
+            const newStartDate = addDays(prev, -60); // Load 2 months at a time
             logger.info('Auto-loading past dates', { newStartDate });
             return newStartDate;
           }
@@ -166,44 +211,38 @@ const Calendar: React.FC<CalendarProps> = ({ hideNavbar = false }) => {
     // Initial calculation of visible month
     handleScroll();
     
-    // Auto-scroll to today when timeline view is first opened or when timelineStartDate changes
-    // Use a small delay to ensure the DOM is fully rendered
-    if (!hasAutoScrolledToToday.current) {
-      const scrollToToday = () => {
-        const today = new Date();
-        const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-        const startDateStart = new Date(timelineStartDate.getFullYear(), timelineStartDate.getMonth(), timelineStartDate.getDate());
-        
-        // Calculate how many days from timelineStartDate to today
-        const timeDiff = todayStart.getTime() - startDateStart.getTime();
-        const daysFromStart = Math.round(timeDiff / (1000 * 60 * 60 * 24));
-        
-        const DAY_WIDTH = 120;
-        
-        // Position today as the first column after the unit column
-        const scrollLeft = daysFromStart * DAY_WIDTH;
-        
-        scrollContainer.scrollTo({ left: Math.max(0, scrollLeft), behavior: 'smooth' });
-        hasAutoScrolledToToday.current = true;
-        logger.info('Auto-scrolling to today in timeline view', { 
-          daysFromStart, 
-          scrollLeft,
-          today: todayStart.toISOString().split('T')[0],
-          startDate: startDateStart.toISOString().split('T')[0]
-        });
-      };
+    // Auto-scroll to today when timeline view is opened
+    // Use a delay to ensure the DOM is fully rendered and booking data is loaded
+    const scrollToToday = () => {
+      const today = new Date();
+      const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+      const startDateStart = new Date(timelineStartDate.getFullYear(), timelineStartDate.getMonth(), timelineStartDate.getDate());
       
-      // Delay scroll to ensure layout is complete
-      const timeoutId = setTimeout(scrollToToday, 100);
+      // Calculate how many days from timelineStartDate to today
+      const timeDiff = todayStart.getTime() - startDateStart.getTime();
+      const daysFromStart = Math.round(timeDiff / (1000 * 60 * 60 * 24));
       
-      return () => {
-        scrollContainer.removeEventListener('scroll', handleScroll);
-        clearTimeout(timeoutId);
-      };
-    }
+      const DAY_WIDTH = 120;
+      
+      // Position today as the first column after the unit column
+      const scrollLeft = daysFromStart * DAY_WIDTH;
+      
+      scrollContainer.scrollTo({ left: Math.max(0, scrollLeft), behavior: 'smooth' });
+      hasAutoScrolledToToday.current = true;
+      logger.info('Auto-scrolling to today in timeline view', { 
+        daysFromStart, 
+        scrollLeft,
+        today: todayStart.toISOString().split('T')[0],
+        startDate: startDateStart.toISOString().split('T')[0]
+      });
+    };
+    
+    // Delay scroll to ensure layout is complete (longer delay for initial load)
+    const timeoutId = setTimeout(scrollToToday, 300);
     
     return () => {
       scrollContainer.removeEventListener('scroll', handleScroll);
+      clearTimeout(timeoutId);
     };
   }, [viewMode, timelineStartDate]);
 
@@ -943,10 +982,11 @@ const Calendar: React.FC<CalendarProps> = ({ hideNavbar = false }) => {
    */
   const getStatusBgClass = (status?: string): string => {
     const s = (status || '').toLowerCase();
-    if (s === 'pending') return 'bg-pending';
+    if (s === 'pending' || s === 'confirmed') return 'bg-pending';
     if (s === 'blocked') return 'bg-blocked';
     if (s === 'available') return 'bg-available';
-    // Treat confirmed/ongoing/others with booking as booked
+    if (s === 'booked') return 'bg-booked';
+    // Others (ongoing, completed) as booked
     return 'bg-booked';
   };
 
@@ -1200,6 +1240,10 @@ const Calendar: React.FC<CalendarProps> = ({ hideNavbar = false }) => {
         .scrollable::-webkit-scrollbar { height: 8px; width: 8px; }
         .scrollable::-webkit-scrollbar-thumb { background: rgba(107,114,128,.45); border-radius: 9999px; }
         .scrollable { scrollbar-width: thin; scrollbar-color: rgba(107,114,128,.45) transparent; }
+        
+        /* Hide scrollbars on timeline */
+        .timeline-container::-webkit-scrollbar { display: none; }
+        .timeline-container { -ms-overflow-style: none; scrollbar-width: none; }
 
         .calendar-grid { position: relative; }
         .col-cell { position: relative; }
@@ -1303,7 +1347,7 @@ const Calendar: React.FC<CalendarProps> = ({ hideNavbar = false }) => {
         }
       `}</style>
 
-      <div className={hideNavbar ? "pt-4" : "pt-16"}>
+      <div className={hideNavbar ? "pt-4" : "pt-16"} style={{ minHeight: '100vh' }}>
         <div className="max-w-7xl mx-auto px-3 sm:px-4 md:px-6 lg:px-8 py-4 sm:py-6">
           {/* header + controls */}
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-0 mb-4">
@@ -1402,17 +1446,6 @@ const Calendar: React.FC<CalendarProps> = ({ hideNavbar = false }) => {
               {isMobile && (
                 <div className="flex gap-0.5 items-center bg-gray-100 p-0.5 rounded-lg ml-auto">
                 <button
-                  onClick={() => setViewMode('monthly')}
-                  className={`toggle-button px-2.5 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm font-medium rounded-md ${
-                    viewMode === 'monthly'
-                      ? 'bg-white text-gray-900 shadow-sm'
-                      : 'text-gray-600 hover:text-gray-900'
-                  }`}
-                  style={{ fontFamily: 'Poppins' }}
-                >
-                  Month
-                </button>
-                <button
                   onClick={() => {
                     // Reset timeline to focus on current month when switching to timeline view
                     const today = new Date();
@@ -1450,6 +1483,17 @@ const Calendar: React.FC<CalendarProps> = ({ hideNavbar = false }) => {
                 >
                   Timeline
                 </button>
+                <button
+                  onClick={() => setViewMode('monthly')}
+                  className={`toggle-button px-2.5 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm font-medium rounded-md ${
+                    viewMode === 'monthly'
+                      ? 'bg-white text-gray-900 shadow-sm'
+                      : 'text-gray-600 hover:text-gray-900'
+                  }`}
+                  style={{ fontFamily: 'Poppins' }}
+                >
+                  Month
+                </button>
                 </div>
               )}
             </div>
@@ -1459,17 +1503,6 @@ const Calendar: React.FC<CalendarProps> = ({ hideNavbar = false }) => {
               <div className="flex items-center gap-1.5 sm:gap-2">
                 {/* View toggle button group */}
                 <div className="flex gap-0.5 sm:gap-1 items-center bg-gray-100 p-0.5 sm:p-1 rounded-lg">
-                  <button
-                    onClick={() => setViewMode('monthly')}
-                    className={`toggle-button px-2.5 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm font-medium rounded-md ${
-                      viewMode === 'monthly'
-                        ? 'bg-white text-gray-900 shadow-sm'
-                        : 'text-gray-600 hover:text-gray-900'
-                    }`}
-                    style={{ fontFamily: 'Poppins' }}
-                  >
-                    Month
-                  </button>
                   <button
                     onClick={() => {
                       // Reset timeline to focus on current month when switching to timeline view
@@ -1508,6 +1541,17 @@ const Calendar: React.FC<CalendarProps> = ({ hideNavbar = false }) => {
                   >
                     Timeline
                   </button>
+                  <button
+                    onClick={() => setViewMode('monthly')}
+                    className={`toggle-button px-2.5 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm font-medium rounded-md ${
+                      viewMode === 'monthly'
+                        ? 'bg-white text-gray-900 shadow-sm'
+                        : 'text-gray-600 hover:text-gray-900'
+                    }`}
+                    style={{ fontFamily: 'Poppins' }}
+                  >
+                    Month
+                  </button>
                 </div>
 
               {isAdmin && (
@@ -1544,35 +1588,21 @@ const Calendar: React.FC<CalendarProps> = ({ hideNavbar = false }) => {
             )}
           </div>
 
-          <div className="bg-white border border-gray-200 rounded-lg overflow-hidden relative">
-            {/* Show loading skeleton */}
+          <div 
+            className="bg-white border border-gray-200 rounded-lg overflow-hidden relative"
+            style={{ 
+              minHeight: isMobile ? 'calc(100vh - 250px)' : 'calc(100vh - 300px)',
+              height: viewMode === 'weekly' ? (isMobile ? 'calc(100vh - 250px)' : 'calc(100vh - 300px)') : 'auto'
+            }}
+          >
+            {/* Show loading spinner */}
             {loading ? (
-              <div className="p-3 sm:p-4 md:p-6 animate-pulse">
-                {/* Header with month/year and controls */}
-                <div className="flex items-center justify-between mb-4 sm:mb-6">
-                  <div className="h-6 sm:h-8 bg-gray-300 rounded w-32 sm:w-48"></div>
-                  <div className="flex gap-1.5 sm:gap-2">
-                    <div className="h-8 w-8 sm:h-10 sm:w-10 bg-gray-300 rounded"></div>
-                    <div className="h-8 w-8 sm:h-10 sm:w-10 bg-gray-300 rounded"></div>
-                  </div>
-                </div>
-                {/* Day names */}
-                <div className="grid grid-cols-7 gap-1 sm:gap-2 md:gap-3 mb-2 sm:mb-3">
-                  {Array.from({ length: 7 }).map((_, i) => (
-                    <div key={i} className="h-3 sm:h-4 bg-gray-200 rounded"></div>
-                  ))}
-                </div>
-                {/* Calendar grid */}
-                <div className="grid grid-cols-7 gap-1 sm:gap-2 md:gap-3">
-                  {Array.from({ length: 35 }).map((_, i) => (
-                    <div key={i} className="min-h-[80px] sm:min-h-[100px] md:min-h-[140px] rounded-lg sm:rounded-xl bg-gray-100 p-1.5 sm:p-2 md:p-3">
-                      <div className="h-4 sm:h-5 bg-gray-300 rounded w-6 sm:w-8 mb-1 sm:mb-2"></div>
-                      <div className="space-y-1 sm:space-y-2">
-                        <div className="h-4 sm:h-6 bg-gray-300 rounded"></div>
-                        <div className="h-4 sm:h-6 bg-gray-300 rounded w-3/4"></div>
-                      </div>
-                    </div>
-                  ))}
+              <div 
+                className="flex items-center justify-center h-full"
+              >
+                <div className="text-center">
+                  <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-[#0B5858] mx-auto mb-4"></div>
+                  <p className="text-lg text-gray-600" style={{ fontFamily: 'Poppins' }}>Loading Calendar...</p>
                 </div>
               </div>
             ) : (
@@ -1710,16 +1740,14 @@ const Calendar: React.FC<CalendarProps> = ({ hideNavbar = false }) => {
                       return (
                         <div
                           ref={timelineScrollRef}
-                          className="bg-white"
+                          className="bg-white timeline-container"
                           style={{
-                            height: isMobile ? 'calc(100vh - 250px)' : 'calc(100vh - 300px)',
+                            height: '100%',
                             overflowX: 'auto',
                             overflowY: 'auto',
                             position: 'relative',
                             WebkitOverflowScrolling: 'touch',
-                            overscrollBehavior: 'contain',
-                            scrollbarWidth: 'thin',
-                            scrollbarColor: '#cbd5e1 transparent'
+                            overscrollBehavior: 'contain'
                           }}
                           aria-label="Timeline schedule"
                         >
@@ -1841,10 +1869,36 @@ const Calendar: React.FC<CalendarProps> = ({ hideNavbar = false }) => {
                                         left: 0,
                                         zIndex: 10,
                                         display: 'flex',
-                                        alignItems: 'center'
+                                        alignItems: 'center',
+                                        gap: '12px'
                                       }}
                                     >
-                                      <div className={`${isMobile ? 'text-xs' : 'text-sm'} font-normal text-gray-900 truncate`} style={{ fontFamily: 'Poppins' }}>
+                                      {/* Unit Image */}
+                                      {unitBookings.length > 0 && unitBookings[0].mainImageUrl && (
+                                        <div 
+                                          className="flex-shrink-0"
+                                          style={{
+                                            width: isMobile ? '32px' : '40px',
+                                            height: isMobile ? '32px' : '40px',
+                                            borderRadius: '6px',
+                                            overflow: 'hidden'
+                                          }}
+                                        >
+                                          <img 
+                                            src={unitBookings[0].mainImageUrl} 
+                                            alt={unitTitle}
+                                            style={{
+                                              width: '100%',
+                                              height: '100%',
+                                              objectFit: 'cover'
+                                            }}
+                                            onError={(e) => {
+                                              e.currentTarget.style.display = 'none';
+                                            }}
+                                          />
+                                        </div>
+                                      )}
+                                      <div className={`${isMobile ? 'text-xs' : 'text-sm'} font-normal text-gray-900 truncate flex-1`} style={{ fontFamily: 'Poppins' }}>
                                         {unitTitle}
                                       </div>
                                     </div>
@@ -1988,8 +2042,8 @@ const Calendar: React.FC<CalendarProps> = ({ hideNavbar = false }) => {
 
       {isSlideOpen && (
         <>
-          <div className={`fixed inset-0 bg-black/30 z-[100] ${isClosing ? 'animate-fade-out' : 'animate-fade-in'}`} onClick={closeSlide} />
-          <div className={`fixed inset-y-0 right-0 ${isMobile ? 'inset-x-0' : 'w-full sm:w-[640px]'} bg-white shadow-xl z-[110] flex flex-col ${isClosing ? 'animate-panel-out' : 'animate-panel-in'}`} role="dialog" aria-modal="true">
+          <div className={`fixed inset-0 bg-black/30 z-[9998] ${isClosing ? 'animate-fade-out' : 'animate-fade-in'}`} onClick={closeSlide} />
+          <div className={`fixed inset-y-0 right-0 ${isMobile ? 'inset-x-0' : 'w-full sm:w-[640px]'} bg-white shadow-xl z-[9999] flex flex-col ${isClosing ? 'animate-panel-out' : 'animate-panel-in'}`} role="dialog" aria-modal="true">
             <div className={`${isMobile ? 'px-4 py-4' : 'px-6 py-5'} border-b border-gray-200 flex items-center justify-between`}>
               <div className="flex-1 min-w-0 pr-2">
                 <div className={`${isMobile ? 'text-lg' : 'text-xl'} font-semibold`} style={{ color: '#0B5858', fontFamily: 'Poppins' }}>This Day's Lineup</div>
@@ -2047,9 +2101,9 @@ const Calendar: React.FC<CalendarProps> = ({ hideNavbar = false }) => {
                         <div className="mb-4">
                           <span className="text-sm font-semibold" style={{ 
                             fontFamily: 'Poppins',
-                            color: b.status === 'pending' ? '#F6D658' : b.status === 'ongoing' ? '#0B5858' : b.status === 'confirmed' ? '#0B5858' : '#9CA3AF'
+                            color: b.status === 'pending' || b.status === 'confirmed' ? '#F6D658' : b.status === 'booked' || b.status === 'ongoing' ? '#0B5858' : '#9CA3AF'
                           }}>
-                            {b.status === 'ongoing' ? 'On-going' : b.status === 'confirmed' ? 'Confirmed' : b.status === 'completed' ? 'Completed' : b.status || 'Pending'}
+                            {b.status === 'booked' ? 'Booked' : b.status === 'pending' || b.status === 'confirmed' ? 'Pending' : b.status === 'ongoing' ? 'On-going' : b.status === 'completed' ? 'Completed' : b.status || 'Pending'}
                           </span>
                         </div>
                         
@@ -2096,7 +2150,7 @@ const Calendar: React.FC<CalendarProps> = ({ hideNavbar = false }) => {
                     <div className="flex-shrink-0 text-right">
                       <div className="mb-3">
                           <span className="text-base font-medium text-orange-500" style={{ fontFamily: 'Poppins' }}>
-                          {b.status === 'ongoing' ? 'On-going' : b.status === 'confirmed' ? 'Confirmed' : b.status || 'Pending'}
+                          {b.status === 'booked' ? 'Booked' : b.status === 'pending' || b.status === 'confirmed' ? 'Pending' : b.status === 'ongoing' ? 'On-going' : b.status === 'completed' ? 'Completed' : b.status || 'Pending'}
                         </span>
                       </div>
                       <div className="mb-4">
@@ -2121,7 +2175,7 @@ const Calendar: React.FC<CalendarProps> = ({ hideNavbar = false }) => {
         <>
           {/* Overlay */}
           <div
-            className="fixed inset-0 z-40 cursor-pointer"
+            className="fixed inset-0 z-[9998] cursor-pointer"
             style={{
               backdropFilter: 'blur(4px)',
               backgroundColor: 'rgba(0, 0, 0, 0.25)',
@@ -2132,7 +2186,7 @@ const Calendar: React.FC<CalendarProps> = ({ hideNavbar = false }) => {
 
           {/* Drawer */}
           <div 
-            className={`fixed inset-y-0 right-0 w-full sm:w-[640px] bg-white shadow-xl z-50 flex flex-col ${isDrawerClosing ? 'animate-slide-out' : 'animate-slide-in'}`}
+            className={`fixed inset-y-0 right-0 w-full sm:w-[640px] bg-white shadow-xl z-[9999] flex flex-col ${isDrawerClosing ? 'animate-slide-out' : 'animate-slide-in'}`}
             style={{ 
               height: '100vh',
               maxHeight: '100vh',
@@ -2163,8 +2217,10 @@ const Calendar: React.FC<CalendarProps> = ({ hideNavbar = false }) => {
                   <span className={`${isMobile ? 'text-sm' : 'text-base'} font-semibold text-gray-900`} style={{ fontFamily: 'Poppins' }}>
                     {(() => {
                       const status = selectedBooking.status;
-                      if (status === 'pending') return 'Pending';
-                      if (status === 'confirmed' || status === 'ongoing' || status === 'completed') return 'Approved';
+                      if (status === 'pending' || status === 'confirmed') return 'Pending';
+                      if (status === 'booked') return 'Booked';
+                      if (status === 'ongoing') return 'On-going';
+                      if (status === 'completed') return 'Completed';
                       if (status === 'declined' || status === 'cancelled') return 'Declined';
                       // Fallback: capitalize first letter of status string
                       const statusStr = String(status);
@@ -2522,7 +2578,7 @@ const Calendar: React.FC<CalendarProps> = ({ hideNavbar = false }) => {
       {/* Confirmation Modal for Decline */}
       {showConfirmModal && (
         <div 
-          className="fixed inset-0 flex items-center justify-center z-[60]"
+          className="fixed inset-0 flex items-center justify-center z-[10000]"
           style={{
             backdropFilter: 'blur(4px)',
             backgroundColor: 'rgba(0, 0, 0, 0.25)',
