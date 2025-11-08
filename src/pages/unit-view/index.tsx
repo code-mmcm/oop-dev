@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useMetaTags } from '../../hooks/useMetaTags';
 import Navbar from '../../components/Navbar';
 import Footer from '../../components/Footer';
-import BookingForm from '../booking/components/BookingForm';
+import BookingForm from '../booking-temporary/BookingForm';
 import { ListingService } from '../../services/listingService';
 import type { Listing, ListingView } from '../../types/listing';
 import type { BookingFormData } from '../../types/booking';
@@ -362,6 +362,8 @@ const UnitView: React.FC = () => {
           priceUnit={listing?.price_unit || 'daily'}
           extraGuestFeePerPerson={250} // Default extra guest fee per person
           baseGuests={2} // Default base guests included
+          // Reserve-only (pencil booking) flow: skip payment during initial reservation
+          requirePayment={false}
           onCancel={handleCancelBooking}
           onComplete={handleCompleteBooking}
         />

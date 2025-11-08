@@ -18,7 +18,18 @@ const WEEK_DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 const StayDetailsStep: React.FC<StayDetailsStepProps> = ({ formData, listingId, listing, onUpdate, onNext, onCancel }) => {
   const parseYMD = (s?: string): Date | null => {
     if (!s) return null;
-    const [y, m, d] = s.split('-').map(Number);
+    // Handle ISO strings that may include a time (e.g., "2025-11-06T00:00:00Z")
+    const isoLike = s.includes('T') || s.includes(' ');
+    if (isoLike) {
+      const d = new Date(s);
+      if (isNaN(d.getTime())) return null;
+      return new Date(d.getFullYear(), d.getMonth(), d.getDate());
+    }
+
+    // Fall back to YYYY-MM-DD parsing (some APIs return just the date portion)
+    const parts = s.split('-').map(Number);
+    if (parts.length < 3) return null;
+    const [y, m, d] = parts;
     if (!y || !m || !d) return null;
     return new Date(y, m - 1, d);
   };
@@ -80,21 +91,35 @@ const StayDetailsStep: React.FC<StayDetailsStepProps> = ({ formData, listingId, 
     }
   }, [formData.checkInDate, formData.checkOutDate, defaultCheckInTime, defaultCheckOutTime, onUpdate]);
 
+  // Fetch existing bookings and poll periodically so the calendar stays in sync
   useEffect(() => {
+    let mounted = true;
+    let timer: ReturnType<typeof setInterval> | null = null;
+
     const fetchBookings = async () => {
       if (!listingId) {
-        setExistingBookings([]);
+        if (mounted) setExistingBookings([]);
         return;
       }
       try {
         const bookings = await BookingService.getBookingsForListing(listingId);
-        setExistingBookings(bookings || []);
+        if (mounted) setExistingBookings(bookings || []);
       } catch (error) {
         console.error('Error fetching bookings:', error);
-        setExistingBookings([]);
+        if (mounted) setExistingBookings([]);
       }
     };
+
+    // initial fetch
     fetchBookings();
+
+    // poll every 15 seconds to stay in sync with other bookings
+    timer = setInterval(fetchBookings, 15000);
+
+    return () => {
+      mounted = false;
+      if (timer) clearInterval(timer);
+    };
   }, [listingId]);
 
   // Check if selected date range is blocked
@@ -201,11 +226,37 @@ const StayDetailsStep: React.FC<StayDetailsStepProps> = ({ formData, listingId, 
     if (!existingBookings.length) return false;
     const checkDate = toDateOnly(date);
     if (!checkDate) return false;
+    const parseTimeToMinutes = (t?: string | null) => {
+      if (!t) return null;
+      const parts = t.split(':').map(Number);
+      if (parts.length < 2) return null;
+      const [hh, mm] = parts;
+      if (isNaN(hh) || isNaN(mm)) return null;
+      return hh * 60 + mm;
+    };
+
     return existingBookings.some((booking) => {
       const bookingStart = toDateOnly(parseYMD(booking.check_in_date));
       const bookingEnd = toDateOnly(parseYMD(booking.check_out_date));
       if (!bookingStart || !bookingEnd) return false;
-      return checkDate.getTime() >= bookingStart.getTime() && checkDate.getTime() < bookingEnd.getTime();
+
+      // If the date falls strictly within the booking (start <= date < end) it's booked
+      if (checkDate.getTime() >= bookingStart.getTime() && checkDate.getTime() < bookingEnd.getTime()) return true;
+
+      // If the date is exactly the previous booking's checkout date (bookingEnd), allow check-in
+      // only when the host's check-in time is later than (or equal to) the host's check-out time.
+      if (checkDate.getTime() === bookingEnd.getTime()) {
+        const hostCheckIn = listing?.check_in_time ?? defaultCheckInTime;
+        const hostCheckOut = listing?.check_out_time ?? defaultCheckOutTime;
+        const inMin = parseTimeToMinutes(hostCheckIn);
+        const outMin = parseTimeToMinutes(hostCheckOut);
+        // If we can't parse times, be conservative and treat as booked
+        if (inMin == null || outMin == null) return true;
+        // If host allows check-in after the previous checkout time, then this date is NOT booked
+        return !(inMin >= outMin);
+      }
+
+      return false;
     });
   };
 
@@ -287,6 +338,8 @@ const StayDetailsStep: React.FC<StayDetailsStepProps> = ({ formData, listingId, 
           isStart: boolean;
           isEnd: boolean;
           isDisabled: boolean;
+          isBooked: boolean;
+          isBlocked: boolean;
         }
     > = [];
 
@@ -304,7 +357,7 @@ const StayDetailsStep: React.FC<StayDetailsStepProps> = ({ formData, listingId, 
       const isSelected = !!(startOnly && endOnly && date >= startOnly && date <= endOnly);
       const isStart = !!(startOnly && date.getTime() === startOnly.getTime());
       const isEnd = !!(endOnly && date.getTime() === endOnly.getTime());
-      days.push({ day: d, date, isSelected, isStart, isEnd, isDisabled });
+      days.push({ day: d, date, isSelected, isStart, isEnd, isDisabled, isBooked, isBlocked });
     }
 
     while (days.length % 7 !== 0) days.push(null);
@@ -318,7 +371,10 @@ const StayDetailsStep: React.FC<StayDetailsStepProps> = ({ formData, listingId, 
     selectedDates.start,
     selectedDates.end,
     minAllowedDate,
-    existingBookings.length
+    existingBookings.length,
+    blockedDatesCache.size,
+    defaultCheckInTime,
+    defaultCheckOutTime
   ]);
 
   const onCalendarClick = (dayData: { day: number; date: Date; isDisabled?: boolean } | null) => {
@@ -768,7 +824,7 @@ const StayDetailsStep: React.FC<StayDetailsStepProps> = ({ formData, listingId, 
                   {days.map((cell, i) => {
                     if (!cell) return <div key={`empty-${i}`} className="w-9 h-9 sm:w-12 sm:h-12" />;
 
-                    const base = 'flex items-center justify-center select-none';
+                    const base = 'flex items-center justify-center select-none relative';
                     const sizeClass = 'w-9 h-9 sm:w-12 sm:h-12 text-[11px] sm:text-sm';
                     const startOrEnd = cell.isStart || cell.isEnd;
                     const bgClass = startOrEnd
@@ -785,10 +841,13 @@ const StayDetailsStep: React.FC<StayDetailsStepProps> = ({ formData, listingId, 
                         key={`day-${cell.date.getTime()}`}
                         {...interactiveProps}
                         className={`${base} ${sizeClass} ${bgClass} ${roundedClass} ${disabledClass}`}
-                        title={cell.date.toDateString()}
+                        title={`${cell.date.toDateString()}${cell.isBooked ? ' — Booked' : ''}`}
                         style={{ fontFamily: 'Poppins' }}
                       >
                         {cell.day}
+                        {cell.isBooked && (
+                          <span className="absolute top-1 right-1 w-2 h-2 rounded-full bg-red-500" aria-hidden />
+                        )}
                       </div>
                     );
                   })}
@@ -974,7 +1033,7 @@ const StayDetailsStep: React.FC<StayDetailsStepProps> = ({ formData, listingId, 
                   {days.map((cell, i) => {
                     if (!cell) return <div key={`m-empty-${i}`} className="w-10 h-10 sm:w-12 sm:h-12" />;
 
-                    const base = 'flex items-center justify-center select-none';
+                    const base = 'flex items-center justify-center select-none relative';
                     const sizeClass = 'w-10 h-10 sm:w-12 sm:h-12 text-[12px] sm:text-sm';
                     const startOrEnd = cell.isStart || cell.isEnd;
                     const bgClass = startOrEnd
@@ -991,10 +1050,13 @@ const StayDetailsStep: React.FC<StayDetailsStepProps> = ({ formData, listingId, 
                         key={`m-day-${cell.date.getTime()}`}
                         {...interactiveProps}
                         className={`${base} ${sizeClass} ${bgClass} ${roundedClass} ${disabledClass}`}
-                        title={cell.date.toDateString()}
+                        title={`${cell.date.toDateString()}${cell.isBooked ? ' — Booked' : ''}`}
                         style={{ fontFamily: 'Poppins' }}
                       >
                         {cell.day}
+                        {cell.isBooked && (
+                          <span className="absolute top-1 right-1 w-2 h-2 rounded-full bg-red-500" aria-hidden />
+                        )}
                       </div>
                     );
                   })}

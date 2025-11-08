@@ -76,7 +76,7 @@ const FieldRow: React.FC<{ icon?: React.ReactNode; title: React.ReactNode; subti
     </div>
     <div className="min-w-0">
       <div className="font-medium break-words" style={{ wordBreak: 'break-word' }}>{title}</div>
-      {subtitle && <div className="text-xs text-gray-500 truncate">{subtitle}</div>}
+      {subtitle && <div className="text-xs text-gray-500" style={{ wordBreak: 'break-word' }}>{subtitle}</div>}
     </div>
   </div>
 );
@@ -369,17 +369,19 @@ const ConfirmationStep: React.FC<ConfirmationStepProps> = ({
       });
 
       // Create client_details record ALWAYS after booking is created
+      const sanitizedContactNumber = formData.preferredContactNumber
+        ? formData.preferredContactNumber.replace(/\D/g, '')
+        : '';
+
       const clientDetailsData = {
         booking_id: booking.id,
         first_name: formData.firstName || '',
         last_name: formData.lastName || '',
         nickname: formData.nickname || '',
         email: formData.email || '',
-        contact_number: formData.preferredContactNumber
-          ? parseFloat(formData.preferredContactNumber.replace(/\D/g, ''))
-          : null,
+        contact_number: sanitizedContactNumber.length ? Number(sanitizedContactNumber) : null,
         gender: formData.gender || '',
-        birth_date: formData.dateOfBirth || '',
+        birth_date: formData.dateOfBirth || null,
         preferred_contact: formData.contactType || '',
         referred_by: formData.referredBy || ''
       };
@@ -390,66 +392,6 @@ const ConfirmationStep: React.FC<ConfirmationStepProps> = ({
 
       if (clientError) {
         console.error('Error creating client details:', clientError);
-      }
-
-      const paymentStatus = (() => {
-        switch (formData.paymentMethod) {
-          case 'credit_card':
-            return 'paid';
-          case 'bank_transfer':
-            return formData.bankReceiptUploaded ? 'paid' : 'pending';
-          case 'company_account':
-          case 'cash':
-          default:
-            return 'pending';
-        }
-      })();
-
-      const cardDigits = (formData.cardNumber || '').toString().replace(/\s+/g, '');
-      const cardLast4 = cardDigits.length >= 4 ? Number(cardDigits.slice(-4)) : null;
-      const cardExpNumeric = formData.expirationDate
-        ? Number(String(formData.expirationDate).replace(/[^0-9]/g, ''))
-        : null;
-
-      const paymentData: any = {
-        booking_id: booking.id,
-        payment_method: formData.paymentMethod,
-        amount_paid: summary.totalCharges,
-        currency: 'PHP',
-        payment_status: paymentStatus,
-        reference_number: formData.poNumber || formData.bankAccountNumber || null,
-        proof_of_payment_url: (formData as any).bankReceiptUrl || formData.billingDocumentUrl || null,
-        payer_name: formData.nameOnCard || formData.depositorName || formData.cashPayerName || null,
-        payer_contact: formData.cashPayerContact || formData.billingContact || formData.preferredContactNumber || null,
-        payment_option: formData.paymentMethod,
-        card_number_last4: cardLast4,
-        card_holder_name: formData.nameOnCard || null,
-        card_expiration: cardExpNumeric,
-        company_name: formData.companyName || null,
-        billing_contact_name: formData.billingContact || null,
-        billing_email: formData.billingEmail || null,
-        billing_reference: formData.poNumber || null,
-        billing_document_url: formData.billingDocumentUrl || null,
-        bank_name: formData.bankName || null,
-        depositor_name: formData.depositorName || null,
-        transaction_summary: {
-          nights,
-          unitCharge: summary.unitCharge,
-          extraGuestChargeTotal,
-          amenitiesCharge: summary.amenitiesCharge,
-          serviceCharge: summary.serviceCharge,
-          discount: summary.discount,
-          total: summary.totalCharges
-        },
-        remarks: formData.requestDescription || null
-      };
-
-      const { error: paymentError } = await supabase
-        .from('payment')
-        .insert([paymentData]);
-
-      if (paymentError) {
-        console.error('Error creating payment record:', paymentError);
       }
 
       setStatus('success');
@@ -665,13 +607,21 @@ const ConfirmationStep: React.FC<ConfirmationStepProps> = ({
                 </h5>
 
                 <div className="space-y-3 text-sm text-gray-700" style={{ fontFamily: 'Poppins' }}>
-                  <FieldRow
-                    icon={<IconCard />}
-                    title={<>{paymentMethodLabel(formData.paymentMethod)}</>}
-                    subtitle="Payment type"
-                  />
+                  {formData.requirePayment === false ? (
+                    <FieldRow
+                      icon={<IconCalendar />}
+                      title={<>Temporary reservation — awaiting host confirmation</>}
+                      subtitle="Payment will open after host confirmation"
+                    />
+                  ) : (
+                    <FieldRow
+                      icon={<IconCard />}
+                      title={<>{paymentMethodLabel(formData.paymentMethod)}</>}
+                      subtitle="Payment type"
+                    />
+                  )}
 
-                  {formData.paymentMethod === 'credit_card' && (
+                  {formData.requirePayment !== false && formData.paymentMethod === 'credit_card' && (
                     <>
                       <FieldRow
                         icon={<IconCard />}
@@ -687,7 +637,7 @@ const ConfirmationStep: React.FC<ConfirmationStepProps> = ({
                     </>
                   )}
 
-                  {formData.paymentMethod === 'bank_transfer' && (
+                  {formData.requirePayment !== false && formData.paymentMethod === 'bank_transfer' && (
                     <>
                       <FieldRow
                         icon={<IconBank />}
@@ -739,7 +689,7 @@ const ConfirmationStep: React.FC<ConfirmationStepProps> = ({
                     </>
                   )}
 
-                  {formData.paymentMethod === 'company_account' && (
+                  {formData.requirePayment !== false && formData.paymentMethod === 'company_account' && (
                     <>
                       <FieldRow
                         icon={<svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M4 7h16v10H4z"></path></svg>}
@@ -792,7 +742,7 @@ const ConfirmationStep: React.FC<ConfirmationStepProps> = ({
                     </>
                   )}
 
-                  {formData.paymentMethod === 'cash' && (
+                  {formData.requirePayment !== false && formData.paymentMethod === 'cash' && (
                     <>
                       <FieldRow
                         icon={<IconUser />}
@@ -876,7 +826,18 @@ const ConfirmationStep: React.FC<ConfirmationStepProps> = ({
               <h5 className="text-sm font-semibold mb-2" style={{ fontFamily: 'Poppins' }}>Location</h5>
 
               <div>
-                {mapSrc ? (
+                {listing?.latitude && listing?.longitude ? (
+                  <div className="w-full overflow-hidden rounded" style={{ borderRadius: 8 }}>
+                    <iframe
+                      title="Booking location map"
+                      src={`https://www.google.com/maps?q=${listing.latitude},${listing.longitude}&output=embed`}
+                      className="w-full h-36 sm:h-48"
+                      style={{ border: 0 }}
+                      loading="lazy"
+                      referrerPolicy="no-referrer-when-downgrade"
+                    />
+                  </div>
+                ) : mapSrc ? (
                   <div className="w-full overflow-hidden rounded" style={{ borderRadius: 8 }}>
                     <iframe
                       title="Booking location map"
@@ -934,16 +895,18 @@ const ConfirmationStep: React.FC<ConfirmationStepProps> = ({
               <div className="mt-3 text-sm">
                 <div className="text-xs text-gray-500">Check-in instructions</div>
                 <div className="text-sm text-gray-700 break-words" style={{ wordBreak: 'break-word' }}>{location.checkInInstructions}</div>
-                <div className="mt-2">
-                  <a
-                    href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(location.coords)}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-block text-sm text-[#0B5858] hover:underline"
-                  >
-                    Open in Google Maps
-                  </a>
-                </div>
+                { (listing?.latitude && listing?.longitude) || location.coords ? (
+                  <div className="mt-2">
+                    <a
+                      href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(listing?.latitude && listing?.longitude ? `${listing.latitude},${listing.longitude}` : (location.coords || ''))}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-block text-sm text-[#0B5858] hover:underline"
+                    >
+                      Open in Google Maps
+                    </a>
+                  </div>
+                ) : null}
               </div>
             </div>
 
