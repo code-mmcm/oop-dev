@@ -174,25 +174,18 @@ export class BookingService {
 
   // Get bookings for a specific listing (for availability checking)
   static async getBookingsForListing(listingId: string) {
-    const { data, error } = await supabase
-      .from('booking')
-      .select(`
-        id,
-        listing_id,
-        check_in_date,
-        check_out_date,
-        status
-      `)
-      .eq('listing_id', listingId)
-      .in('status', ['pending', 'confirmed', 'booked', 'ongoing']) // Only active bookings
-      .order('check_in_date', { ascending: true });
+    // Call the function directly with listing_id
+    const { data: bookings, error } = await supabase
+      .rpc('get_booking_dates', { listing_uuid: listingId });
 
     if (error) {
       console.error('Error fetching bookings for listing:', error);
       throw error;
     }
 
-    return data || [];
+    console.log(`Fetched ${bookings?.length || 0} bookings for listing ${listingId}`);
+    
+    return bookings || [];
   }
 
   // Get bookings for a specific listing with full details (for calendar view)
@@ -248,11 +241,38 @@ export class BookingService {
   }
 
   // Check if dates are available for a listing
+  // Supports same-day turnover when check_in_time >= check_out_time
   static async checkDateAvailability(
     listingId: string,
     checkInDate: string,
     checkOutDate: string
   ): Promise<boolean> {
+    // Get listing details to check check_in_time and check_out_time
+    let listing;
+    try {
+      const { data } = await supabase
+        .from('listings')
+        .select('check_in_time, check_out_time')
+        .eq('id', listingId)
+        .single();
+      listing = data;
+    } catch (error) {
+      console.error('Error fetching listing for availability check:', error);
+      listing = null;
+    }
+
+    // Parse times (default: check-in 2PM, check-out 12PM)
+    const parseTime = (timeStr?: string | null): number => {
+      if (!timeStr) return 0;
+      const [hours, minutes] = timeStr.split(':').map(Number);
+      return hours * 60 + (minutes || 0);
+    };
+
+    const checkInTimeMinutes = parseTime(listing?.check_in_time || '14:00');
+    const checkOutTimeMinutes = parseTime(listing?.check_out_time || '12:00');
+    const allowSameDay = checkInTimeMinutes >= checkOutTimeMinutes;
+
+    // Get existing bookings
     const bookings = await this.getBookingsForListing(listingId);
     
     // Check for any overlapping bookings
@@ -262,12 +282,41 @@ export class BookingService {
       const requestCheckIn = new Date(checkInDate);
       const requestCheckOut = new Date(checkOutDate);
 
-      // Check if dates overlap
-      if (
-        (requestCheckIn >= bookingCheckIn && requestCheckIn < bookingCheckOut) ||
-        (requestCheckOut > bookingCheckIn && requestCheckOut <= bookingCheckOut) ||
-        (requestCheckIn <= bookingCheckIn && requestCheckOut >= bookingCheckOut)
-      ) {
+      // Compare only dates for same-day logic
+      const bookingCheckInDate = bookingCheckIn.toISOString().split('T')[0];
+      const bookingCheckOutDate = bookingCheckOut.toISOString().split('T')[0];
+      const requestCheckInDate = requestCheckIn.toISOString().split('T')[0];
+      const requestCheckOutDate = requestCheckOut.toISOString().split('T')[0];
+
+      let hasOverlap = false;
+
+      if (allowSameDay) {
+        // Same-day turnover allowed
+        // Allow checkout on the same day as next booking's check-in
+        // Allow check-in on the same day as previous booking's checkout
+        hasOverlap = (
+          // New check-in falls within existing booking (excluding same-day as existing checkout)
+          (requestCheckIn >= bookingCheckIn && requestCheckIn < bookingCheckOut 
+            && requestCheckInDate !== bookingCheckOutDate)
+          ||
+          // New check-out falls within existing booking (excluding same-day as existing check-in)
+          (requestCheckOut > bookingCheckIn && requestCheckOut <= bookingCheckOut
+            && requestCheckOutDate !== bookingCheckInDate)
+          ||
+          // New booking completely encompasses existing booking
+          (requestCheckIn < bookingCheckIn && requestCheckOut > bookingCheckOut)
+        );
+      } else {
+        // Standard overlap check (no same-day allowed)
+        hasOverlap = (
+          (requestCheckIn >= bookingCheckIn && requestCheckIn < bookingCheckOut) ||
+          (requestCheckOut > bookingCheckIn && requestCheckOut <= bookingCheckOut) ||
+          (requestCheckIn <= bookingCheckIn && requestCheckOut >= bookingCheckOut)
+        );
+      }
+
+      if (hasOverlap) {
+        console.log(`Dates unavailable: Overlap detected with booking ${booking.id}`);
         return false; // Dates are not available
       }
     }

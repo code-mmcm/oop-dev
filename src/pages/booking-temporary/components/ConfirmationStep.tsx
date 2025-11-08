@@ -308,7 +308,7 @@ const ConfirmationStep: React.FC<ConfirmationStepProps> = ({
     setErrorMessage(null);
 
     try {
-      // Save booking to Supabase
+      // Save booking to Supabase using secure server-side function
       if (!user) {
         throw new Error('User must be logged in to create a booking');
       }
@@ -317,55 +317,45 @@ const ConfirmationStep: React.FC<ConfirmationStepProps> = ({
         throw new Error('Listing ID is required');
       }
 
-      // Create the booking record
-      const bookingData: any = {
-        listing_id: formData.listingId,
-        check_in_date: toIsoFromDateAndTime(formData.checkInDate, formData.checkInTime) || formData.checkInDate,
-        check_out_date: toIsoFromDateAndTime(formData.checkOutDate, formData.checkOutTime) || formData.checkOutDate,
-        nights: nights,
-        num_guests: primaryGuests,
-        extra_guests: extraGuests,
-        unit_charge: pricePerNight.toString(),
-        base_guest_included: baseGuests,
-        extra_guest_fee: extraGuestFeePerPerson,
-        amenities_charge: summary.amenitiesCharge,
-        service_charge: summary.serviceCharge,
-        discount: summary.discount,
-        subtotal: summary.unitCharge * nights,
-        total_amount: summary.totalCharges,
-        currency: 'PHP',
-        status: 'pending',
-        assigned_agent: user.id,
-        landmark: formData.locationLandmark,
-        parking_info: formData.locationParking,
-        notes: formData.requestDescription,
-        important_info: {},
-        add_ons: formData.additionalServices,
-        request_description: formData.requestDescription
-      };
-
-      console.log('Creating booking with:', {
+      console.log('Creating booking with server-side price calculation and overlap prevention:', {
         assignedAgentId: user.id,
         assignedAgentEmail: user.email,
         assignedAgentName: userProfile?.fullname || 'N/A',
         listingId: formData.listingId
       });
 
-      const { data: booking, error: bookingError } = await supabase
-        .from('booking')
-        .insert([bookingData])
-        .select()
-        .single();
+      // Call the secure server-side function to create booking with calculated price
+      // This function also prevents duplicate/overlapping bookings
+      const { data: result, error: bookingError } = await supabase
+        .rpc('create_booking', {
+          p_listing_id: formData.listingId,
+          p_check_in_date: toIsoFromDateAndTime(formData.checkInDate, formData.checkInTime) || formData.checkInDate,
+          p_check_out_date: toIsoFromDateAndTime(formData.checkOutDate, formData.checkOutTime) || formData.checkOutDate,
+          p_num_guests: primaryGuests,
+          p_extra_guests: extraGuests,
+          p_add_ons: formData.additionalServices || [],
+          p_landmark: formData.locationLandmark || null,
+          p_parking_info: formData.locationParking || null,
+          p_notes: formData.requestDescription || null,
+          p_request_description: formData.requestDescription || null
+        });
 
       if (bookingError) {
         console.error('Booking creation error:', bookingError);
         throw new Error(`Failed to create booking: ${bookingError.message}`);
       }
 
-      console.log('Booking created successfully:', {
-        bookingId: booking?.id,
-        userId: booking?.user_id,
-        listingId: booking?.listing_id
+      if (!result || !result.success) {
+        throw new Error('Booking creation failed: Invalid response from server');
+      }
+
+      const bookingId = result.booking_id;
+      const calculatedPrice = result.calculated_price;
+
+      console.log('Booking created successfully with server-calculated price:', {
+        bookingId,
+        calculatedPrice,
+        clientEstimate: summary.totalCharges
       });
 
       // Create client_details record ALWAYS after booking is created
@@ -374,7 +364,7 @@ const ConfirmationStep: React.FC<ConfirmationStepProps> = ({
         : '';
 
       const clientDetailsData = {
-        booking_id: booking.id,
+        booking_id: bookingId,
         first_name: formData.firstName || '',
         last_name: formData.lastName || '',
         nickname: formData.nickname || '',
@@ -397,7 +387,7 @@ const ConfirmationStep: React.FC<ConfirmationStepProps> = ({
       setStatus('success');
 
       setTimeout(() => {
-        window.location.href = `/booking-details/${booking.id}`;
+        window.location.href = `/booking-details/${bookingId}`;
       }, 2000);
     } catch (err: any) {
       setStatus('error');
