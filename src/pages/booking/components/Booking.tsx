@@ -68,7 +68,7 @@ const BookingComponent: React.FC = () => {
         try {
           const { data: paymentData } = await supabase
             .from('payment')
-            .select('booking_id, transaction_number')
+            .select('booking_id, reference_number')
             .in('booking_id', bookingIds);
           
           if (paymentData) {
@@ -76,8 +76,8 @@ const BookingComponent: React.FC = () => {
             const transactionsMap: Record<string, string> = {};
             paymentData.forEach((p: any) => {
               paymentsMap[p.booking_id] = true;
-              if (p.transaction_number) {
-                transactionsMap[p.booking_id] = p.transaction_number;
+              if (p.reference_number) {
+                transactionsMap[p.booking_id] = p.reference_number;
               }
             });
             setBookingPayments(paymentsMap);

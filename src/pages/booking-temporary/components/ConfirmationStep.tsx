@@ -758,23 +758,43 @@ const ConfirmationStep: React.FC<ConfirmationStepProps> = ({
               <div className="border border-gray-200 rounded-lg p-4">
                 <h5 className="text-sm font-semibold mb-3" style={{ fontFamily: 'Poppins' }}>Assigned Agent</h5>
                 <div className="flex items-start gap-3">
-                  <div className="w-10 h-10 rounded-full bg-[#E8F8F7] text-[#0B5858] flex items-center justify-center font-semibold" style={{ fontFamily: 'Poppins' }}>
-                    {(() => {
-                      const name = userProfile?.fullname || formData.assignedAgentName || user?.email || 'Agent';
-                      const parts = name.split(' ').filter(Boolean);
-                      const initials = parts.length >= 2 ? (parts[0][0] + parts[1][0]) : (parts[0] ? parts[0].slice(0,2) : 'AG');
-                      return initials.toUpperCase();
-                    })()}
+                  <div 
+                    className="w-10 h-10 rounded-full flex items-center justify-center overflow-hidden flex-shrink-0"
+                    style={{
+                      background: userProfile?.profile_photo
+                        ? 'transparent'
+                        : 'linear-gradient(to bottom right, #14b8a6, #0d9488)'
+                    }}
+                  >
+                    {userProfile?.profile_photo ? (
+                      <img
+                        src={userProfile.profile_photo}
+                        alt={userProfile?.fullname || 'Agent'}
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <span 
+                        className="text-white text-sm font-bold" 
+                        style={{ fontFamily: 'Poppins', fontWeight: 700 }}
+                      >
+                        {(() => {
+                          const name = userProfile?.fullname || formData.assignedAgentName || user?.email || 'Agent';
+                          const parts = name.split(' ').filter(Boolean);
+                          const initials = parts.length >= 2 ? (parts[0][0] + parts[1][0]) : (parts[0] ? parts[0].slice(0,2) : 'AG');
+                          return initials.toUpperCase();
+                        })()}
+                      </span>
+                    )}
                   </div>
 
                   <div className="flex-1 text-sm" style={{ fontFamily: 'Poppins' }}>
                     <div className="font-medium break-words" style={{ wordBreak: 'break-word' }}>
                       {userProfile?.fullname || formData.assignedAgentName || user?.email || 'Agent'}
                     </div>
-                    <div className="text-xs text-gray-500 mt-1">{formData.assignedAgentRole || 'Booking Agent'}</div>
-                    {(userProfile?.contact_number || formData.assignedAgentContact) && (
+                    <div className="text-xs text-gray-500 mt-1">Booking Agent</div>
+                    {user?.email && (
                       <div className="text-xs text-gray-500 mt-1 break-words" style={{ wordBreak: 'break-word' }}>
-                        {userProfile?.contact_number || formData.assignedAgentContact}
+                        {user.email}
                       </div>
                     )}
                   </div>
@@ -791,7 +811,7 @@ const ConfirmationStep: React.FC<ConfirmationStepProps> = ({
                 <h5 className="text-sm font-semibold" style={{ fontFamily: 'Poppins' }}>Status</h5>
                 <div className="text-sm text-green-600 font-medium flex items-center gap-2">
                   <svg className="w-4 h-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd"/></svg>
-                  Confirmed Stay
+                  Confirm Booking First
                 </div>
               </div>
             </div>
@@ -811,7 +831,7 @@ const ConfirmationStep: React.FC<ConfirmationStepProps> = ({
               </div>
             </div>
 
-            {/* Location: map + stacked details (details pushed down under map) */}
+            {/* Location: map + coordinates + Open in Google Maps link */}
             <div className="border border-gray-200 rounded-lg p-4">
               <h5 className="text-sm font-semibold mb-2" style={{ fontFamily: 'Poppins' }}>Location</h5>
 
@@ -853,40 +873,10 @@ const ConfirmationStep: React.FC<ConfirmationStepProps> = ({
                       <div className="font-medium text-gray-800 break-words" style={{ wordBreak: 'break-word' }}>{location.coords}</div>
                     </div>
                   </div>
-
-                  <div className="flex items-start gap-2">
-                    <svg className="w-4 h-4 text-gray-400 mt-0.5" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                      <path d="M3 10h18" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"></path>
-                      <path d="M6 6h12" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"></path>
-                    </svg>
-                    <div>
-                      <div className="text-xs text-gray-500">Landmark</div>
-                      <ExpandableText text={location.landmark} maxChars={80} className="font-medium text-gray-800" ariaLabel="Landmark" />
-                    </div>
-                  </div>
-
-                  <div className="flex items-start gap-2">
-                    <svg className="w-4 h-4 text-gray-400 mt-0.5" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                      <path d="M3 7h18" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"></path>
-                      <path d="M6 11h12" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"></path>
-                    </svg>
-                    <div>
-                      <div className="text-xs text-gray-500">Parking</div>
-                      <ExpandableText text={location.parking} maxChars={80} className="font-medium text-gray-800" ariaLabel="Parking" />
-                    </div>
-                  </div>
-
-                  {location.additionalNotes && (
-                    <div className="text-xs text-gray-500 mt-1 break-words" style={{ wordBreak: 'break-word' }}>{location.additionalNotes}</div>
-                  )}
                 </div>
-              </div>
 
-              <div className="mt-3 text-sm">
-                <div className="text-xs text-gray-500">Check-in instructions</div>
-                <div className="text-sm text-gray-700 break-words" style={{ wordBreak: 'break-word' }}>{location.checkInInstructions}</div>
-                { (listing?.latitude && listing?.longitude) || location.coords ? (
-                  <div className="mt-2">
+                {((listing?.latitude && listing?.longitude) || location.coords) && (
+                  <div className="mt-3">
                     <a
                       href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(listing?.latitude && listing?.longitude ? `${listing.latitude},${listing.longitude}` : (location.coords || ''))}`}
                       target="_blank"
@@ -896,7 +886,7 @@ const ConfirmationStep: React.FC<ConfirmationStepProps> = ({
                       Open in Google Maps
                     </a>
                   </div>
-                ) : null}
+                )}
               </div>
             </div>
 
@@ -969,129 +959,156 @@ const ConfirmationStep: React.FC<ConfirmationStepProps> = ({
         <div
           role="dialog"
           aria-modal="true"
-          className="fixed inset-0 z-50 flex items-center justify-center p-4"
+          className="fixed inset-0 z-[9999] flex items-center justify-center p-4"
+          style={{
+            backdropFilter: 'blur(4px)',
+            backgroundColor: 'rgba(0, 0, 0, 0.3)',
+            transition: 'background-color 0.25s ease'
+          }}
         >
-          <div className="absolute inset-0 bg-black opacity-30" onClick={() => { /* ignore clicks behind modal */ }} />
+          <div className="absolute inset-0" onClick={() => { /* ignore clicks behind modal */ }} />
 
-          <div className="relative bg-white rounded-lg shadow-lg max-w-sm w-full text-center p-6 sm:p-8">
+          <div className="relative bg-white rounded-xl shadow-2xl max-w-md w-full text-center p-8 sm:p-10">
             <div aria-hidden className="flex items-center justify-center mb-6">
               {status === 'processing' && (
-                <div className="w-20 h-20 flex items-center justify-center">
-                  <svg viewBox="0 0 60 60" className="w-20 h-20">
+                <div className="w-24 h-24 flex items-center justify-center">
+                  <svg viewBox="0 0 80 80" className="w-24 h-24">
                     <defs>
-                      <linearGradient id="g" x1="0" x2="1">
-                        <stop offset="0%" stopColor="#22c55e" />
-                        <stop offset="100%" stopColor="#08912a" />
+                      <linearGradient id="gradient-spinner" x1="0%" y1="0%" x2="100%" y2="100%">
+                        <stop offset="0%" stopColor="#0B5858" />
+                        <stop offset="100%" stopColor="#14b8a6" />
                       </linearGradient>
                     </defs>
-                    <circle cx="30" cy="30" r="22" stroke="#e6e6e6" strokeWidth="6" fill="none" />
-                    <g style={{ transformOrigin: '30px 30px', animation: 'spin 1.4s linear infinite' }}>
+                    <circle cx="40" cy="40" r="32" stroke="#e5e7eb" strokeWidth="6" fill="none" />
+                    <g style={{ transformOrigin: '40px 40px', animation: 'spin 1.2s linear infinite' }}>
                       <path
-                        d="M8 30a22 22 0 0 0 44 0"
-                        stroke="url(#g)"
+                        d="M8 40a32 32 0 0 1 64 0"
+                        stroke="url(#gradient-spinner)"
                         strokeWidth="6"
                         strokeLinecap="round"
                         fill="none"
                       />
                     </g>
-                    <circle cx="30" cy="30" r="7" fill="#16a34a" />
                   </svg>
                 </div>
               )}
 
               {status === 'success' && (
-                <div className="w-20 h-20 flex items-center justify-center">
-                  <svg viewBox="0 0 64 64" className="w-20 h-20">
-                    <circle cx="32" cy="32" r="30" fill="#ecfdf5" />
-                    <circle cx="32" cy="32" r="14" fill="#16a34a" />
-                    <path d="M20 33l6 6 18-18" stroke="#ffffff" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" fill="none" />
+                <div className="w-24 h-24 flex items-center justify-center">
+                  <svg viewBox="0 0 80 80" className="w-24 h-24" style={{ animation: 'scaleIn 0.4s ease-out' }}>
+                    <defs>
+                      <linearGradient id="gradient-success" x1="0%" y1="0%" x2="100%" y2="100%">
+                        <stop offset="0%" stopColor="#0B5858" />
+                        <stop offset="100%" stopColor="#14b8a6" />
+                      </linearGradient>
+                    </defs>
+                    <circle cx="40" cy="40" r="36" fill="#ecfdf5" />
+                    <circle cx="40" cy="40" r="30" fill="url(#gradient-success)" />
+                    <path 
+                      d="M26 40l10 10 18-20" 
+                      stroke="#ffffff" 
+                      strokeWidth="5" 
+                      strokeLinecap="round" 
+                      strokeLinejoin="round" 
+                      fill="none"
+                      style={{ animation: 'checkmark 0.5s ease-out 0.2s both' }}
+                    />
                   </svg>
                 </div>
               )}
 
               {status === 'error' && (
-                <div className="w-20 h-20 flex items-center justify-center">
-                  <svg viewBox="0 0 64 64" className="w-20 h-20">
-                    <circle cx="32" cy="32" r="30" fill="#fff1f2" />
-                    <path d="M20 20l24 24M44 20L20 44" stroke="#ef4444" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" />
+                <div className="w-24 h-24 flex items-center justify-center">
+                  <svg viewBox="0 0 80 80" className="w-24 h-24">
+                    <circle cx="40" cy="40" r="36" fill="#fef2f2" />
+                    <circle cx="40" cy="40" r="30" fill="#ef4444" />
+                    <path d="M28 28l24 24M52 28L28 52" stroke="#ffffff" strokeWidth="5" strokeLinecap="round" strokeLinejoin="round" />
                   </svg>
                 </div>
               )}
             </div>
 
-            <h3 className="text-lg font-medium text-gray-800 mb-2" style={{ fontFamily: 'Poppins' }}>
+            <h3 className="text-xl font-semibold text-gray-800 mb-2" style={{ fontFamily: 'Poppins' }}>
               {status === 'processing' && 'Confirming booking'}
-              {status === 'success' && 'Booking confirmed'}
+              {status === 'success' && 'Booking successfully placed!'}
               {status === 'error' && 'Something went wrong'}
             </h3>
             <p className="text-sm text-gray-500 mb-4" style={{ fontFamily: 'Poppins' }}>
               {status === 'processing' && "We're confirming your booking with our system. It could take a moment so hang in there."}
-              {status === 'success' && 'Your booking has been saved.'}
+              {status === 'success' && 'Redirecting to booking details...'}
               {status === 'error' && (errorMessage ?? 'Unable to confirm booking. Please try again.')}
             </p>
 
-            <div className="flex items-center justify-center gap-3">
-              {status === 'error' ? (
-                <>
-                  <button
-                    onClick={() => {
-                      setStatus('idle');
-                      setIsProcessing(false);
-                      setErrorMessage(null);
-                    }}
-                    className="px-4 py-2 border border-gray-300 rounded text-sm"
-                    style={{ fontFamily: 'Poppins' }}
-                  >
-                    Cancel
-                  </button>
-
-                  <button
-                    onClick={() => {
-                      setStatus('processing');
-                      setErrorMessage(null);
-                      (async () => {
-                        try {
-                          const res = onConfirm();
-                          if (res && typeof (res as Promise<void>).then === 'function') {
-                            await res;
-                          }
-                          setStatus('success');
-                          setTimeout(() => {
-                            setIsProcessing(false);
-                            setStatus('idle');
-                          }, 1200);
-                        } catch (err: any) {
-                          setStatus('error');
-                          setErrorMessage(err?.message || 'An error occurred while confirming your booking.');
-                        }
-                      })();
-                    }}
-                    className="px-4 py-2 bg-[#0B5858] text-white rounded text-sm"
-                    style={{ fontFamily: 'Poppins' }}
-                  >
-                    Retry
-                  </button>
-                </>
-              ) : (
+            {status === 'error' && (
+              <div className="flex items-center justify-center gap-3">
                 <button
                   onClick={() => {
-                    if (status === 'processing') return;
-                    setIsProcessing(false);
                     setStatus('idle');
+                    setIsProcessing(false);
+                    setErrorMessage(null);
+                  }}
+                  className="px-4 py-2 border border-gray-300 rounded text-sm"
+                  style={{ fontFamily: 'Poppins' }}
+                >
+                  Cancel
+                </button>
+
+                <button
+                  onClick={() => {
+                    setStatus('processing');
+                    setErrorMessage(null);
+                    (async () => {
+                      try {
+                        const res = onConfirm();
+                        if (res && typeof (res as Promise<void>).then === 'function') {
+                          await res;
+                        }
+                        setStatus('success');
+                        setTimeout(() => {
+                          setIsProcessing(false);
+                          setStatus('idle');
+                        }, 1200);
+                      } catch (err: any) {
+                        setStatus('error');
+                        setErrorMessage(err?.message || 'An error occurred while confirming your booking.');
+                      }
+                    })();
                   }}
                   className="px-4 py-2 bg-[#0B5858] text-white rounded text-sm"
                   style={{ fontFamily: 'Poppins' }}
                 >
-                  {status === 'processing' ? 'Processing...' : 'Close'}
+                  Retry
                 </button>
-              )}
-            </div>
+              </div>
+            )}
           </div>
 
           <style>{`
             @keyframes spin {
               from { transform: rotate(0deg); }
               to { transform: rotate(360deg); }
+            }
+            
+            @keyframes scaleIn {
+              from { 
+                transform: scale(0.5); 
+                opacity: 0;
+              }
+              to { 
+                transform: scale(1); 
+                opacity: 1;
+              }
+            }
+            
+            @keyframes checkmark {
+              from {
+                stroke-dasharray: 50;
+                stroke-dashoffset: 50;
+              }
+              to {
+                stroke-dasharray: 50;
+                stroke-dashoffset: 0;
+              }
             }
           `}</style>
         </div>

@@ -42,7 +42,7 @@ const TabsSection: React.FC<TabsSectionProps> = ({ listing, isLoading, className
             <button
               type="button"
               onClick={() => setActiveTab('amenities')}
-              className={`text-sm md:text-lg transition-colors ${activeTab === 'amenities' ? 'text-teal-700' : 'text-black'}`}
+              className={`text-sm md:text-lg transition-colors cursor-pointer ${activeTab === 'amenities' ? 'text-teal-700' : 'text-black'}`}
               style={{ fontFamily: 'Poppins', fontWeight: 600 }}
               aria-controls="amenities-grid"
               aria-pressed={activeTab === 'amenities'}
@@ -55,7 +55,7 @@ const TabsSection: React.FC<TabsSectionProps> = ({ listing, isLoading, className
             <button
               type="button"
               onClick={() => setActiveTab('management')}
-              className={`text-sm md:text-lg transition-colors ${activeTab === 'management' ? 'text-teal-700' : 'text-black'}`}
+              className={`text-sm md:text-lg transition-colors cursor-pointer ${activeTab === 'management' ? 'text-teal-700' : 'text-black'}`}
               style={{ fontFamily: 'Poppins', fontWeight: 600 }}
               aria-controls="management-section"
               aria-pressed={activeTab === 'management'}
@@ -68,7 +68,7 @@ const TabsSection: React.FC<TabsSectionProps> = ({ listing, isLoading, className
             <button
               type="button"
               onClick={() => setActiveTab('location')}
-              className={`text-sm md:text-lg transition-colors ${activeTab === 'location' ? 'text-teal-700' : 'text-black'}`}
+              className={`text-sm md:text-lg transition-colors cursor-pointer ${activeTab === 'location' ? 'text-teal-700' : 'text-black'}`}
               style={{ fontFamily: 'Poppins', fontWeight: 600 }}
               aria-controls="MapSection"
               aria-pressed={activeTab === 'location'}

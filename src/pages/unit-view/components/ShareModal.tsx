@@ -26,8 +26,19 @@ const ShareModal: React.FC<ShareModalProps> = ({
   if (!show) return null;
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-xl p-6 max-w-md w-full mx-4">
+    <div 
+      className="fixed inset-0 flex items-center justify-center z-[9999]"
+      style={{
+        backdropFilter: 'blur(4px)',
+        backgroundColor: 'rgba(0, 0, 0, 0.3)',
+        transition: 'background-color 0.25s ease'
+      }}
+      onClick={onClose}
+    >
+      <div 
+        className="bg-white rounded-xl p-6 max-w-md w-full mx-4"
+        onClick={(e) => e.stopPropagation()}
+      >
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-xl font-bold" style={{fontFamily: 'Poppins', fontWeight: 700}}>
             Share Property

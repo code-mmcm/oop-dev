@@ -114,6 +114,30 @@ const BookingDetails: React.FC = () => {
     return labels[method] || method;
   };
 
+  // Format time from 24-hour format (HH:MM:SS or HH:MM) to 12-hour format (h:MM AM/PM)
+  const formatTime = (time?: string) => {
+    if (!time) return '';
+    
+    // Parse the time string (e.g., "14:00:00" or "14:00")
+    const timeParts = time.split(':');
+    if (timeParts.length < 2) return time;
+    
+    let hours = parseInt(timeParts[0], 10);
+    const minutes = timeParts[1];
+    
+    // Determine AM/PM
+    const period = hours >= 12 ? 'PM' : 'AM';
+    
+    // Convert to 12-hour format
+    if (hours === 0) {
+      hours = 12; // Midnight
+    } else if (hours > 12) {
+      hours = hours - 12;
+    }
+    
+    return `${hours}:${minutes} ${period}`;
+  };
+
   useEffect(() => {
     const fetchBooking = async () => {
       if (!id) {
@@ -965,11 +989,21 @@ const BookingDetails: React.FC = () => {
                 <div className="text-sm text-gray-700 space-y-2" style={{ fontFamily: 'Poppins' }}>
                   <div>
                     <div className="text-xs text-gray-500">Check-in</div>
-                    <div className="break-words" style={{ wordBreak: 'break-word' }}>{formatDate(booking.check_in_date)}</div>
+                    <div className="break-words" style={{ wordBreak: 'break-word' }}>
+                      {formatDate(booking.check_in_date)}
+                      {booking.listing?.check_in_time && (
+                        <span className="text-gray-500"> • {formatTime(booking.listing.check_in_time)}</span>
+                      )}
+                    </div>
                   </div>
                   <div>
                     <div className="text-xs text-gray-500">Check-out</div>
-                    <div className="break-words" style={{ wordBreak: 'break-word' }}>{formatDate(booking.check_out_date)}</div>
+                    <div className="break-words" style={{ wordBreak: 'break-word' }}>
+                      {formatDate(booking.check_out_date)}
+                      {booking.listing?.check_out_time && (
+                        <span className="text-gray-500"> • {formatTime(booking.listing.check_out_time)}</span>
+                      )}
+                    </div>
                   </div>
                 </div>
               </div>
