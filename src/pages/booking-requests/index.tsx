@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { BookingService } from '../../services/bookingService';
+import { NotificationService } from '../../services/notificationService';
 import { supabase } from '../../lib/supabase';
 import type { Booking } from '../../types/booking';
 import { useAuth } from '../../contexts/AuthContext';
@@ -124,14 +125,14 @@ const BookingRequests: React.FC = () => {
         logger.info('Fetching all bookings for summary', { userId: user.id });
         let allBookingsData = await BookingService.getAllBookings();
 
-        // Auto-decline any confirmed bookings whose confirmation_expires_at has passed.
+        // Auto-decline any pending-payment bookings whose confirmation_expires_at has passed.
         // Prefer a single batched update rather than updating one-by-one to reduce churn.
         const now = new Date();
         const expiredIds: string[] = [];
         for (const b of allBookingsData) {
           try {
             const expiresRaw = (b as any).confirmation_expires_at;
-            if (b.status === 'confirmed' && expiresRaw) {
+            if (b.status === 'pending-payment' && expiresRaw) {
               const expires = new Date(expiresRaw);
               if (expires.getTime() <= now.getTime()) {
                 expiredIds.push(b.id);
@@ -148,7 +149,7 @@ const BookingRequests: React.FC = () => {
               .from('booking')
               .update({ status: 'declined', updated_at: new Date().toISOString() })
               .in('id', expiredIds);
-            logger.info('Auto-declined expired confirmed bookings', { count: expiredIds.length });
+            logger.info('Auto-declined expired pending-payment bookings', { count: expiredIds.length });
           } catch (err) {
             logger.warn('Failed to auto-decline expired bookings', { err });
           }
@@ -160,8 +161,8 @@ const BookingRequests: React.FC = () => {
         hasFetchedAllBookings.current = true;
         logger.info('All bookings fetched successfully', { count: allBookingsData.length });
 
-        // Check which confirmed bookings have payment records
-        const confirmedBookings = allBookingsData.filter(b => b.status === 'confirmed');
+        // Check which pending-payment bookings have payment records
+        const confirmedBookings = allBookingsData.filter(b => b.status === 'pending-payment');
         if (confirmedBookings.length > 0) {
           const bookingIds = confirmedBookings.map(b => b.id);
           try {
@@ -317,7 +318,7 @@ const BookingRequests: React.FC = () => {
       showToast('Booking request approved', 'success');
       
       // Create updated booking with new status for immediate UI update
-      const updatedBooking = { ...booking, status: 'confirmed' as const };
+      const updatedBooking = { ...booking, status: 'pending-payment' as const };
       
       // Update UI immediately for real-time feedback
       setAllBookings(prev => prev.map(b => b.id === booking.id ? updatedBooking : b));
@@ -328,7 +329,7 @@ const BookingRequests: React.FC = () => {
       }
       
       // Then perform the actual API call in background
-      await BookingService.updateBookingStatus(booking.id, 'confirmed');
+      await BookingService.updateBookingStatus(booking.id, 'pending-payment');
 
       // Set assigned agent and confirmation_expires_at (24h grace period)
       try {
@@ -385,8 +386,32 @@ const BookingRequests: React.FC = () => {
           }}));
         }
       } catch (err) {
-        // No payment record yet, which is expected for newly confirmed bookings
-        logger.info('No payment record yet for newly confirmed booking', { bookingId: booking.id });
+        // No payment record yet, which is expected for newly pending-payment bookings
+        logger.info('No payment record yet for newly pending-payment booking', { bookingId: booking.id });
+      }
+      
+      // Send notification to the assigned agent
+      try {
+        const assignedAgentId = agentId || booking.assigned_agent;
+        const propertyTitle = booking.listing?.title || 'Property';
+        
+        if (assignedAgentId) {
+          await NotificationService.notifyBookingApproved(
+            assignedAgentId,
+            booking.id,
+            propertyTitle
+          );
+          logger.info('Notification sent to agent', { 
+            agentId: assignedAgentId, 
+            bookingId: booking.id 
+          });
+        }
+      } catch (notifError) {
+        // Log but don't fail the approval process
+        logger.warn('Failed to send notification', { 
+          bookingId: booking.id, 
+          error: notifError 
+        });
       }
       
       logger.info('Booking approved successfully', { bookingId: booking.id });
@@ -435,6 +460,29 @@ const BookingRequests: React.FC = () => {
       // Then perform the actual API call in background
       await BookingService.updateBookingStatus(pendingBooking.id, 'declined');
       
+      // Send notification to the assigned agent
+      try {
+        const propertyTitle = pendingBooking.listing?.title || 'Property';
+        
+        if (pendingBooking.assigned_agent) {
+          await NotificationService.notifyBookingDeclined(
+            pendingBooking.assigned_agent,
+            pendingBooking.id,
+            propertyTitle
+          );
+          logger.info('Decline notification sent to agent', { 
+            agentId: pendingBooking.assigned_agent, 
+            bookingId: pendingBooking.id 
+          });
+        }
+      } catch (notifError) {
+        // Log but don't fail the decline process
+        logger.warn('Failed to send decline notification', { 
+          bookingId: pendingBooking.id, 
+          error: notifError 
+        });
+      }
+      
       logger.info('Booking declined successfully', { bookingId: pendingBooking.id });
     } catch (error) {
       logger.error('Error declining booking', { error, bookingId: pendingBooking.id });
@@ -480,13 +528,13 @@ const BookingRequests: React.FC = () => {
    * Calculate summary stats from all bookings
    * Status breakdown:
    * - Pending: awaiting admin approval
-   * - Awaiting Payment: admin approved, awaiting payment (confirmed status)
+   * - Awaiting Payment: admin approved, awaiting payment (pending-payment status)
    * - Booked: payment confirmed, booking is official
    * - Declined: rejected or cancelled bookings
    */
   const getSummaryStats = () => {
     const pending = allBookings.filter(b => b.status === 'pending').length;
-    const awaitingPayment = allBookings.filter(b => b.status === 'confirmed').length;
+    const awaitingPayment = allBookings.filter(b => b.status === 'pending-payment').length;
     const booked = allBookings.filter(b => b.status === 'booked' || b.status === 'ongoing' || b.status === 'completed').length;
     const declined = allBookings.filter(b => b.status === 'declined' || b.status === 'cancelled').length;
     const total = allBookings.length;
@@ -499,7 +547,7 @@ const BookingRequests: React.FC = () => {
    * Filter options:
    * - All Status: show all bookings
    * - Pending: awaiting admin approval
-   * - Awaiting Payment: admin approved, awaiting payment (confirmed status)
+   * - Awaiting Payment: admin approved, awaiting payment (pending-payment status)
    * - Booked: payment confirmed, booking is official
    * - Declined: rejected or cancelled bookings
    */
@@ -513,7 +561,7 @@ const BookingRequests: React.FC = () => {
         case 'Pending':
           return booking.status === 'pending';
         case 'Awaiting Payment':
-          return booking.status === 'confirmed';
+          return booking.status === 'pending-payment';
         case 'Booked':
           return booking.status === 'booked' || booking.status === 'ongoing' || booking.status === 'completed';
         case 'Declined':
@@ -531,7 +579,7 @@ const BookingRequests: React.FC = () => {
   const getStatusOrder = (status: string): number => {
     const statusOrder: Record<string, number> = {
       'pending': 1,
-      'confirmed': 2,
+      'pending-payment': 2,
       'booked': 3,
       'ongoing': 3,
       'completed': 3,
@@ -688,7 +736,7 @@ const BookingRequests: React.FC = () => {
 
     // Determine status styling
     const isPending = booking.status === 'pending';
-    const isAwaitingPayment = booking.status === 'confirmed';
+    const isAwaitingPayment = booking.status === 'pending-payment';
     const isBooked = booking.status === 'booked' || booking.status === 'ongoing' || booking.status === 'completed';
     const isDeclined = booking.status === 'declined' || booking.status === 'cancelled';
     
@@ -820,7 +868,7 @@ const BookingRequests: React.FC = () => {
                 Decline
               </button>
             </div>
-          ) : booking.status === 'confirmed' ? (
+          ) : booking.status === 'pending-payment' ? (
             // Show "Confirm Payment" button only if payment record exists
             bookingPayments[booking.id] ? (
               <div className="flex-shrink-0 ml-4 w-[100px]">
@@ -939,7 +987,7 @@ const BookingRequests: React.FC = () => {
 
   /**
    * Handle confirm payment action (called after modal confirmation)
-   * Updates booking status from 'confirmed' to 'booked'
+   * Updates booking status from 'pending-payment' to 'booked'
    * Updates UI immediately for real-time feedback
    */
   const handleConfirmPayment = async () => {
@@ -968,6 +1016,29 @@ const BookingRequests: React.FC = () => {
       
       // Then perform the actual API call in background
       await BookingService.confirmPayment(pendingPaymentBooking.id);
+      
+      // Send notification to the assigned agent
+      try {
+        const propertyTitle = pendingPaymentBooking.listing?.title || 'Property';
+        
+        if (pendingPaymentBooking.assigned_agent) {
+          await NotificationService.notifyPaymentConfirmed(
+            pendingPaymentBooking.assigned_agent,
+            pendingPaymentBooking.id,
+            propertyTitle
+          );
+          logger.info('Payment confirmation notification sent to agent', { 
+            agentId: pendingPaymentBooking.assigned_agent, 
+            bookingId: pendingPaymentBooking.id 
+          });
+        }
+      } catch (notifError) {
+        // Log but don't fail the payment confirmation process
+        logger.warn('Failed to send payment confirmation notification', { 
+          bookingId: pendingPaymentBooking.id, 
+          error: notifError 
+        });
+      }
       
       logger.info('Payment confirmed successfully', { bookingId: pendingPaymentBooking.id });
     } catch (error) {
@@ -1302,7 +1373,7 @@ const BookingRequests: React.FC = () => {
                     {(() => {
                       const status = selectedBooking.status;
                       if (status === 'pending') return 'Pending';
-                      if (status === 'confirmed') return 'Awaiting Payment';
+                      if (status === 'pending-payment') return 'Awaiting Payment';
                       if (status === 'booked' || status === 'ongoing' || status === 'completed') return 'Booked';
                       if (status === 'declined' || status === 'cancelled') return 'Declined';
                       // Fallback: capitalize first letter of status string
@@ -1311,7 +1382,7 @@ const BookingRequests: React.FC = () => {
                     })()}
                   </span>
                 </div>
-                {(selectedBooking.status === 'pending' || selectedBooking.status === 'confirmed') && (
+                {(selectedBooking.status === 'pending' || selectedBooking.status === 'pending-payment') && (
                   <button
                     onClick={() => {
                       if (selectedBooking) {
@@ -1621,7 +1692,7 @@ const BookingRequests: React.FC = () => {
                   </button>
                 </>
               )}
-              {selectedBooking.status === 'confirmed' && bookingPayments[selectedBooking.id] && (
+              {selectedBooking.status === 'pending-payment' && bookingPayments[selectedBooking.id] && (
                 <button
                   onClick={() => selectedBooking && openPaymentModal(selectedBooking)}
                   disabled={isProcessing}
@@ -1631,7 +1702,7 @@ const BookingRequests: React.FC = () => {
                   Confirm Payment
                 </button>
               )}
-              {selectedBooking.status !== 'pending' && selectedBooking.status !== 'confirmed' && (
+              {selectedBooking.status !== 'pending' && selectedBooking.status !== 'pending-payment' && (
                 <button
                   onClick={() => {
                     if (selectedBooking) {

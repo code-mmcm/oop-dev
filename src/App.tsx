@@ -21,6 +21,7 @@ import Listings from "./pages/listings";
 import BookingRequests from "./pages/booking-requests";
 import HelpAndSupport from "./pages/help-and-support/help.support";
 import BookingPayment from "./pages/booking-payment";
+import NotificationsPage from "./pages/notifications";
 import NotFound from "./components/NotFound";
 
 function App() {
@@ -120,6 +121,14 @@ function App() {
             element={
               <ProtectedRoute allowedRoles={['admin']}>
                 <BookingRequests />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/notifications"
+            element={
+              <ProtectedRoute allowedRoles={['admin', 'agent']}>
+                <NotificationsPage />
               </ProtectedRoute>
             }
           />

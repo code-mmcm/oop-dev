@@ -1,6 +1,17 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import { supabase } from '../lib/supabase';
+
+interface Notification {
+  id: string;
+  title: string;
+  message: string;
+  type: string;
+  is_read: boolean;
+  created_at: string;
+  link?: string;
+}
 
 const Navbar: React.FC = () => {
   const { user, signOut, userRole, userProfile, isAdmin, isAgent, roleLoading } = useAuth();
@@ -8,7 +19,13 @@ const Navbar: React.FC = () => {
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [profileImageError, setProfileImageError] = useState(false);
+  const [isNotificationOpen, setIsNotificationOpen] = useState(false);
+  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [loadingNotifications, setLoadingNotifications] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const notificationRef = useRef<HTMLDivElement>(null);
+  const mobileNotificationRef = useRef<HTMLDivElement>(null);
 
   // Get user initials for default avatar
   const getInitials = () => {
@@ -55,11 +72,112 @@ const Navbar: React.FC = () => {
     setIsMobileMenuOpen(!isMobileMenuOpen);
   };
 
-  // Close dropdown when clicking outside
+  // Fetch notifications
+  const fetchNotifications = async () => {
+    if (!user) return;
+    
+    try {
+      setLoadingNotifications(true);
+      // Try to fetch from notifications table
+      const { data, error } = await supabase
+        .from('notifications')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false })
+        .limit(20);
+
+      if (error) {
+        // If table doesn't exist, use empty array
+        console.log('Notifications table may not exist:', error);
+        setNotifications([]);
+        setUnreadCount(0);
+        return;
+      }
+
+      setNotifications(data || []);
+      const unread = (data || []).filter((n: Notification) => !n.is_read).length;
+      setUnreadCount(unread);
+    } catch (error) {
+      console.error('Error fetching notifications:', error);
+      setNotifications([]);
+      setUnreadCount(0);
+    } finally {
+      setLoadingNotifications(false);
+    }
+  };
+
+  // Mark notification as read
+  const markAsRead = async (notificationId: string) => {
+    try {
+      const { error } = await supabase
+        .from('notifications')
+        .update({ is_read: true })
+        .eq('id', notificationId);
+
+      if (!error) {
+        setNotifications(prev =>
+          prev.map(n => n.id === notificationId ? { ...n, is_read: true } : n)
+        );
+        setUnreadCount(prev => Math.max(0, prev - 1));
+      }
+    } catch (error) {
+      console.error('Error marking notification as read:', error);
+    }
+  };
+
+  // Mark all as read
+  const markAllAsRead = async () => {
+    if (!user || unreadCount === 0) return;
+    
+    try {
+      const { error } = await supabase
+        .from('notifications')
+        .update({ is_read: true })
+        .eq('user_id', user.id)
+        .eq('is_read', false);
+
+      if (!error) {
+        setNotifications(prev => prev.map(n => ({ ...n, is_read: true })));
+        setUnreadCount(0);
+      }
+    } catch (error) {
+      console.error('Error marking all notifications as read:', error);
+    }
+  };
+
+  // Fetch notifications when user is available
+  useEffect(() => {
+    if (user) {
+      fetchNotifications();
+      // Set up real-time subscription for notifications
+      const channel = supabase
+        .channel('notifications')
+        .on('postgres_changes', 
+          { event: '*', schema: 'public', table: 'notifications', filter: `user_id=eq.${user.id}` },
+          () => {
+            fetchNotifications();
+          }
+        )
+        .subscribe();
+
+      return () => {
+        supabase.removeChannel(channel);
+      };
+    }
+  }, [user]);
+
+  // Close dropdowns when clicking outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
         setIsDropdownOpen(false);
+      }
+      // Check both desktop and mobile notification refs
+      const clickedInsideDesktopNotification = notificationRef.current && notificationRef.current.contains(event.target as Node);
+      const clickedInsideMobileNotification = mobileNotificationRef.current && mobileNotificationRef.current.contains(event.target as Node);
+      
+      if (!clickedInsideDesktopNotification && !clickedInsideMobileNotification) {
+        setIsNotificationOpen(false);
       }
     };
 
@@ -84,8 +202,111 @@ const Navbar: React.FC = () => {
             </Link>
           </div>
 
-          {/* Mobile Menu Button */}
-          <div className="md:hidden ml-auto">
+          {/* Mobile Menu Button and Notification */}
+          <div className="md:hidden ml-auto flex items-center space-x-2">
+            {/* Mobile Notification Bell */}
+            {user && (
+              <div className="relative" ref={mobileNotificationRef}>
+                <button
+                  onClick={() => setIsNotificationOpen(!isNotificationOpen)}
+                  className="relative p-2 text-gray-600 hover:text-gray-900 focus:outline-none focus:ring-2 focus:ring-teal-300 rounded-full transition-colors cursor-pointer"
+                >
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+                  </svg>
+                  {unreadCount > 0 && (
+                    <span className="absolute top-0 right-0 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center font-semibold">
+                      {unreadCount > 9 ? '9+' : unreadCount}
+                    </span>
+                  )}
+                </button>
+
+                {/* Mobile Notification Dropdown */}
+                {isNotificationOpen && (
+                  <div className="fixed left-1/2 transform -translate-x-1/2 top-16 w-80 max-w-[calc(100vw-2rem)] bg-white rounded-lg shadow-lg border border-gray-200 z-50 max-h-96 overflow-hidden flex flex-col">
+                    <div className="px-4 py-3 border-b border-gray-200 flex items-center justify-between">
+                      <h3 className="text-sm font-semibold text-gray-900" style={{fontFamily: 'Poppins'}}>
+                        Notifications
+                      </h3>
+                      {unreadCount > 0 && (
+                        <button
+                          onClick={markAllAsRead}
+                          className="text-xs text-teal-600 hover:text-teal-800 transition-colors"
+                          style={{fontFamily: 'Poppins'}}
+                        >
+                          Mark all as read
+                        </button>
+                      )}
+                    </div>
+                    <div className="overflow-y-auto flex-1">
+                      {loadingNotifications ? (
+                        <div className="px-4 py-8 text-center">
+                          <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-gray-400 mx-auto"></div>
+                          <p className="text-sm text-gray-500 mt-2" style={{fontFamily: 'Poppins'}}>Loading...</p>
+                        </div>
+                      ) : notifications.length === 0 ? (
+                        <div className="px-4 py-8 text-center">
+                          <p className="text-sm text-gray-500" style={{fontFamily: 'Poppins'}}>No notifications</p>
+                        </div>
+                      ) : (
+                        <div className="divide-y divide-gray-100">
+                          {notifications.map((notification) => (
+                            <div
+                              key={notification.id}
+                              className={`px-4 py-3 hover:bg-gray-50 transition-colors cursor-pointer ${
+                                !notification.is_read ? 'bg-blue-50' : ''
+                              }`}
+                              onClick={async () => {
+                                if (!notification.is_read) {
+                                  await markAsRead(notification.id);
+                                }
+                                setIsNotificationOpen(false);
+                                if (notification.link) {
+                                  setTimeout(() => {
+                                    window.location.href = notification.link!;
+                                  }, 100);
+                                }
+                              }}
+                            >
+                              <div className="flex items-start">
+                                {!notification.is_read && (
+                                  <div className="w-2 h-2 bg-blue-500 rounded-full mt-2 mr-2 flex-shrink-0"></div>
+                                )}
+                                <div className="flex-1 min-w-0">
+                                  <p className={`text-sm font-medium ${!notification.is_read ? 'text-gray-900' : 'text-gray-700'}`} style={{fontFamily: 'Poppins'}}>
+                                    {notification.title}
+                                  </p>
+                                  <p className="text-xs text-gray-500 mt-1 line-clamp-2" style={{fontFamily: 'Poppins'}}>
+                                    {notification.message}
+                                  </p>
+                                  <p className="text-xs text-gray-400 mt-1" style={{fontFamily: 'Poppins'}}>
+                                    {new Date(notification.created_at).toLocaleDateString()}
+                                  </p>
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                    {/* View All Footer */}
+                    {notifications.length > 0 && (
+                      <div className="border-t border-gray-200 px-4 py-2">
+                        <Link
+                          to="/notifications"
+                          onClick={() => setIsNotificationOpen(false)}
+                          className="block text-center text-xs font-medium text-[#0B5858] hover:text-[#0a4a4a] transition-colors"
+                          style={{fontFamily: 'Poppins'}}
+                        >
+                          View all
+                        </Link>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+            
             <button
               onClick={toggleMobileMenu}
               className="text-gray-600 hover:text-gray-900 focus:outline-none focus:text-gray-900 p-2 cursor-pointer"
@@ -126,9 +347,112 @@ const Navbar: React.FC = () => {
 
           {/* Right side - User Menu */}
           <div className="hidden md:block flex-shrink-0 ml-auto">
-            <div className="flex items-center space-x-4">
+            <div className="flex items-center space-x-3">
               {user ? (
-                <div className="relative" ref={dropdownRef}>
+                <>
+                  {/* Notification Bell */}
+                  <div className="relative" ref={notificationRef}>
+                    <button
+                      onClick={() => setIsNotificationOpen(!isNotificationOpen)}
+                      className="relative p-2 text-gray-600 hover:text-gray-900 focus:outline-none focus:ring-2 focus:ring-teal-300 rounded-full transition-colors cursor-pointer"
+                    >
+                      <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+                      </svg>
+                      {unreadCount > 0 && (
+                        <span className="absolute top-0 right-0 block h-5 w-5 rounded-full bg-red-500 text-white text-xs font-bold flex items-center justify-center" style={{fontFamily: 'Poppins', fontSize: '10px'}}>
+                          {unreadCount > 9 ? '9+' : unreadCount}
+                        </span>
+                      )}
+                    </button>
+
+                    {/* Notification Dropdown */}
+                    {isNotificationOpen && (
+                      <div className="absolute right-0 mt-2 w-80 bg-white rounded-lg shadow-lg border border-gray-200 z-50 max-h-96 overflow-hidden flex flex-col">
+                        <div className="px-4 py-3 border-b border-gray-200 flex items-center justify-between">
+                          <h3 className="text-sm font-semibold text-gray-900" style={{fontFamily: 'Poppins'}}>
+                            Notifications
+                          </h3>
+                          {unreadCount > 0 && (
+                            <button
+                              onClick={markAllAsRead}
+                              className="text-xs text-teal-600 hover:text-teal-800 transition-colors"
+                              style={{fontFamily: 'Poppins'}}
+                            >
+                              Mark all as read
+                            </button>
+                          )}
+                        </div>
+                        <div className="overflow-y-auto flex-1">
+                          {loadingNotifications ? (
+                            <div className="px-4 py-8 text-center">
+                              <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-gray-400 mx-auto"></div>
+                              <p className="text-sm text-gray-500 mt-2" style={{fontFamily: 'Poppins'}}>Loading...</p>
+                            </div>
+                          ) : notifications.length === 0 ? (
+                            <div className="px-4 py-8 text-center">
+                              <p className="text-sm text-gray-500" style={{fontFamily: 'Poppins'}}>No notifications</p>
+                            </div>
+                          ) : (
+                            <div className="divide-y divide-gray-100">
+                              {notifications.map((notification) => (
+                                <div
+                                  key={notification.id}
+                                  className={`px-4 py-3 hover:bg-gray-50 transition-colors cursor-pointer ${
+                                    !notification.is_read ? 'bg-blue-50' : ''
+                                  }`}
+                                  onClick={async () => {
+                                    if (!notification.is_read) {
+                                      await markAsRead(notification.id);
+                                    }
+                                    setIsNotificationOpen(false);
+                                    if (notification.link) {
+                                      setTimeout(() => {
+                                        window.location.href = notification.link!;
+                                      }, 100);
+                                    }
+                                  }}
+                                >
+                                  <div className="flex items-start">
+                                    {!notification.is_read && (
+                                      <div className="w-2 h-2 bg-blue-500 rounded-full mt-2 mr-2 flex-shrink-0"></div>
+                                    )}
+                                    <div className="flex-1 min-w-0">
+                                      <p className={`text-sm font-medium ${!notification.is_read ? 'text-gray-900' : 'text-gray-700'}`} style={{fontFamily: 'Poppins'}}>
+                                        {notification.title}
+                                      </p>
+                                      <p className="text-xs text-gray-500 mt-1 line-clamp-2" style={{fontFamily: 'Poppins'}}>
+                                        {notification.message}
+                                      </p>
+                                      <p className="text-xs text-gray-400 mt-1" style={{fontFamily: 'Poppins'}}>
+                                        {new Date(notification.created_at).toLocaleDateString()}
+                                      </p>
+                                    </div>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                        {/* View All Footer */}
+                        {notifications.length > 0 && (
+                          <div className="border-t border-gray-200 px-4 py-2">
+                            <Link
+                              to="/notifications"
+                              onClick={() => setIsNotificationOpen(false)}
+                              className="block text-center text-xs font-medium text-[#0B5858] hover:text-[#0a4a4a] transition-colors"
+                              style={{fontFamily: 'Poppins'}}
+                            >
+                              View all
+                            </Link>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Profile Dropdown */}
+                  <div className="relative" ref={dropdownRef}>
                   {/* Profile Picture Button */}
                   <button
                     onClick={toggleDropdown}
@@ -269,7 +593,8 @@ const Navbar: React.FC = () => {
                       </div>
                     </div>
                   )}
-                </div>
+                  </div>
+                </>
               ) : (
                 <>
                   <Link

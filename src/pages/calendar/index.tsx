@@ -236,41 +236,51 @@ const Calendar: React.FC<CalendarProps> = ({ hideNavbar = false }) => {
     
     scrollContainer.addEventListener('scroll', handleScroll, { passive: true });
     
-    // Auto-scroll to today when timeline view is opened
-    // Use a delay to ensure the DOM is fully rendered and booking data is loaded
-    const scrollToToday = () => {
-      const today = new Date();
-      const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-      const startDateStart = new Date(timelineStartDate.getFullYear(), timelineStartDate.getMonth(), timelineStartDate.getDate());
+    // Auto-scroll to today when timeline view is first opened
+    // Only scrolls once when switching to timeline view
+    if (!hasAutoScrolledToToday.current) {
+      const scrollToToday = () => {
+        const today = new Date();
+        const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+        const startDateStart = new Date(timelineStartDate.getFullYear(), timelineStartDate.getMonth(), timelineStartDate.getDate());
+        
+        // Calculate how many days from timelineStartDate to today
+        const timeDiff = todayStart.getTime() - startDateStart.getTime();
+        const daysFromStart = Math.round(timeDiff / (1000 * 60 * 60 * 24));
+        
+        const DAY_WIDTH = 120;
+        
+        // Position today as the first column after the unit column
+        const scrollLeft = daysFromStart * DAY_WIDTH;
+        
+        scrollContainer.scrollTo({ left: Math.max(0, scrollLeft), behavior: 'smooth' });
+        hasAutoScrolledToToday.current = true;
+        
+        // Update visible month to today's month
+        setVisibleMonth(new Date(today.getFullYear(), today.getMonth(), 1));
+        
+        logger.info('Auto-scrolling to today in timeline view', { 
+          daysFromStart, 
+          scrollLeft,
+          today: todayStart.toISOString().split('T')[0],
+          startDate: startDateStart.toISOString().split('T')[0]
+        });
+        
+        // Update month after scrolling
+        setTimeout(() => handleScroll(), 100);
+      };
       
-      // Calculate how many days from timelineStartDate to today
-      const timeDiff = todayStart.getTime() - startDateStart.getTime();
-      const daysFromStart = Math.round(timeDiff / (1000 * 60 * 60 * 24));
+      // Delay scroll to ensure layout is complete
+      const timeoutId = setTimeout(scrollToToday, 300);
       
-      const DAY_WIDTH = 120;
-      
-      // Position today as the first column after the unit column
-      const scrollLeft = daysFromStart * DAY_WIDTH;
-      
-      scrollContainer.scrollTo({ left: Math.max(0, scrollLeft), behavior: 'smooth' });
-      hasAutoScrolledToToday.current = true;
-      logger.info('Auto-scrolling to today in timeline view', { 
-        daysFromStart, 
-        scrollLeft,
-        today: todayStart.toISOString().split('T')[0],
-        startDate: startDateStart.toISOString().split('T')[0]
-      });
-      
-      // Update month after scrolling
-      setTimeout(() => handleScroll(), 100);
-    };
-    
-    // Delay scroll to ensure layout is complete (longer delay for initial load)
-    const timeoutId = setTimeout(scrollToToday, 300);
+      return () => {
+        scrollContainer.removeEventListener('scroll', handleScroll);
+        clearTimeout(timeoutId);
+      };
+    }
     
     return () => {
       scrollContainer.removeEventListener('scroll', handleScroll);
-      clearTimeout(timeoutId);
     };
   }, [viewMode, timelineStartDate]);
 
@@ -767,7 +777,7 @@ const Calendar: React.FC<CalendarProps> = ({ hideNavbar = false }) => {
     try {
       setIsProcessing(true);
       logger.info('Approving booking', { bookingId: booking.id });
-      await BookingService.updateBookingStatus(booking.id, 'confirmed');
+      await BookingService.updateBookingStatus(booking.id, 'pending-payment');
       
       // Decline all overlapping pending bookings for the same unit
       await BookingService.declineOverlappingPendingBookings(
@@ -778,7 +788,7 @@ const Calendar: React.FC<CalendarProps> = ({ hideNavbar = false }) => {
       );
       
       // Create updated booking with new status
-      const updatedBooking = { ...booking, status: 'confirmed' as const };
+      const updatedBooking = { ...booking, status: 'pending-payment' as const };
       
       // Update selectedBooking if drawer is open for this booking
       if (isDrawerOpen && selectedBooking?.id === booking.id) {
@@ -1010,7 +1020,7 @@ const Calendar: React.FC<CalendarProps> = ({ hideNavbar = false }) => {
    */
   const getStatusBgClass = (status?: string): string => {
     const s = (status || '').toLowerCase();
-    if (s === 'pending' || s === 'confirmed') return 'bg-pending';
+    if (s === 'pending' || s === 'pending-payment') return 'bg-pending';
     if (s === 'blocked') return 'bg-blocked';
     if (s === 'available') return 'bg-available';
     if (s === 'booked') return 'bg-booked';
@@ -1415,10 +1425,14 @@ const Calendar: React.FC<CalendarProps> = ({ hideNavbar = false }) => {
                   
                   <button
                     onClick={() => {
+                      const today = new Date();
+                      
+                      // Immediately update visible month to today's month to fix the header display
+                      setVisibleMonth(new Date(today.getFullYear(), today.getMonth(), 1));
+                      
                       // Scroll to today's date in timeline view - position it as the first column after the unit column
                       const scrollContainer = timelineScrollRef.current;
                       if (scrollContainer) {
-                        const today = new Date();
                         // Reset time to midnight for accurate day comparison
                         const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate());
                         const startDateStart = new Date(timelineStartDate.getFullYear(), timelineStartDate.getMonth(), timelineStartDate.getDate());
@@ -1439,7 +1453,7 @@ const Calendar: React.FC<CalendarProps> = ({ hideNavbar = false }) => {
                         const scrollLeft = daysFromStart * DAY_WIDTH;
                         
                         scrollContainer.scrollTo({ left: Math.max(0, scrollLeft), behavior: 'smooth' });
-                        logger.info('Scrolling to today - positioning as first date column', { 
+                        logger.info('Today button clicked - resetting to current month and scrolling to today', { 
                           daysFromStart, 
                           scrollLeft,
                           unitColumnWidth,
@@ -1447,7 +1461,8 @@ const Calendar: React.FC<CalendarProps> = ({ hideNavbar = false }) => {
                           today: todayStart.toISOString().split('T')[0],
                           startDate: startDateStart.toISOString().split('T')[0],
                           timeDiffMs: timeDiff,
-                          calculatedDays: timeDiff / (1000 * 60 * 60 * 24)
+                          calculatedDays: timeDiff / (1000 * 60 * 60 * 24),
+                          visibleMonth: `${today.getMonth() + 1}/${today.getFullYear()}`
                         });
                       }
                     }}
@@ -1486,15 +1501,10 @@ const Calendar: React.FC<CalendarProps> = ({ hideNavbar = false }) => {
                 </button>
                 <button
                   onClick={() => {
-                    // Reset timeline to focus on current month when switching to timeline view
-                    const today = new Date();
-                    const monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
-                    const monthEnd = new Date(today.getFullYear(), today.getMonth() + 2, 0); // Last day of next month
-                    setTimelineStartDate(monthStart);
-                    setTimelineEndDate(monthEnd);
-                    
-                    // Reset auto-scroll flag so it scrolls to today when view opens
+                    // Reset auto-scroll flag so timeline scrolls to today when opened
                     hasAutoScrolledToToday.current = false;
+                    
+                    const today = new Date();
                     
                     // When switching from Month → Week, use focusedDate if it's set, otherwise center on a day from the current month
                     if (viewMode === 'monthly') {
@@ -1544,15 +1554,10 @@ const Calendar: React.FC<CalendarProps> = ({ hideNavbar = false }) => {
                   </button>
                   <button
                     onClick={() => {
-                      // Reset timeline to focus on current month when switching to timeline view
-                      const today = new Date();
-                      const monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
-                      const monthEnd = new Date(today.getFullYear(), today.getMonth() + 2, 0); // Last day of next month
-                      setTimelineStartDate(monthStart);
-                      setTimelineEndDate(monthEnd);
-                      
-                      // Reset auto-scroll flag so it scrolls to today when view opens
+                      // Reset auto-scroll flag so timeline scrolls to today when opened
                       hasAutoScrolledToToday.current = false;
+                      
+                      const today = new Date();
                       
                       // When switching from Month → Week, use focusedDate if it's set, otherwise center on a day from the current month
                       if (viewMode === 'monthly') {
@@ -2126,9 +2131,9 @@ const Calendar: React.FC<CalendarProps> = ({ hideNavbar = false }) => {
                         <div className="mb-4">
                           <span className="text-sm font-semibold" style={{ 
                             fontFamily: 'Poppins',
-                            color: b.status === 'pending' || b.status === 'confirmed' ? '#F6D658' : b.status === 'booked' || b.status === 'ongoing' ? '#0B5858' : '#9CA3AF'
+                            color: b.status === 'pending' || b.status === 'pending-payment' ? '#F6D658' : b.status === 'booked' || b.status === 'ongoing' ? '#0B5858' : '#9CA3AF'
                           }}>
-                            {b.status === 'booked' ? 'Booked' : b.status === 'pending' || b.status === 'confirmed' ? 'Pending' : b.status === 'ongoing' ? 'On-going' : b.status === 'completed' ? 'Completed' : b.status || 'Pending'}
+                            {b.status === 'booked' ? 'Booked' : b.status === 'pending' || b.status === 'pending-payment' ? 'Pending' : b.status === 'ongoing' ? 'On-going' : b.status === 'completed' ? 'Completed' : b.status || 'Pending'}
                           </span>
                         </div>
                         
@@ -2175,7 +2180,7 @@ const Calendar: React.FC<CalendarProps> = ({ hideNavbar = false }) => {
                     <div className="flex-shrink-0 text-right">
                       <div className="mb-3">
                           <span className="text-base font-medium text-orange-500" style={{ fontFamily: 'Poppins' }}>
-                          {b.status === 'booked' ? 'Booked' : b.status === 'pending' || b.status === 'confirmed' ? 'Pending' : b.status === 'ongoing' ? 'On-going' : b.status === 'completed' ? 'Completed' : b.status || 'Pending'}
+                          {b.status === 'booked' ? 'Booked' : b.status === 'pending' || b.status === 'pending-payment' ? 'Pending' : b.status === 'ongoing' ? 'On-going' : b.status === 'completed' ? 'Completed' : b.status || 'Pending'}
                         </span>
                       </div>
                       <div className="mb-4">
@@ -2242,7 +2247,7 @@ const Calendar: React.FC<CalendarProps> = ({ hideNavbar = false }) => {
                   <span className={`${isMobile ? 'text-sm' : 'text-base'} font-semibold text-gray-900`} style={{ fontFamily: 'Poppins' }}>
                     {(() => {
                       const status = selectedBooking.status;
-                      if (status === 'pending' || status === 'confirmed') return 'Pending';
+                      if (status === 'pending' || status === 'pending-payment') return 'Pending';
                       if (status === 'booked') return 'Booked';
                       if (status === 'ongoing') return 'On-going';
                       if (status === 'completed') return 'Completed';
