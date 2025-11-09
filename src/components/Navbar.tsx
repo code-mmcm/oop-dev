@@ -187,6 +187,28 @@ const Navbar: React.FC = () => {
     };
   }, []);
 
+  // Format date to relative time
+  const formatDate = (dateString: string) => {
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffInHours = Math.floor((now.getTime() - date.getTime()) / (1000 * 60 * 60));
+    
+    if (diffInHours < 1) {
+      const diffInMinutes = Math.floor((now.getTime() - date.getTime()) / (1000 * 60));
+      return diffInMinutes <= 1 ? 'Just now' : `${diffInMinutes} minutes ago`;
+    } else if (diffInHours < 24) {
+      return `${diffInHours} hour${diffInHours === 1 ? '' : 's'} ago`;
+    } else if (diffInHours < 48) {
+      return 'Yesterday';
+    } else {
+      return date.toLocaleDateString('en-US', { 
+        month: 'short', 
+        day: 'numeric', 
+        year: date.getFullYear() !== now.getFullYear() ? 'numeric' : undefined 
+      });
+    }
+  };
+
   return (
     <nav className="fixed top-0 left-0 right-0 bg-white z-[100] shadow-sm">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -280,7 +302,7 @@ const Navbar: React.FC = () => {
                                     {notification.message}
                                   </p>
                                   <p className="text-xs text-gray-400 mt-1" style={{fontFamily: 'Poppins'}}>
-                                    {new Date(notification.created_at).toLocaleDateString()}
+                                    {formatDate(notification.created_at)}
                                   </p>
                                 </div>
                               </div>
@@ -425,7 +447,7 @@ const Navbar: React.FC = () => {
                                         {notification.message}
                                       </p>
                                       <p className="text-xs text-gray-400 mt-1" style={{fontFamily: 'Poppins'}}>
-                                        {new Date(notification.created_at).toLocaleDateString()}
+                                        {formatDate(notification.created_at)}
                                       </p>
                                     </div>
                                   </div>
