@@ -5,6 +5,7 @@ import Footer from '../../../components/Footer';
 import { BookingService } from '../../../services/bookingService';
 import type { Booking, BookingStatus } from '../../../types/booking';
 import { useAuth } from '../../../contexts/AuthContext';
+import { supabase } from '../../../lib/supabase';
 
 const BookingComponent: React.FC = () => {
   const { user } = useAuth();
@@ -16,6 +17,9 @@ const BookingComponent: React.FC = () => {
   const [toggleStates, setToggleStates] = useState<Record<string, boolean>>({});
   const [lastUserId, setLastUserId] = useState<string | null>(null);
   const [isMobile, setIsMobile] = useState<boolean>(false);
+  const [bookingPayments, setBookingPayments] = useState<Record<string, boolean>>({});
+  const [paymentTransactions, setPaymentTransactions] = useState<Record<string, string>>({});
+  const [clientDetails, setClientDetails] = useState<Record<string, { first_name: string; last_name: string }>>({});
   
   useEffect(() => {
     // Only reload if the user ID has changed
@@ -55,6 +59,55 @@ const BookingComponent: React.FC = () => {
       const fetchedBookings = await BookingService.getUserBookings(user.id);
       
       setBookings(fetchedBookings);
+
+      // Fetch payment records and client details for all bookings
+      if (fetchedBookings.length > 0) {
+        const bookingIds = fetchedBookings.map(b => b.id);
+        
+        // Fetch payment records
+        try {
+          const { data: paymentData } = await supabase
+            .from('payment')
+            .select('booking_id, transaction_number')
+            .in('booking_id', bookingIds);
+          
+          if (paymentData) {
+            const paymentsMap: Record<string, boolean> = {};
+            const transactionsMap: Record<string, string> = {};
+            paymentData.forEach((p: any) => {
+              paymentsMap[p.booking_id] = true;
+              if (p.transaction_number) {
+                transactionsMap[p.booking_id] = p.transaction_number;
+              }
+            });
+            setBookingPayments(paymentsMap);
+            setPaymentTransactions(transactionsMap);
+          }
+        } catch (err) {
+          console.error('Error fetching payment records:', err);
+        }
+
+        // Fetch client details
+        try {
+          const { data: clientData } = await supabase
+            .from('client_details')
+            .select('booking_id, first_name, last_name')
+            .in('booking_id', bookingIds);
+          
+          if (clientData) {
+            const clientsMap: Record<string, { first_name: string; last_name: string }> = {};
+            clientData.forEach((c: any) => {
+              clientsMap[c.booking_id] = {
+                first_name: c.first_name,
+                last_name: c.last_name
+              };
+            });
+            setClientDetails(clientsMap);
+          }
+        } catch (err) {
+          console.error('Error fetching client details:', err);
+        }
+      }
     } catch (error) {
       console.error('Error loading bookings:', error);
       setBookings([]);
@@ -96,7 +149,7 @@ const BookingComponent: React.FC = () => {
         return 'text-orange-500';
       case 'pending':
         return 'text-yellow-600';
-      case 'confirmed':
+      case 'pending-payment':
         return 'text-blue-600';
       case 'declined':
         return 'text-red-500';
@@ -105,7 +158,15 @@ const BookingComponent: React.FC = () => {
     }
   };
 
-  const getStatusText = (status: BookingStatus) => {
+  const getStatusText = (status: BookingStatus, bookingId: string) => {
+    if (status === 'pending-payment') {
+      // Check if payment record exists for this booking
+      if (bookingPayments[bookingId]) {
+        return 'Payment Under Review';
+      }
+      return 'Awaiting payment';
+    }
+    
     switch (status) {
       case 'ongoing':
         return 'On-going';
@@ -118,7 +179,7 @@ const BookingComponent: React.FC = () => {
   const tabs: Array<{ key: BookingStatus | 'all'; label: string }> = [
     { key: 'all', label: 'All' },
     { key: 'pending', label: 'Pending' },
-    { key: 'confirmed', label: 'Confirmed' },
+    { key: 'pending-payment', label: 'Awaiting Payment' },
     { key: 'ongoing', label: 'On-going' },
     { key: 'cancelled', label: 'Cancelled' },
     { key: 'declined', label: 'Declined' }
@@ -254,7 +315,7 @@ const BookingComponent: React.FC = () => {
                             <path fillRule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clipRule="evenodd" />
                           </svg>
                           <span className="text-xs sm:text-sm" style={{fontFamily: 'Poppins'}}>
-                            Booked by Agent - {booking.agent?.fullname || 'N/A'}
+                            Booked for {clientDetails[booking.id] ? `${clientDetails[booking.id].first_name} ${clientDetails[booking.id].last_name}` : 'N/A'}
                           </span>
                         </div>
                         
@@ -263,7 +324,7 @@ const BookingComponent: React.FC = () => {
                             <path fillRule="evenodd" d="M4 4a2 2 0 00-2 2v8a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2H4zm2 6a1 1 0 011-1h6a1 1 0 110 2H7a1 1 0 01-1-1zm1 3a1 1 0 100 2h6a1 1 0 100-2H7z" clipRule="evenodd" />
                           </svg>
                           <span className="text-xs sm:text-sm" style={{fontFamily: 'Poppins'}}>
-                            Transaction No. #{booking.transaction_number || 'N/A'}
+                            Transaction No. #{paymentTransactions[booking.id] || booking.transaction_number || 'N/A'}
                           </span>
                         </div>
                       </div>
@@ -275,7 +336,7 @@ const BookingComponent: React.FC = () => {
                       <div className="w-full mt-3">
                         <div>
                           <span className={`font-medium ${getStatusColor(booking.status)}`} style={{fontFamily: 'Poppins'}}>
-                            {getStatusText(booking.status)}
+                            {getStatusText(booking.status, booking.id)}
                           </span>
                         </div>
 
@@ -305,7 +366,7 @@ const BookingComponent: React.FC = () => {
                       <div className="flex-shrink-0 text-center sm:text-right mt-4 sm:mt-0">
                         <div className="mb-3">
                           <span className={`font-medium ${getStatusColor(booking.status)}`} style={{fontFamily: 'Poppins'}}>
-                            {getStatusText(booking.status)}
+                            {getStatusText(booking.status, booking.id)}
                           </span>
                         </div>
 

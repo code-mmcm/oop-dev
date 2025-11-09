@@ -65,14 +65,14 @@ export interface Booking {
 /**
  * Booking Status Flow:
  * - pending: User sends booking request, waiting for admin/host to review
- * - confirmed: Admin approves, slot is reserved but payment not received yet (displays as "Awaiting Payment")
+ * - pending-payment: Admin approves, slot is reserved but payment not received yet (displays as "Awaiting Payment")
  * - booked: Payment confirmed — booking is now official
  * - ongoing: Booking is currently active (check-in has occurred)
  * - completed: Booking has been completed (check-out has occurred)
  * - declined: Admin declines, request rejected or unavailable
  * - cancelled: User or admin cancels the booking
  */
-export type BookingStatus = 'pending' | 'confirmed' | 'booked' | 'ongoing' | 'completed' | 'cancelled' | 'declined';
+export type BookingStatus = 'pending' | 'pending-payment' | 'booked' | 'ongoing' | 'completed' | 'cancelled' | 'declined';
 
 export interface BookingAvailability {
   id: string;

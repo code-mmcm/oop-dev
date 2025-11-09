@@ -6,7 +6,7 @@ import { BookingService } from '../../services/bookingService';
 import { ListingService } from '../../services/listingService';
 import { CalendarService } from '../../services/calendarService';
 import type { Listing } from '../../types/listing';
-import type { Booking as BookingType } from '../../types/booking';
+import type { Booking as BookingType, BookingStatus } from '../../types/booking';
 import type { BlockedDateRange, SpecialPricingRule } from '../../services/calendarService';
 import { useAuth } from '../../contexts/AuthContext';
 import { logger } from '../../lib/logger';
@@ -489,10 +489,11 @@ const UnitCalendar: React.FC = () => {
 
         logger.info('Bookings fetched successfully', { listingId: id, count: fetchedBookings.length });
 
-        // Automatically decline overlapping pending bookings if there are confirmed bookings
-        // This ensures only confirmed bookings are shown for overlapping date ranges
+        // Automatically decline overlapping pending bookings if there are reserved bookings
+        // This ensures only reserved/booked bookings are shown for overlapping date ranges
+        const reservedStatuses: BookingStatus[] = ['pending-payment', 'booked', 'ongoing', 'completed'];
         const confirmedBookings = fetchedBookings.filter(b => 
-          b.status === 'confirmed' || b.status === 'ongoing' || b.status === 'completed'
+          reservedStatuses.includes(b.status)
         );
         
         if (confirmedBookings.length > 0) {
@@ -557,19 +558,24 @@ const UnitCalendar: React.FC = () => {
           };
         });
 
-        // Filter out overlapping bookings - prefer confirmed/ongoing/completed over pending
-        // Status priority: confirmed/ongoing/completed > pending
+        // Filter out overlapping bookings - prefer reserved/booked statuses over pending
+        // Status priority: pending-payment/booked/ongoing/completed > pending
         const filteredBookings = calendarBookings.filter((booking, index) => {
-          // Keep all confirmed/ongoing/completed bookings
-          if (booking.status === 'confirmed' || booking.status === 'ongoing' || booking.status === 'completed') {
+          // Keep all reserved/booked bookings
+          if (booking.status === 'pending-payment' || booking.status === 'booked' || booking.status === 'ongoing' || booking.status === 'completed') {
             return true;
           }
           
-          // For pending bookings, check if they overlap with any confirmed booking
+          // For pending bookings, check if they overlap with any reserved booking
           const overlapsWithConfirmed = calendarBookings.some((otherBooking, otherIndex) => {
             if (index === otherIndex) return false;
-            if (otherBooking.status !== 'confirmed' && otherBooking.status !== 'ongoing' && otherBooking.status !== 'completed') {
-              return false; // Only check against confirmed bookings
+            if (
+              otherBooking.status !== 'pending-payment' &&
+              otherBooking.status !== 'booked' &&
+              otherBooking.status !== 'ongoing' &&
+              otherBooking.status !== 'completed'
+            ) {
+              return false; // Only check against reserved bookings
             }
             
             // Check date overlap (normalize to date only, ignore time)
@@ -588,18 +594,23 @@ const UnitCalendar: React.FC = () => {
             return checkIn1 < checkOut2 && checkOut1 > checkIn2;
           });
           
-          // If pending booking overlaps with confirmed, filter it out
+          // If pending booking overlaps with reserved booking, filter it out
           return !overlapsWithConfirmed;
         });
 
-        // Also filter out overlapping confirmed bookings - keep the first one (by check-in date)
+        // Also filter out overlapping reserved bookings - keep the first one (by check-in date)
         const finalBookings: Booking[] = [];
         
         filteredBookings
           .sort((a, b) => {
-            // Sort by status priority first (confirmed before pending), then by check-in date
+            // Sort by status priority first (reserved before pending), then by check-in date
             const statusPriority = (status?: string) => {
-              if (status === 'confirmed' || status === 'ongoing' || status === 'completed') return 0;
+              if (
+                status === 'pending-payment' ||
+                status === 'booked' ||
+                status === 'ongoing' ||
+                status === 'completed'
+              ) return 0;
               if (status === 'pending') return 1;
               return 2;
             };
@@ -909,7 +920,7 @@ const UnitCalendar: React.FC = () => {
     try {
       setIsProcessing(true);
       logger.info('Approving booking', { bookingId: booking.id });
-      await BookingService.updateBookingStatus(booking.id, 'confirmed');
+      await BookingService.updateBookingStatus(booking.id, 'pending-payment');
       
       // Decline all overlapping pending bookings for the same unit
       await BookingService.declineOverlappingPendingBookings(
@@ -920,7 +931,7 @@ const UnitCalendar: React.FC = () => {
       );
       
       // Create updated booking with new status
-      const updatedBooking = { ...booking, status: 'confirmed' as const };
+      const updatedBooking = { ...booking, status: 'pending-payment' as const };
       
       // Update selectedBooking if drawer is open for this booking
       if (isDrawerOpen && selectedBooking?.id === booking.id) {
@@ -2175,7 +2186,24 @@ const UnitCalendar: React.FC = () => {
                     <div className="flex-shrink-0 text-right">
                       <div className="mb-3">
                         <span className="font-medium text-orange-500" style={{ fontFamily: 'Poppins' }}>
-                          {b.status === 'ongoing' ? 'On-going' : b.status === 'confirmed' ? 'Confirmed' : b.status || 'Pending'}
+                          {(() => {
+                            switch (b.status) {
+                              case 'ongoing':
+                                return 'On-going';
+                              case 'pending-payment':
+                                return 'Awaiting Payment';
+                              case 'booked':
+                                return 'Booked';
+                              case 'completed':
+                                return 'Completed';
+                              case 'cancelled':
+                                return 'Cancelled';
+                              case 'declined':
+                                return 'Declined';
+                              default:
+                                return 'Pending';
+                            }
+                          })()}
                         </span>
                       </div>
                       <div className="mb-4">
@@ -2233,7 +2261,8 @@ const UnitCalendar: React.FC = () => {
                     {(() => {
                       const status = selectedBooking.status;
                       if (status === 'pending') return 'Pending';
-                      if (status === 'confirmed' || status === 'ongoing' || status === 'completed') return 'Approved';
+                      if (status === 'pending-payment') return 'Awaiting Payment';
+                      if (status === 'booked' || status === 'ongoing' || status === 'completed') return 'Approved';
                       if (status === 'declined' || status === 'cancelled') return 'Declined';
                       // Fallback: capitalize first letter of status string
                       const statusStr = String(status);

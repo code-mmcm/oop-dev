@@ -195,7 +195,7 @@ export class BookingService {
       .from('booking')
       .select('*')
       .eq('listing_id', listingId)
-      .in('status', ['pending', 'confirmed', 'booked', 'ongoing', 'completed']) // Only active bookings (exclude declined/cancelled)
+      .in('status', ['pending', 'pending-payment', 'booked', 'ongoing', 'completed']) // Only active bookings (exclude declined/cancelled)
       .order('check_in_date', { ascending: true });
 
     if (error) {
@@ -360,11 +360,11 @@ export class BookingService {
   /**
    * Confirm payment for a booking and update status to 'booked'
    * This is called when admin verifies that payment has been received
-   * Only bookings with status 'confirmed' can be marked as 'booked'
+   * Only bookings with status 'pending-payment' can be marked as 'booked'
    */
   static async confirmPayment(bookingId: string): Promise<Booking> {
     try {
-      // First, verify the booking exists and is in 'confirmed' status
+      // First, verify the booking exists and is in 'pending-payment' status
       const { data: booking, error: fetchError } = await supabase
         .from('booking')
         .select('id, status')
@@ -380,8 +380,8 @@ export class BookingService {
         throw new Error('Booking not found');
       }
 
-      if (booking.status !== 'confirmed') {
-        throw new Error(`Cannot confirm payment for booking with status: ${booking.status}. Only 'confirmed' bookings can be marked as 'booked'.`);
+      if (booking.status !== 'pending-payment') {
+        throw new Error(`Cannot confirm payment for booking with status: ${booking.status}. Only 'pending-payment' bookings can be marked as 'booked'.`);
       }
 
       // Update booking status to 'booked'
@@ -400,7 +400,7 @@ export class BookingService {
         throw updateError;
       }
 
-      // Optionally update payment status in payment table
+      // Update payment status to 'confirmed' in payment table
       const { error: paymentUpdateError } = await supabase
         .from('payment')
         .update({ 
@@ -410,11 +410,12 @@ export class BookingService {
         .eq('booking_id', bookingId);
 
       if (paymentUpdateError) {
-        console.warn('Error updating payment status:', paymentUpdateError);
-        // Don't throw - booking status update is more important
+        console.error('Error updating payment status to confirmed:', paymentUpdateError);
+        // Log error but don't throw - booking status update is the critical operation
+        // Payment status update failure shouldn't block the entire payment confirmation
       }
 
-      console.log('Payment confirmed successfully', { bookingId });
+      console.log('Payment confirmed successfully - booking status set to booked and payment status set to confirmed', { bookingId });
       return updatedBooking as Booking;
     } catch (error) {
       console.error('Error in confirmPayment:', error);
@@ -454,8 +455,8 @@ export class BookingService {
   }
 
   /**
-   * Declines all pending bookings that overlap with a confirmed booking's date range
-   * This ensures only the confirmed booking remains visible for the date range
+   * Declines all pending bookings that overlap with an approved (pending-payment) booking's date range
+   * This ensures only the approved booking remains visible for the date range
    */
   static async declineOverlappingPendingBookings(
     confirmedBookingId: string,
@@ -470,7 +471,7 @@ export class BookingService {
         .select('id, check_in_date, check_out_date')
         .eq('listing_id', listingId)
         .eq('status', 'pending')
-        .neq('id', confirmedBookingId); // Exclude the confirmed booking itself
+        .neq('id', confirmedBookingId); // Exclude the approved booking itself
 
       if (fetchError) {
         console.error('Error fetching pending bookings:', fetchError);
@@ -673,7 +674,7 @@ export class BookingService {
   }
 
   /**
-   * Resolves overlapping confirmed bookings by keeping the earliest one
+   * Resolves overlapping pending-payment bookings by keeping the earliest one
    * and declining the others with a migration cleanup note.
    * This is a one-time migration script to clean up data conflicts.
    */
@@ -705,20 +706,20 @@ export class BookingService {
     };
 
     try {
-      // Fetch all confirmed bookings
+      // Fetch all pending-payment bookings
       const { data: confirmedBookings, error: fetchError } = await supabase
         .from('booking')
         .select('id, listing_id, check_in_date, check_out_date, notes')
-        .eq('status', 'confirmed')
+        .eq('status', 'pending-payment')
         .order('check_in_date', { ascending: true });
 
       if (fetchError) {
-        console.error('Error fetching confirmed bookings:', fetchError);
+        console.error('Error fetching pending-payment bookings:', fetchError);
         throw fetchError;
       }
 
       if (!confirmedBookings || confirmedBookings.length === 0) {
-        console.log('No confirmed bookings found.');
+        console.log('No pending-payment bookings found.');
         return result;
       }
 
@@ -732,7 +733,7 @@ export class BookingService {
         bookingsByListing.get(listingId)!.push(booking);
       }
 
-      console.log(`Processing ${bookingsByListing.size} listings with confirmed bookings...`);
+      console.log(`Processing ${bookingsByListing.size} listings with pending-payment bookings...`);
 
       // Process each listing
       for (const [listingId, bookings] of bookingsByListing.entries()) {
