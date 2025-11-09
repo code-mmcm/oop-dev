@@ -25,8 +25,8 @@ const LeftColumn: React.FC<LeftColumnProps> = ({
   // Description expansion state (inlined from DescriptionSection)
   const [showFullDescription, setShowFullDescription] = useState(false);
 
-
-  const allImages = listing ? [listing.main_image_url || '/avida.jpg', ...(listing.image_urls || [])] : ['/avida.jpg'];
+  const extraImages = listing ? (listing.image_urls || []).filter((url) => url && url !== listing.main_image_url) : [];
+  const allImages = listing ? [listing.main_image_url || '/avida.jpg', ...extraImages] : ['/avida.jpg'];
 
   const handleOpenModal = (index: number) => {
     setCurrentImageIndex(index);
@@ -124,55 +124,53 @@ const LeftColumn: React.FC<LeftColumnProps> = ({
     <div>
       {/* Inlined Image Gallery */}
       <div className="mb-1">
-        { (listing.image_urls && listing.image_urls.length > 1) ? (
-          listing.image_urls.length > 2 ? (
-            <div className="grid grid-cols-3 gap-3 h-75">
-              <div className="col-span-2 h-full w-full cursor-pointer overflow-hidden" onClick={() => handleOpenModal(0)}>
-                <img
-                  src={listing.main_image_url || '/avida.jpg'}
-                  className="h-full w-full object-cover rounded-lg hover:opacity-90 transition-opacity"
-                  style={{aspectRatio: '16/9', maxHeight: '100%'}}
-                  alt="main"
-                />
-              </div>
-              <div className="col-span-1 flex flex-col gap-3">
-                {listing.image_urls.slice(0,2).map((imageUrl, index) => (
-                  <div key={index} className="cursor-pointer" onClick={() => handleOpenModal(index + 1)}>
-                    <img
-                      src={imageUrl}
-                      className="h-36 w-full object-cover rounded-lg hover:opacity-90 transition-opacity"
-                      alt={`additional ${index + 1}`}
-                    />
-                  </div>
-                ))}
-              </div>
+        {extraImages.length >= 2 ? (
+          <div className="grid grid-cols-3 gap-3 h-75">
+            <div className="col-span-2 h-full w-full cursor-pointer overflow-hidden" onClick={() => handleOpenModal(0)}>
+              <img
+                src={listing.main_image_url || '/avida.jpg'}
+                className="h-full w-full object-cover rounded-lg hover:opacity-90 transition-opacity"
+                style={{ aspectRatio: '16/9', maxHeight: '100%' }}
+                alt="main"
+              />
             </div>
-          ) : (
-            <div className="grid grid-cols-2 gap-3 h-75">
-              <div className="col-span-1 h-full w-full cursor-pointer overflow-hidden flex items-center justify-center" onClick={() => handleOpenModal(0)}>
-                <img
-                  src={listing.main_image_url}
-                  className="h-full w-full object-cover rounded-lg hover:opacity-90 transition-opacity"
-                  style={{aspectRatio: '16/9', maxHeight: '100%'}}
-                  alt="main"
-                />
-              </div>
-              <div className="col-span-1 h-full w-full cursor-pointer overflow-hidden flex items-center justify-center" onClick={() => handleOpenModal(0)}>
-                <img
-                  src={listing.image_urls[1]}
-                  className="h-full w-full object-cover rounded-lg hover:opacity-90 transition-opacity"
-                  style={{aspectRatio: '16/9', maxHeight: '100%'}}
-                  alt="main"
-                />
-              </div>
+            <div className="col-span-1 flex flex-col gap-3">
+              {extraImages.slice(0, 2).map((imageUrl, index) => (
+                <div key={index} className="cursor-pointer" onClick={() => handleOpenModal(index + 1)}>
+                  <img
+                    src={imageUrl}
+                    className="h-36 w-full object-cover rounded-lg hover:opacity-90 transition-opacity"
+                    alt={`additional ${index + 1}`}
+                  />
+                </div>
+              ))}
             </div>
-          )
+          </div>
+        ) : extraImages.length === 1 ? (
+          <div className="grid grid-cols-2 gap-3 h-75">
+            <div className="col-span-1 h-full w-full cursor-pointer overflow-hidden flex items-center justify-center" onClick={() => handleOpenModal(0)}>
+              <img
+                src={listing.main_image_url || '/avida.jpg'}
+                className="h-full w-full object-cover rounded-lg hover:opacity-90 transition-opacity"
+                style={{ aspectRatio: '16/9', maxHeight: '100%' }}
+                alt="main"
+              />
+            </div>
+            <div className="col-span-1 h-full w-full cursor-pointer overflow-hidden flex items-center justify-center" onClick={() => handleOpenModal(1)}>
+              <img
+                src={extraImages[0]}
+                className="h-full w-full object-cover rounded-lg hover:opacity-90 transition-opacity"
+                style={{ aspectRatio: '16/9', maxHeight: '100%' }}
+                alt="additional"
+              />
+            </div>
+          </div>
         ) : (
           <div className="h-75 w-full flex justify-center cursor-pointer" onClick={() => handleOpenModal(0)}>
             <img
               src={listing.main_image_url || '/avida.jpg'}
               className="h-full w-full object-cover rounded-lg hover:opacity-90 transition-opacity"
-              style={{aspectRatio: '16/9', maxHeight: '100%'}}
+              style={{ aspectRatio: '16/9', maxHeight: '100%' }}
               alt="main"
             />
           </div>
