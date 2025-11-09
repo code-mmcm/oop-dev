@@ -4,6 +4,7 @@ import Navbar from '../../components/Navbar';
 import { supabase } from '../../lib/supabase';
 import Footer from '../../components/Footer';
 import type { Listing } from '../../types/listing';
+import { useAuth } from '../../contexts/AuthContext';
 
 interface Booking {
   id: string;
@@ -70,6 +71,7 @@ const isImageUrl = (url?: string) => {
 const BookingDetails: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [booking, setBooking] = useState<Booking | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -134,7 +136,17 @@ const BookingDetails: React.FC = () => {
           .single();
 
         if (bookingError) {
+          // Check if it's a "not found" error
+          if (bookingError.code === 'PGRST116' || bookingError.message.includes('JSON object')) {
+            navigate('/404', { replace: true });
+            return;
+          }
           throw new Error(bookingError.message);
+        }
+        
+        if (!bookingData) {
+          navigate('/404', { replace: true });
+          return;
         }
 
         // Fetch agent details separately
@@ -437,6 +449,27 @@ const BookingDetails: React.FC = () => {
             </div>
           </div>
 
+          {/* Proceed to payment CTA: shown when booking was approved by admin but payment not yet submitted, and only if assigned to current user */}
+          {booking.status === 'pending-payment' && !booking.payment && booking.assigned_agent === user?.id && (
+            <div className="mb-6">
+              <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 rounded-md flex items-center justify-between">
+                <div>
+                  <div className="text-sm font-semibold text-yellow-800" style={{ fontFamily: 'Poppins' }}>Proceed to payment</div>
+                  <div className="text-xs text-yellow-700">This booking was approved by admin — please complete payment within 24 hours to keep the reservation.</div>
+                </div>
+                <div>
+                  <button
+                    onClick={() => navigate(`/booking/${booking.id}/payment`)}
+                    className="inline-flex items-center gap-2 px-4 py-2 bg-[#0B5858] text-white rounded-md hover:bg-[#0a4a4a]"
+                    style={{ fontFamily: 'Poppins' }}
+                  >
+                    Proceed to payment →
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Main Content Grid */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             {/* Left Column - Main Content */}
@@ -583,10 +616,24 @@ const BookingDetails: React.FC = () => {
                 </div>
 
                 {/* Payment Information */}
-                {booking.payment && (
-                  <div className="border border-gray-200 rounded-lg p-4 bg-white">
-                    <h5 className="text-sm font-semibold mb-3" style={{ fontFamily: 'Poppins' }}>Payment Information</h5>
-                    <div className="space-y-3 text-sm text-gray-700" style={{ fontFamily: 'Poppins' }}>
+                <div className="border border-gray-200 rounded-lg p-4 bg-white">
+                  <h5 className="text-sm font-semibold mb-3" style={{ fontFamily: 'Poppins' }}>Payment Information</h5>
+                  <div className="space-y-3 text-sm text-gray-700" style={{ fontFamily: 'Poppins' }}>
+                    {booking.status === 'pending' && !booking.payment ? (
+                      <div className="flex items-start gap-3">
+                        <svg className="w-5 h-5 text-gray-500 mt-0.5 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                          <rect x="3" y="4" width="18" height="18" rx="2"></rect>
+                          <path d="M16 2v4M8 2v4M3 10h18"></path>
+                        </svg>
+                        <div className="min-w-0">
+                          <div className="font-medium break-words" style={{ wordBreak: 'break-word' }}>
+                            Temporary reservation — awaiting host confirmation
+                          </div>
+                          <div className="text-xs text-gray-500">Payment will open after host confirmation</div>
+                        </div>
+                      </div>
+                    ) : booking.payment ? (
+                      <>
                       <div className="flex items-start gap-3">
                         <svg className="w-5 h-5 text-gray-500 mt-0.5 flex-shrink-0" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
                           <rect x="2" y="5" width="20" height="14" rx="2"></rect>
@@ -788,16 +835,30 @@ const BookingDetails: React.FC = () => {
                           <div className="text-sm font-medium text-gray-800 capitalize">{booking.payment.payment_status}</div>
                         </div>
                       )}
-                    </div>
+                      </>
+                    ) : (
+                      <div className="flex items-start gap-3">
+                        <svg className="w-5 h-5 text-gray-500 mt-0.5 flex-shrink-0" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                          <rect x="2" y="5" width="20" height="14" rx="2"></rect>
+                          <path d="M2 10h20" fill="currentColor" />
+                        </svg>
+                        <div className="min-w-0">
+                          <div className="font-medium break-words" style={{ wordBreak: 'break-word' }}>
+                            Not specified
+                          </div>
+                          <div className="text-xs text-gray-500">Payment information not available</div>
+                        </div>
+                      </div>
+                    )}
                   </div>
-                )}
+                </div>
 
                 {/* Assigned Agent */}
                 <div className="border border-gray-200 rounded-lg p-4 bg-white">
                   <h5 className="text-sm font-semibold mb-3" style={{ fontFamily: 'Poppins' }}>Assigned Agent</h5>
-                  <div className="flex items-start gap-3 md:flex-col lg:flex-col md:items-center md:text-center lg:items-center lg:text-center">
+                  <div className="flex items-start gap-3">
                     <div 
-                      className="w-10 h-10 rounded-full flex items-center justify-center overflow-hidden flex-shrink-0 lg:mx-auto md:w-25 md:h-25 lg:w-28 lg:h-28 xl:w-25 xl:h-25"
+                      className="w-10 h-10 rounded-full flex items-center justify-center overflow-hidden flex-shrink-0"
                       style={{
                         background: hasValidPhoto(booking.agent?.profile_photo, 'agent-main')
                           ? 'transparent'
@@ -821,7 +882,7 @@ const BookingDetails: React.FC = () => {
                       )}
                     </div>
 
-                    <div className="flex-1 text-sm min-w-0 lg:text-center md:mt-2 lg:mt-2 xl:mt-2" style={{ fontFamily: 'Poppins' }}>
+                    <div className="flex-1 text-sm" style={{ fontFamily: 'Poppins' }}>
                       <div className="font-medium break-words" style={{ wordBreak: 'break-word' }}>
                         {booking.agent?.fullname || 'Agent'}
                       </div>
@@ -843,9 +904,57 @@ const BookingDetails: React.FC = () => {
               <div className="border border-gray-200 rounded-lg p-4 bg-white">
                 <div className="flex items-center justify-between">
                   <h5 className="text-sm font-semibold" style={{ fontFamily: 'Poppins' }}>Status</h5>
-                  <div className="text-sm text-green-600 font-medium flex items-center gap-2">
-                    <svg className="w-4 h-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd"/></svg>
-                    {booking.status.charAt(0).toUpperCase() + booking.status.slice(1)}
+                  <div 
+                    className="text-sm font-medium flex items-center gap-2"
+                    style={{
+                      color: booking.status === 'pending' 
+                        ? '#F1C40F' 
+                        : booking.status === 'pending-payment' 
+                        ? '#2A7F9E' 
+                        : booking.status === 'booked' || booking.status === 'ongoing' || booking.status === 'completed'
+                        ? '#0B5858'
+                        : booking.status === 'declined' || booking.status === 'cancelled'
+                        ? '#B84C4C'
+                        : '#10B981'
+                    }}
+                  >
+                    {booking.status === 'pending' && (
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                    )}
+                    {booking.status === 'pending-payment' && (
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                    )}
+                    {(booking.status === 'booked' || booking.status === 'ongoing' || booking.status === 'completed') && (
+                      <svg className="w-4 h-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                        <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd"/>
+                      </svg>
+                    )}
+                    {(booking.status === 'declined' || booking.status === 'cancelled') && (
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                    )}
+                    {(() => {
+                      const status = booking.status;
+                      if (status === 'pending') return 'Pending';
+                      if (status === 'pending-payment') {
+                        // If payment record exists, show "Payment Under Review"
+                        if (booking.payment) {
+                          return 'Payment Under Review';
+                        }
+                        return 'Awaiting Payment';
+                      }
+                      if (status === 'booked') return 'Booked';
+                      if (status === 'ongoing') return 'Ongoing';
+                      if (status === 'completed') return 'Completed';
+                      if (status === 'declined') return 'Declined';
+                      if (status === 'cancelled') return 'Cancelled';
+                      return status.charAt(0).toUpperCase() + status.slice(1);
+                    })()}
                   </div>
                 </div>
               </div>
